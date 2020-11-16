@@ -2,7 +2,6 @@
 import pickle
 import logging
 import logging.handlers
-import SocketServer
 import struct
 import threading
 import os
@@ -10,9 +9,14 @@ import sys
 import tempfile
 import errno
 import time
+# Python 2/3 compatiblity
+if sys.version_info[0] == 2:
+    import SocketServer
+else:
+    import socketserver as SocketServer
 
 # Internal
-from constants import USER_DIR
+from .constants import USER_DIR
 
 VERBOSE_ENV_VAR = 'NXT_VERBOSE'
 

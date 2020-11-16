@@ -7,8 +7,8 @@ import shutil
 import pickle
 
 # Internal
-import clean_json
-from constants import GRAPH_VERSION
+from . import clean_json
+from .constants import GRAPH_VERSION
 
 #
 #  By design you must not import code from nxt, the code here must be a
@@ -180,14 +180,14 @@ class V1(LegacyFileConverter):
         sorted_paths = []
 
         def handle_path_at_depth(cur_path, cur_depth):
-            for d in xrange(cur_depth + 1, max_depth + 1):
+            for d in range(cur_depth + 1, max_depth + 1):
                 for lower_path in paths_by_depth.get(d, []):
                     if self.is_ancestor(lower_path, cur_path):
                         if lower_path not in sorted_paths:
                             sorted_paths.append(lower_path)
                             handle_path_at_depth(lower_path, d)
 
-        for depth in xrange(1, max_depth + 1):
+        for depth in range(1, max_depth + 1):
             for path in paths_by_depth.get(depth, []):
                 if path not in sorted_paths:
                     sorted_paths.append(path)
@@ -344,14 +344,14 @@ class V109(LegacyFileConverter):
         sorted_paths = []
 
         def handle_path_at_depth(cur_path, cur_depth):
-            for d in xrange(cur_depth + 1, max_depth + 1):
+            for d in range(cur_depth + 1, max_depth + 1):
                 for lower_path in paths_by_depth.get(d, []):
                     if self.is_ancestor(lower_path, cur_path):
                         if lower_path not in sorted_paths:
                             sorted_paths.append(lower_path)
                             handle_path_at_depth(lower_path, d)
 
-        for depth in xrange(1, max_depth + 1):
+        for depth in range(1, max_depth + 1):
             for path in paths_by_depth.get(depth, []):
                 if path not in sorted_paths:
                     sorted_paths.append(path)
@@ -434,14 +434,14 @@ class V114(LegacyFileConverter):
         sorted_paths = []
 
         def handle_path_at_depth(cur_path, cur_depth):
-            for d in xrange(cur_depth + 1, max_depth + 1):
+            for d in range(cur_depth + 1, max_depth + 1):
                 for lower_path in paths_by_depth.get(d, []):
                     if self.is_ancestor(lower_path, cur_path):
                         if lower_path not in sorted_paths:
                             sorted_paths.append(lower_path)
                             handle_path_at_depth(lower_path, d)
 
-        for depth in xrange(1, max_depth + 1):
+        for depth in range(1, max_depth + 1):
             for path in paths_by_depth.get(depth, []):
                 if path not in sorted_paths:
                     sorted_paths.append(path)
@@ -503,7 +503,7 @@ class V115(LegacyFileConverter):
                       'references', 'comp_overrides', 'meta_data', 'nodes',
                       'real_path')
         result = OrderedDict()
-        data_keys = file_dict.keys()
+        data_keys = list(file_dict.keys())
         for key in keys_order:
             if key not in data_keys:
                 continue
@@ -557,7 +557,7 @@ class V115(LegacyFileConverter):
     def order_meta_data(self, meta_data):
         keys_order = ('aliases', 'colors', 'positions', 'collapse')
         result = OrderedDict()
-        data_keys = meta_data.keys()
+        data_keys = list(meta_data.keys())
         for key in keys_order:
             if key not in data_keys:
                 continue
@@ -596,5 +596,6 @@ def cli_file_convert(file_path, replace=False):
     out_file_dir = os.path.dirname(file_path)
     out_file_path = os.path.join(out_file_dir, out_file_name)
     with open(out_file_path, 'w') as out_file:
-        json.dump(file_data, out_file, indent=4, sort_keys=False)
+        json.dump(file_data, out_file, indent=4, sort_keys=False,
+                  separators=(',', ': '))
         logger.info('Successfully saved "' + out_file_path + '"')

@@ -7,14 +7,11 @@ import time
 import socket
 
 # Internal
-import nxt_log
-import nxt_io
-import nxt_path
-import remote
-import remote.client
-import remote.server
-import remote.contexts
-from stage import Stage
+from nxt import nxt_log
+from . import nxt_io
+from . import nxt_path
+from . import remote
+from nxt.stage import Stage
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +142,7 @@ class Session(object):
         :return: Graph object, if found, otherwise None.
         """
         norm_path = os.path.normcase(path)
-        for uid, data in self._loaded_files.iteritems():
+        for uid, data in self._loaded_files.items():
             if data.filepath == norm_path:
                 return self._loaded_files[uid]
         else:

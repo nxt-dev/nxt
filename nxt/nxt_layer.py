@@ -4,15 +4,23 @@ import json
 import copy
 import logging
 import time
+import sys
 from collections import OrderedDict
 
 # Internal
-import nxt_io
-import nxt_path
-import nxt_node
+if sys.version_info[0] == 2:
+    import nxt_io
+    import nxt_path
+    import nxt_node
+    from constants import GRAPH_VERSION
+    from runtime import Console
+else:
+    from . import nxt_io
+    from . import nxt_path
+    from . import nxt_node
+    from .constants import GRAPH_VERSION
+    from .runtime import Console
 from . import UNTITLED
-from constants import GRAPH_VERSION
-from runtime import Console
 
 logger = logging.getLogger(__name__)
 
@@ -743,7 +751,7 @@ class SpecLayer(object):
                       SAVE_KEY.NODES, SAVE_KEY.REAL_PATH)
 
         result = OrderedDict()
-        data_keys = save_dict.keys()
+        data_keys = list(save_dict.keys())
         for key in keys_order:
             if key in data_keys:
                 result[key] = save_dict[key]

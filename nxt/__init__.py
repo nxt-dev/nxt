@@ -1,16 +1,25 @@
 # Builtin
-import json
-import os
+import sys
 
-# Internal
-import nxt_log
+# Internal Logging setup
+if sys.version_info[0] == 2:
+    import nxt_log
+else:
+    from . import nxt_log
 nxt_log.initial_setup()
 
-import plugin_loader
-from constants import (DATA_STATE, NODE_ERRORS, UNTITLED,
-                       IGNORE, GRID_SIZE)
-from session import Session
+# Internal
+if sys.version_info[0] == 2:
+    import plugin_loader
+    from constants import (DATA_STATE, NODE_ERRORS, UNTITLED, IGNORE, GRID_SIZE)
+    from session import Session
+else:
+    from . import plugin_loader
+    from .constants import (DATA_STATE, NODE_ERRORS, UNTITLED, IGNORE,
+                            GRID_SIZE)
+    from .session import Session
 
+# Load plugins
 plugin_loader.load_plugins()
 
 

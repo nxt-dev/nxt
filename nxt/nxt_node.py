@@ -4,9 +4,15 @@ from collections import OrderedDict
 import logging
 import json
 import copy
+import sys
 
 # Internal
-import nxt_path, nxt_io
+if sys.version_info[0] == 2:
+    import nxt_path
+    import nxt_io
+else:
+    from . import nxt_path
+    from . import nxt_io
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +57,19 @@ class INTERNAL_ATTRS(object):
     # Defines order of node attrs in the save file
     SAVED = (START_POINT, INSTANCE_PATH, EXECUTE_IN, CHILD_ORDER, ENABLED,
              COMMENT, COMPUTE)
-    # TODO: Remove this once full targeted re-comp rolls out
-    REQUIRES_RECOMP = tuple([a for a in ALL if a not in (CHILD_ORDER,
-                                                         INSTANCE_PATH,
-                                                         COMPUTE)])
+
     ALLOW_NO_OPINION = (ENABLED,)
     # Dict mapping internal attr to a partial object that generates a default
     # for the given attr
     DEFAULTS = {COMPUTE: partial(list, ())}
+
+    @property
+    def REQUIRES_RECOMP(cls):
+        # TODO: Remove this once full targeted re-comp rolls out
+        return tuple([a for a in cls.ALL if a not in (cls.CHILD_ORDER,
+                                                      cls.INSTANCE_PATH,
+                                                      cls.COMPUTE)])
+
 
     @classmethod
     def as_save_key(cls, attr):
@@ -284,7 +295,7 @@ def _order_node_dict(node_dict):
     """
     result = OrderedDict()
     user_attrs = node_dict.get(nxt_io.SAVE_KEY.ATTRS)
-    remaining_keys = node_dict.keys()
+    remaining_keys = list(node_dict.keys())
     for internal_attr in INTERNAL_ATTRS.SAVED:
         if internal_attr == INTERNAL_ATTRS.COMPUTE and user_attrs:
             result[nxt_io.SAVE_KEY.ATTRS] = user_attrs

@@ -4,7 +4,7 @@ import imp
 import logging
 
 # Internal
-from constants import PLUGIN_DIRS
+from .constants import PLUGIN_DIRS
 
 _nxt_loaded_plugin_module_names = []
 _nxt_loaded_plugin_modules = []

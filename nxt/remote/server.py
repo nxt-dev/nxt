@@ -98,7 +98,7 @@ class ServerFunctions(object):
             parameters_file = nxt_io.generate_temp_file()
             parameters_file = parameters_file.replace(os.sep, '/')
             with open(parameters_file, 'w+') as fp:
-                json.dump(parameters, fp)
+                json.dump(parameters, fp, separators=(',', ': '))
         else:
             parameters_file = ''
         context_graph = context_graph.replace(os.sep, '/')

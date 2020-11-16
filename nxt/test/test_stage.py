@@ -33,72 +33,72 @@ class StageGeneral(unittest.TestCase):
         :return: None
         """
         self.expected_data = r"""{
-    "version": "1.17", 
-    "alias": "StageLoadTest", 
-    "color": "#22728f", 
-    "mute": false, 
-    "solo": false, 
+    "version": "1.17",
+    "alias": "StageLoadTest",
+    "color": "#22728f",
+    "mute": false,
+    "solo": false,
     "meta_data": {
         "positions": {
             "/Types": [
-                4, 
+                4,
                 20
             ]
         }
-    }, 
+    },
     "nodes": {
         "/Types": {
-            "enabled": true, 
+            "enabled": true,
             "attrs": {
                 "_bool": {
-                    "type": "bool", 
+                    "type": "bool",
                     "value": "True"
-                }, 
+                },
                 "_dict": {
-                    "type": "dict", 
+                    "type": "dict",
                     "value": "{}"
-                }, 
+                },
                 "_float": {
-                    "type": "float", 
+                    "type": "float",
                     "value": "0.5"
-                }, 
+                },
                 "_int": {
-                    "type": "int", 
+                    "type": "int",
                     "value": "123"
-                }, 
+                },
                 "_list": {
-                    "type": "list", 
+                    "type": "list",
                     "value": "[${_str1}, ${_str2}, '${_raw}_limb_pv', '${_raw}_limb_ik']"
-                }, 
+                },
                 "_none": {
                     "type": "NoneType"
-                }, 
+                },
                 "_raw": {
-                    "type": "raw", 
+                    "type": "raw",
                     "value": "l"
-                }, 
+                },
                 "_str1": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "'single'"
-                }, 
+                },
                 "_str2": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "\"double\""
-                }, 
+                },
                 "_tuple": {
-                    "type": "tuple", 
+                    "type": "tuple",
                     "value": "(${_int}, ${_float})"
                 }
-            }, 
+            },
             "code": [
-                "${_list}  # List", 
-                "${_tuple}  # Tuple", 
-                "${_str1}  # String with single quote", 
-                "${_str2}  # String with double quote ", 
-                "${_raw}  # Raw", 
-                "${_int}  # Int", 
-                "${_float}  # Float", 
-                "${_dict}  # Dict", 
+                "${_list}  # List",
+                "${_tuple}  # Tuple",
+                "${_str1}  # String with single quote",
+                "${_str2}  # String with double quote ",
+                "${_raw}  # Raw",
+                "${_int}  # Int",
+                "${_float}  # Float",
+                "${_dict}  # Dict",
                 "${_bool}  # Bool"
             ]
         }
@@ -107,7 +107,8 @@ class StageGeneral(unittest.TestCase):
         print("Testing a save data dict against a "
               "literal dict of the loaded data")
         self.raw_save_data = self.stage.get_layer_save_data(0)
-        self.save_data = json.dumps(self.raw_save_data, indent=4)
+        self.save_data = json.dumps(self.raw_save_data, indent=4,
+                                    separators=(',', ': '))
         self.assertEqual(self.expected_data, self.save_data)
 
     def test_lookup(self):

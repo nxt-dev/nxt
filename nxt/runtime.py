@@ -28,7 +28,7 @@ class Console(code.InteractiveConsole):
 
     def runcode(self, c):
         try:  # Convert to tuple for python3
-            exec c in self.globals
+            exec(c, self.globals)
         except KeyboardInterrupt:
             raise
         except SystemExit:

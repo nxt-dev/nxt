@@ -10,19 +10,19 @@ from ast import literal_eval
 from collections import OrderedDict
 
 # Internal
-import nxt_io
-import nxt_path
-import tokens
+from . import nxt_io
+from . import nxt_path
+from . import tokens
 from . import DATA_STATE, UNTITLED
-from nxt_node import (SpecNode, CompNode, get_node_attr, get_node_as_dict,
+from .nxt_node import (SpecNode, CompNode, get_node_attr, get_node_as_dict,
                       has_opinion, get_opinion, has_stronger_opinion,
                       get_node_path, get_node_enabled, list_merger,
                       create_spec_node, META_ATTRS, INTERNAL_ATTRS)
-from nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
+from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
                        sort_multidimensional_list, get_active_layers,
                        get_node_local_attr_names)
-from tokens import TOKENTYPE, plugin_tokens, Token
-from runtime import GraphError, GraphSyntaxError, get_traceback_lineno
+from .tokens import TOKENTYPE, plugin_tokens, Token
+from .runtime import GraphError, GraphSyntaxError, get_traceback_lineno
 
 logger = logging.getLogger(__name__)
 
@@ -618,7 +618,11 @@ class Stage:
         # Default parent path is WORLD
         parent_path = nxt_path.WORLD
         # get parent
-        if not isinstance(parent, basestring):
+        if sys.version_info[0] == 2:
+            str_check = isinstance(parent, basestring)
+        else:
+            str_check = isinstance(parent, str)
+        if not str_check:
             if parent and isinstance(parent, SpecLayer):
                 parent_path = nxt_path.WORLD
             elif parent:
@@ -1099,7 +1103,11 @@ class Stage:
             logger.error('Wrong layer type sent! Layer must be SpecLayer but '
                          '{} was received.'.format(type(layer)))
             return result_paths
-        if not isinstance(parent_path, (str, unicode)):
+        if sys.version_info[0] == 2:
+            parent_path_is_str = isinstance(parent_path, basestring)
+        else:
+            parent_path_is_str = isinstance(parent_path, str)
+        if not parent_path_is_str:
             logger.error("Invalid parent path {}".format(parent_path))
             return result_paths
         for node in nodes:
@@ -1148,7 +1156,7 @@ class Stage:
             layer.clear_node_child_cache(parent_path)
             # Update descendants nodes
             old_paths += [old_path]
-            for path, n in _path_data.items():
+            for path, n in list(_path_data.items()):
                 if path == new_path:
                     continue
                 # Update all other paths that start with the old path
@@ -2171,8 +2179,12 @@ class Stage:
         :param layer: Layer object used to resolve tokens in
         """
         unresolved = getattr(node, attr)
-        if not isinstance(unresolved, (str, unicode)):
-            return unresolved
+        if sys.version_info[0] == 2:
+            if not isinstance(unresolved, basestring):
+                return unresolved
+        else:
+            if not isinstance(unresolved, str):
+                return unresolved
         resolved = self.resolve(node, unresolved, layer)
         typ = determine_nxt_type(resolved)
         if typ not in ('NoneType', 'raw', 'str'):
@@ -3674,7 +3686,11 @@ class Stage:
 
     def set_runtime_parameters(self, parameters, runtime_layer):
         for attr_path, value in parameters.items():
-            if not isinstance(attr_path, basestring):
+            if sys.version_info[0] == 2:
+                attr_path_is_str = isinstance(attr_path, basestring)
+            else:
+                attr_path_is_str = isinstance(attr_path, str)
+            if not attr_path_is_str:
                 logger.error('Got an attr path "{}" that is not a string, '
                              'skipping it.'.format(attr_path))
                 continue
@@ -3831,7 +3847,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     runtime_layer.cache_layer.add_node(rt_path, frame_node)
     # Convert the compute string to a code object for running in console
     _code, lines = stage.get_node_code(rt_node, runtime_layer, custom_code)
-    good_keys = graph_globals.keys()
+    good_keys = list(graph_globals.keys())
     console.node_path = rt_path
     console.running_lines = lines
     console.globals['self'] = frame_node
@@ -3864,7 +3880,7 @@ def clean_globals(code_lines, good_keys, global_dict):
     :return: None
     """
     code_lines = [l for l in code_lines if not l.startswith(('#', "'", '"'))]
-    cur_keys = global_dict.keys()
+    cur_keys = list(global_dict.keys())
     sus_keys = [k for k in cur_keys if k not in good_keys]
     safe_keys = [] + good_keys
     for sus_key in sus_keys:

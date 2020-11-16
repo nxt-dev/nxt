@@ -15,9 +15,11 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 class LegacyFileConversion(unittest.TestCase):
 
     def test_auto_update(self):
+        self.maxDiff = None
         self.stage = Session().load_file("legacy/0.45.0_TopLayer.nxt")
         self.file_data = self.stage.get_layer_save_data(0)
-        self.file_data = json.dumps(self.file_data, indent=4, sort_keys=False)
+        self.file_data = json.dumps(self.file_data, indent=4,
+                                    sort_keys=False, separators=(',', ': '))
         file_path = "legacy/0.45.0_to_LATEST.nxt"
         real_path = nxt_path.full_file_expand(file_path)
         self.proof_data = dynamic_version(real_path)

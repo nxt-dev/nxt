@@ -1,5 +1,6 @@
 # Built-in
 import logging
+import sys
 from collections import namedtuple
 
 logger = logging.getLogger('nxt.tokens')
@@ -74,8 +75,12 @@ def get_standalone_tokens(raw_value, token_types=TOKENTYPE.ALL):
     :rtype: list
     """
     # Early exit if the raw value is None or not a string like object
-    if not raw_value or not isinstance(raw_value, basestring):
-        return []
+    if sys.version_info[0] == 2:
+        if not raw_value or not isinstance(raw_value, basestring):
+            return []
+    else:
+        if not raw_value or not isinstance(raw_value, str):
+            return []
     i = 0
     bounds = []
     starts = 0

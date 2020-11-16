@@ -146,7 +146,8 @@ class JsonPref(PrefFile):
         out = {}
         out.update(self)
         with open(self.path, 'w+') as fp:
-            json.dump(out, fp, indent=4, sort_keys=False)
+            json.dump(out, fp, indent=4, sort_keys=False,
+                      separators=(',', ': '))
 
     def read(self):
         contents = {}

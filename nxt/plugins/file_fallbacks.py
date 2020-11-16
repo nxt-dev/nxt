@@ -271,7 +271,7 @@ def detect_path_token(value):
 def resolve_path_token_in_roots(stage, node, cleaned, layer, **kwargs):
     value = stage.resolve(node, cleaned, layer)
     try:
-        root = iter_env_roots().next()
+        root = next(iter_env_roots())
     except StopIteration:
         layer_cwd = layer.get_cwd()
         if os.path.exists(layer_cwd):

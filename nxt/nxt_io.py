@@ -3,16 +3,27 @@ import json
 import logging
 import os
 import time
-import cPickle
+import sys
+# Python 2/3 compatibility
+if sys.version_info[0] == 2:
+    import cPickle as pickle
+    # Internal
+    import nxt_path
+    import clean_json
+    import legacy
+    from constants import FILE_FORMAT, GRAPH_VERSION
+    from nxt_layer import SAVE_KEY
+else:
+    import pickle
+    # Internal
+    from . import nxt_path
+    from . import clean_json
+    from . import legacy
+    from .constants import FILE_FORMAT, GRAPH_VERSION
+    from .nxt_layer import SAVE_KEY
+
 import gc
 import tempfile
-
-# Internal
-import nxt_path
-import clean_json
-from . import legacy
-from constants import FILE_FORMAT, GRAPH_VERSION
-from nxt_layer import SAVE_KEY
 
 nxt_folder = os.path.dirname(os.path.abspath(__file__))
 BUILTIN_GRAPHS_DIR = os.path.join(nxt_folder, 'builtin')
@@ -49,7 +60,7 @@ def load_file_data(filepath):
     file_type = FILE_FORMAT.ASCII
     if file_type == FILE_FORMAT.BINARY:
         with open(real_path, 'rb') as file_object:
-                file_data = cPickle.load(file_object)
+                file_data = pickle.load(file_object)
     else:
         with open(real_path, 'r') as file_object:
             file_data = json.load(file_object, object_hook=clean_json._byteify)
@@ -113,11 +124,12 @@ def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
     if file_format == FILE_FORMAT.BINARY:
         gc.disable()
         with open(filepath, 'wb') as out_file:
-            cPickle.dump(save_data, out_file, protocol=-1)
+            pickle.dump(save_data, out_file, protocol=-1)
         gc.enable()
     else:
         with open(filepath, 'w') as out_file:
-            json.dump(save_data, out_file, indent=4, sort_keys=False)
+            json.dump(save_data, out_file, indent=4, sort_keys=False,
+                      separators=(',', ': '))
     logger.info('Successfully saved "' + filepath + '"')
     update_time = str(int(round((time.time() - start) * 1000)))
     logger.debug("Saved in: " + update_time + "ms")

@@ -5,7 +5,7 @@ import logging
 
 # Internal
 from nxt.nxt_layer import LayerReturnTypes
-from nxt import nxt, DATA_STATE
+from nxt import DATA_STATE
 from nxt.nxt_node import INTERNAL_ATTRS
 from nxt.session import Session
 
