@@ -1,5 +1,5 @@
 {
-    "version": "1.15", 
+    "version": "1.17", 
     "alias": "GitUtils", 
     "color": "#806a70", 
     "mute": false, 
@@ -50,6 +50,9 @@
     }, 
     "nodes": {
         "/GitCmd": {
+            "child_order": [
+                "ParseGitReturn"
+            ], 
             "attrs": {
                 "cmd_args": {
                     "type": "str", 
@@ -60,9 +63,6 @@
                     "value": "''"
                 }
             }, 
-            "child_order": [
-                "ParseGitReturn"
-            ], 
             "code": [
                 "self.input = subprocess.check_output([\"git\", ${cmd_args}]).decode(\"utf8\")"
             ]
@@ -101,12 +101,6 @@
             ]
         }, 
         "/GitCurBranch": {
-            "attrs": {
-                "ILLEGAL_BRANCHES": {
-                    "type": "tuple", 
-                    "value": "('master',)"
-                }
-            }, 
             "start_point": false, 
             "child_order": [
                 "CurBranch", 
@@ -114,21 +108,27 @@
                 "ValidateExactBranch"
             ], 
             "comment": "Get the name of the current branch.", 
+            "attrs": {
+                "ILLEGAL_BRANCHES": {
+                    "type": "tuple", 
+                    "value": "('release',)"
+                }
+            }, 
             "code": [
                 "print('Validating branch...')"
             ]
         }, 
         "/GitCurBranch/CurBranch": {
-            "attrs": {
-                "cmd_args": {
-                    "value": "'branch'"
-                }
-            }, 
+            "instance": "/GitCmd", 
             "child_order": [
                 "ParseGitReturn", 
                 "UpdateWorkingBranch"
             ], 
-            "instance": "/GitCmd"
+            "attrs": {
+                "cmd_args": {
+                    "value": "'branch'"
+                }
+            }
         }, 
         "/GitCurBranch/CurBranch/ParseGitReturn": {
             "instance": "/GitCmd/ParseGitReturn", 
@@ -143,20 +143,20 @@
             ]
         }, 
         "/GitCurBranch/CurBranch/UpdateWorkingBranch": {
-            "comment": "Updates the STAGE.branch to the current git branch.\n\n", 
             "enabled": false, 
+            "comment": "Updates the STAGE.branch to the current git branch.\n\n", 
             "code": [
                 "STAGE.branch = ${../ParseGitReturn.result}", 
                 "print('Updated STAGE.branch to \"{}\"'.format(STAGE.branch))"
             ]
         }, 
         "/GitCurBranch/ValidateExactBranch": {
+            "enabled": false, 
             "attrs": {
                 "exact_branch": {
                     "type": "raw"
                 }
             }, 
-            "enabled": false, 
             "code": [
                 "branch = ${../CurBranch/ParseGitReturn.result}", 
                 "if branch != ${exact_branch}:", 
@@ -174,6 +174,7 @@
             ]
         }, 
         "/GitPR": {
+            "enabled": true, 
             "attrs": {
                 "body": {
                     "type": "raw"
@@ -192,7 +193,6 @@
                     "type": "raw"
                 }
             }, 
-            "enabled": true, 
             "code": [
                 "data = {", 
                 "    \"title\": \"${title}\",", 
@@ -230,6 +230,7 @@
             ]
         }, 
         "/GitRelease": {
+            "enabled": true, 
             "attrs": {
                 "secrets_path": {
                     "type": "raw"
@@ -238,7 +239,6 @@
                     "type": "raw"
                 }
             }, 
-            "enabled": true, 
             "code": [
                 "import os", 
                 "import sys", 
@@ -292,16 +292,16 @@
             ]
         }, 
         "/GitStatus/Status": {
+            "instance": "/GitCmd", 
+            "child_order": [
+                "ParseGitReturn"
+            ], 
             "attrs": {
                 "cmd_args": {
                     "type": "str", 
                     "value": "\"status\""
                 }
-            }, 
-            "child_order": [
-                "ParseGitReturn"
-            ], 
-            "instance": "/GitCmd"
+            }
         }, 
         "/GitStatus/Status/ParseGitReturn": {
             "attrs": {
@@ -318,6 +318,9 @@
             ]
         }, 
         "/GitUpload": {
+            "child_order": [
+                "DoIt"
+            ], 
             "attrs": {
                 "asset_path": {
                     "type": "raw", 
@@ -328,9 +331,6 @@
                     "value": "application/zip"
                 }
             }, 
-            "child_order": [
-                "DoIt"
-            ], 
             "code": [
                 "print('Starting upload...')"
             ]
@@ -379,11 +379,6 @@
                 "    self.file_data = json.load(f)", 
                 "if self.file_data is None:", 
                 "    raise Exception('Failed to load json from \"${file_path}\"')"
-            ]
-        }, 
-        "/make_module_folder/zip_mod": {
-            "code": [
-                ""
             ]
         }
     }

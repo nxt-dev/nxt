@@ -1,5 +1,5 @@
 {
-    "version": "1.15", 
+    "version": "1.17", 
     "alias": "generate_change_log", 
     "color": "#ffaaff", 
     "mute": false, 
@@ -214,76 +214,6 @@
     }, 
     "nodes": {
         "/": {
-            "attrs": {
-                "branch": {
-                    "type": "raw", 
-                    "value": "dev", 
-                    "comment": "Name of the head branch"
-                }, 
-                "changelog_md": {
-                    "type": "raw", 
-                    "value": "${release_dir}/changelog.md", 
-                    "comment": "File path to changelog.md"
-                }, 
-                "executable": {
-                    "type": "raw", 
-                    "value": "python.exe", 
-                    "comment": "Path the current python executable"
-                }, 
-                "hotfix_version": {
-                    "type": "int", 
-                    "value": "0", 
-                    "comment": "Hotfix number updating to"
-                }, 
-                "hotkeys_md": {
-                    "type": "raw", 
-                    "value": "${release_dir}/hotkeys.md", 
-                    "comment": "File path to hotkeys.md"
-                }, 
-                "ignore_uncommited_changes": {
-                    "type": "bool", 
-                    "value": "False", 
-                    "comment": "Force the graph to ignore uncommited changes on disc"
-                }, 
-                "master_pr_url": {
-                    "type": "raw", 
-                    "value": "https://api.github.com/repos/SunriseProductions/nxt/pulls/123", 
-                    "comment": "The api url to the pr who's base is master"
-                }, 
-                "release_body": {
-                    "type": "raw", 
-                    "value": "Auto generated release", 
-                    "comment": "Markdown or plain text used for the release body as well as the master PR"
-                }, 
-                "release_dict": {
-                    "type": "dict", 
-                    "value": "{}", 
-                    "comment": "Data returned from REST request"
-                }, 
-                "release_dir": {
-                    "type": "raw", 
-                    "value": "${path::}", 
-                    "comment": "File path to the temp dir were the release files get dumped"
-                }, 
-                "release_title": {
-                    "type": "raw", 
-                    "value": "Release v${version}", 
-                    "comment": "Release title"
-                }, 
-                "release_type": {
-                    "type": "NoneType", 
-                    "comment": "minor or hotfix"
-                }, 
-                "secret": {
-                    "type": "tuple", 
-                    "value": "()", 
-                    "comment": "tuple of (github_username, auth_token). DO NOT enter those details here! Please create a file with them and let the layer node load them for you."
-                }, 
-                "secret_path": {
-                    "type": "raw", 
-                    "value": "${file::secrets}"
-                }
-            }, 
             "child_order": [
                 "ParseGitReturn", 
                 "ParseGitReturn2", 
@@ -295,6 +225,71 @@
                 "node"
             ], 
             "comment": "This graph is meant to be referenced into another graph to run, only edit if you are sure you know what you're doing.\nAttrs will auto populate with the correct data as the graph runs. The only thing you need to setup is the 'release_type'.\nExpects you to have a 'secrets' file in the same dir as this graph. See the attr comment on 'secrets'.", 
+            "attrs": {
+                "branch": {
+                    "comment": "Name of the head branch", 
+                    "type": "raw", 
+                    "value": "dev"
+                }, 
+                "changelog_md": {
+                    "comment": "File path to changelog.md", 
+                    "type": "raw", 
+                    "value": "${release_dir}/changelog.md"
+                }, 
+                "executable": {
+                    "comment": "Path the current python executable", 
+                    "type": "raw", 
+                    "value": "python.exe"
+                }, 
+                "hotkeys_md": {
+                    "comment": "File path to hotkeys.md", 
+                    "type": "raw", 
+                    "value": "${release_dir}/hotkeys.md"
+                }, 
+                "ignore_uncommited_changes": {
+                    "comment": "Force the graph to ignore uncommited changes on disc", 
+                    "type": "bool", 
+                    "value": "False"
+                }, 
+                "master_pr_url": {
+                    "comment": "The api url to the pr who's base is master", 
+                    "type": "raw", 
+                    "value": "https://api.github.com/repos/SunriseProductions/nxt/pulls/123"
+                }, 
+                "release_body": {
+                    "comment": "Markdown or plain text used for the release body as well as the master PR", 
+                    "type": "raw", 
+                    "value": "Auto generated release"
+                }, 
+                "release_dict": {
+                    "comment": "Data returned from REST request", 
+                    "type": "dict", 
+                    "value": "{}"
+                }, 
+                "release_dir": {
+                    "comment": "File path to the temp dir were the release files get dumped", 
+                    "type": "raw", 
+                    "value": "${path::}"
+                }, 
+                "release_title": {
+                    "comment": "Release title", 
+                    "type": "raw", 
+                    "value": "Release v${version}"
+                }, 
+                "release_type": {
+                    "comment": "minor or hotfix", 
+                    "type": "NoneType"
+                }, 
+                "secret": {
+                    "comment": "tuple of (github_username, auth_token). DO NOT enter those details here! Please create a file with them and let the layer node load them for you.", 
+                    "type": "tuple", 
+                    "value": "()"
+                }, 
+                "secret_path": {
+                    "type": "raw", 
+                    "value": "${file::secrets}"
+                }
+            }, 
             "code": [
                 "# Builtin", 
                 "import sys", 
@@ -315,15 +310,76 @@
                 "self.executable = sys.executable.replace(os.path.sep, '/')"
             ]
         }, 
+        "/GenerateChangelog": {
+            "child_order": [
+                "ParseCommits"
+            ], 
+            "enabled": true, 
+            "comment": "Generate a changelog from the commits on the master PR", 
+            "attrs": {
+                "footer": {
+                    "type": "str", 
+                    "value": "\"\"\"${contents::${file::release_footer.md}}\"\"\""
+                }, 
+                "headers": {
+                    "type": "dict", 
+                    "value": "{}"
+                }, 
+                "lists": {
+                    "type": "dict", 
+                    "value": "{}"
+                }, 
+                "order": {
+                    "type": "list", 
+                    "value": "[]"
+                }, 
+                "tokens": {
+                    "type": "dict", 
+                    "value": "{}"
+                }
+            }, 
+            "code": [
+                "print('Generating changelog...')", 
+                "", 
+                "CRITICAL = 'critical'", 
+                "ADD = 'add'", 
+                "CHANGE = 'change'", 
+                "REMOVE = 'remove'", 
+                "NOTE = 'note'", 
+                "", 
+                "self.tokens = {", 
+                "    CRITICAL: '! ',", 
+                "    ADD: '+ ',", 
+                "    CHANGE: '* ',", 
+                "    REMOVE: '- ',", 
+                "    NOTE: '... '", 
+                "}", 
+                "self.lists = {", 
+                "    CRITICAL: [],", 
+                "    ADD: [],", 
+                "    CHANGE: [],", 
+                "    REMOVE: [],", 
+                "    NOTE: []", 
+                "}", 
+                "self.headers = {", 
+                "    CRITICAL: '## Critical changes:\\n',", 
+                "    ADD: '## Additions:\\n',", 
+                "    CHANGE: '## Changes:\\n',", 
+                "    REMOVE: '## Removals:\\n',", 
+                "    NOTE: '## Notes:\\n'", 
+                "}", 
+                "self.order = [CRITICAL, ADD, CHANGE, REMOVE, NOTE]"
+            ]
+        }, 
         "/GenerateChangelog/ParseCommits": {
+            "child_order": [
+                "WriteChangelog"
+            ], 
             "attrs": {
                 "graph_version": {
                     "value": "unknown"
                 }
             }, 
-            "child_order": [
-                "WriteChangelog"
-            ], 
             "code": [
                 "commits = []", 
                 "next_pg = {'url': '${master_pr_url}/commits'}", 
@@ -364,67 +420,6 @@
                 "    changelog.write(${footer})", 
                 "with open('${changelog_md}') as f:", 
                 "    STAGE.changelog_text = f.read()"
-            ]
-        }, 
-        "/GenerateChangelog": {
-            "attrs": {
-                "footer": {
-                    "type": "str", 
-                    "value": "\"\"\"${contents::${file::release_footer.md}}\"\"\""
-                }, 
-                "headers": {
-                    "type": "dict", 
-                    "value": "{}"
-                }, 
-                "lists": {
-                    "type": "dict", 
-                    "value": "{}"
-                }, 
-                "order": {
-                    "type": "list", 
-                    "value": "[]"
-                }, 
-                "tokens": {
-                    "type": "dict", 
-                    "value": "{}"
-                }
-            }, 
-            "child_order": [
-                "ParseCommits"
-            ], 
-            "comment": "Generate a changelog from the commits on the master PR", 
-            "enabled": true, 
-            "code": [
-                "print('Generating changelog...')", 
-                "", 
-                "CRITICAL = 'critical'", 
-                "ADD = 'add'", 
-                "CHANGE = 'change'", 
-                "REMOVE = 'remove'", 
-                "NOTE = 'note'", 
-                "", 
-                "self.tokens = {", 
-                "    CRITICAL: '! ',", 
-                "    ADD: '+ ',", 
-                "    CHANGE: '* ',", 
-                "    REMOVE: '- ',", 
-                "    NOTE: '... '", 
-                "}", 
-                "self.lists = {", 
-                "    CRITICAL: [],", 
-                "    ADD: [],", 
-                "    CHANGE: [],", 
-                "    REMOVE: [],", 
-                "    NOTE: []", 
-                "}", 
-                "self.headers = {", 
-                "    CRITICAL: '## Critical changes:\\n',", 
-                "    ADD: '## Additions:\\n',", 
-                "    CHANGE: '## Changes:\\n',", 
-                "    REMOVE: '## Removals:\\n',", 
-                "    NOTE: '## Notes:\\n'", 
-                "}", 
-                "self.order = [CRITICAL, ADD, CHANGE, REMOVE, NOTE]"
             ]
         }
     }

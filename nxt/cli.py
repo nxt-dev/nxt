@@ -4,12 +4,13 @@ import sys
 import os
 import logging
 import time
+import unittest
 
 # Internal
-from session import Session
+from nxt.session import Session
 
-import legacy
-import nxt_log
+from nxt import legacy
+from nxt import  nxt_log
 has_editor = False
 try:
     import nxt_editor
@@ -89,7 +90,7 @@ def execute(args):
                         '-/node.attr value')
     parameters = {}
     i = 0
-    for _ in range(param_arg_count / 2):
+    for _ in range(int(param_arg_count / 2)):
         key = parameter_list[i]
         if not key.startswith('/'):
             raise Exception('Invalid attr path key {}, must be '
@@ -179,6 +180,8 @@ def main():
                                action='store_true')
     legacy_parser.add_argument('path', type=str, help='file to open',
                                default='')
+    test_parser = subs.add_parser('test', help='Runs unit tests')
+    test_parser.set_defaults(which='test')
 
     try:
         args = parser.parse_args()
@@ -220,6 +223,11 @@ def main():
         if not args.path:
             raise IOError('No file path to convert provided!')
         convert(args)
+    elif args.which == 'test':
+        d = os.path.dirname(__file__)
+        path = os.path.join(d, '..', 'build/unittests.nxt').replace(os.sep, '/')
+        test_args = argparse.Namespace(path=[path])
+        execute(test_args)
     elif args.which == 'ui':
         editor(args)
     elif args.path and args.which == 'exec':

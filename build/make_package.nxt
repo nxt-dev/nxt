@@ -1,5 +1,5 @@
 {
-    "version": "1.15", 
+    "version": "1.17", 
     "alias": "make_package", 
     "color": "#d363e6", 
     "mute": false, 
@@ -25,6 +25,26 @@
                 "import os", 
                 "import sys"
             ]
+        }, 
+        "/make_package": {
+            "start_point": true, 
+            "child_order": [
+                "pre_cleanup", 
+                "make_pip_package", 
+                "post_cleanup"
+            ], 
+            "attrs": {
+                "dest_dir": {
+                    "comment": "Directory to put the resulting package inside.", 
+                    "type": "raw", 
+                    "value": "${nxt_root}/build"
+                }, 
+                "nxt_root": {
+                    "comment": "Root directory of nxt repo.", 
+                    "type": "raw", 
+                    "value": "${path::..}"
+                }
+            }
         }, 
         "/make_package/make_pip_package": {
             "start_point": false, 
@@ -52,26 +72,6 @@
                 "    os.remove(res_path)", 
                 "except OSError:", 
                 "    pass"
-            ]
-        }, 
-        "/make_package": {
-            "attrs": {
-                "dest_dir": {
-                    "type": "raw", 
-                    "value": "${nxt_root}/build", 
-                    "comment": "Directory to put the resulting package inside."
-                }, 
-                "nxt_root": {
-                    "type": "raw", 
-                    "value": "${path::..}", 
-                    "comment": "Root directory of nxt repo."
-                }
-            }, 
-            "start_point": true, 
-            "child_order": [
-                "pre_cleanup", 
-                "make_pip_package", 
-                "post_cleanup"
             ]
         }
     }
