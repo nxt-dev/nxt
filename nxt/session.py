@@ -11,6 +11,7 @@ from nxt import nxt_log
 from . import nxt_io
 from . import nxt_path
 from . import remote
+from .remote import contexts
 from nxt.stage import Stage
 
 logger = logging.getLogger(__name__)
