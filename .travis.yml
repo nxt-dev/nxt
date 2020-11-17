@@ -1,0 +1,8 @@
+language: python
+python:
+  - "2.7"
+install:
+  - pip install git@github.com:nxt-dev/nxt.git@dev
+
+script:
+  - python -m nxt.cli test
