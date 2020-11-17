@@ -10,6 +10,12 @@ from session import Session
 
 import legacy
 import nxt_log
+has_editor = False
+try:
+    import nxt_editor
+    has_editor = True
+except ImportError:
+    pass
 
 logger = logging.getLogger('nxt')
 
@@ -53,30 +59,15 @@ def editor(args):
     :param args: Namespace Object
     :return: None
     """
-    try:
-        from ui import resources
-    except ImportError:
-        import subprocess
-        result_path = os.path.join(os.path.dirname(__file__), 'ui/resources.py')
-        qrc_path = os.path.join(os.path.dirname(__file__),
-                                'ui/resources/resources.qrc')
-        logger.info('generating nxt resources '
-                    'from {} to {}'.format(qrc_path, result_path))
-        subprocess.call(['pyside2-rcc', qrc_path, '-o', result_path])
-    from Qt import QtCore, QtWidgets, QtGui
-    from ui.main_window import MainWindow
-    app = QtWidgets.QApplication(sys.argv)
-    app.setEffectEnabled(QtCore.Qt.UI_AnimateCombo, False)
+    if not has_editor:
+        msg = 'Editor not found, you can install with "pip install nxt_editor"'
+        print(msg)
+        return
     if isinstance(args.path, list):
-        path = args.path[0]
+        paths = args.path
     else:
-        path = args.path
-    instance = MainWindow(filepath=path)
-    pixmap = QtGui.QPixmap(':icons/icons/nxt.svg')
-    app.setWindowIcon(QtGui.QIcon(pixmap))
-    app.setActiveWindow(instance)
-    instance.show()
-    sys.exit(app.exec_())
+        paths = [args.path]
+    sys.exit(nxt_editor.launch_editor(paths))
 
 
 def execute(args):
@@ -132,11 +123,11 @@ def main():
     legacy_parser = subs.add_parser('legacy', help=leg_desc)
     legacy_parser.add_argument('-v', '--verbose', help='verbose execution',
                                action='store_true')
-
-    gui_parser = subs.add_parser('ui', help='Launch visual editor.')
-    gui_parser.set_defaults(which='ui')
-    gui_parser.add_argument('path', type=str, nargs='?', help='file to open',
-                            default='')
+    if has_editor:
+        gui_parser = subs.add_parser('ui', help='Launch visual editor.')
+        gui_parser.set_defaults(which='ui')
+        gui_parser.add_argument('path', type=str, nargs='?',
+                                help='file(s) to open', default='')
 
     exec_parser = subs.add_parser('exec', help='Execute graph. See: exec -h')
     exec_parser.set_defaults(which='exec')
