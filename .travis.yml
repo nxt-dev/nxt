@@ -6,7 +6,7 @@ branches:
 python:
   - "2.7"
 install:
-  - git clone git+ssh://git@github.com/nxt-dev/nxt.git@dev
+  - git clone git@github.com:nxt-dev/nxt.git
   - pip install ./nxt
 
 script:
