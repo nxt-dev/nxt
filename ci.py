@@ -44,3 +44,4 @@ elif TRAVIS_BRANCH == 'release' and TRAVIS_EVENT_TYPE == 'pull_request':
 elif TRAVIS_BRANCH not in ('dev', 'release'):
     # Should never get here because of the travis safelist
     raise NameError('Unknown branch: {}'.format(TRAVIS_BRANCH))
+
