@@ -30,16 +30,18 @@ def run_tests():
 
 def pypi_deploy():
     """Deploys from source"""
-    nxt.execute_graph('build/make_package.nxt')
+    nxt.execute_graph('./build/make_package.nxt')
     print("This is where I'd deploy")
 
 
 if TRAVIS_BRANCH == 'release' and TRAVIS_EVENT_TYPE == 'push':
     run_tests()
     pypi_deploy()
+    print('Successful deploy from release')
 
 elif TRAVIS_BRANCH == 'release' and TRAVIS_EVENT_TYPE == 'pull_request':
     run_tests()
+    print('Successful tests on dev')
 
 elif TRAVIS_BRANCH not in ('dev', 'release'):
     # Should never get here because of the travis safelist
