@@ -38,7 +38,7 @@
                 "import nxt.plugins.file_fallbacks", 
                 "", 
                 "loader = unittest.TestLoader()", 
-                "tests = loader.discover('nxt')", 
+                "tests = loader.discover('${file::../}')", 
                 "results = unittest.TestResult()", 
                 "results.failfast = ${fail_fast}", 
                 "tests.run(results)", 
