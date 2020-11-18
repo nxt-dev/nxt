@@ -30,7 +30,7 @@ def run_tests():
 
 def pypi_deploy():
     """Deploys from source"""
-    nxt.execute_graph('./build/make_package.nxt')
+    nxt.execute_graph('nxt/build/make_package.nxt')
     print("This is where I'd deploy")
 
 
