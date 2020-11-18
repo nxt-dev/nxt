@@ -6,7 +6,7 @@ branches:
 python:
   - "2.7"
 install:
-  - pip install ./nxt
+  - pip install nxt-dev/nxt
 
 script:
   - python nxt/ci.py
