@@ -62,13 +62,7 @@ class INTERNAL_ATTRS(object):
     # Dict mapping internal attr to a partial object that generates a default
     # for the given attr
     DEFAULTS = {COMPUTE: partial(list, ())}
-
-    @property
-    def REQUIRES_RECOMP(cls):
-        # TODO: Remove this once full targeted re-comp rolls out
-        return tuple([a for a in cls.ALL if a not in (cls.CHILD_ORDER,
-                                                      cls.INSTANCE_PATH,
-                                                      cls.COMPUTE)])
+    REQUIRES_RECOMP = tuple(set(ALL) - {CHILD_ORDER, INSTANCE_PATH, COMPUTE})
 
 
     @classmethod
