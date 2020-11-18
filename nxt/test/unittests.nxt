@@ -23,27 +23,33 @@
             "attrs": {
                 "fail_fast": {
                     "type": "bool", 
-                    "value": "False"
+                    "value": "True"
                 }
             }, 
             "code": [
-                "import unittest", 
-                ""
+                "import unittest"
             ]
         }, 
         "/test": {
             "start_point": true, 
             "code": [
+                "# Fixme: This is a hack to get the imports to work inside the test_plugin unittest", 
+                "# I'm not really sure why this hack is needed, will fix later.", 
+                "import nxt.plugins.file_fallbacks", 
+                "", 
                 "loader = unittest.TestLoader()", 
-                "tests = loader.discover('nxt.test')", 
+                "tests = loader.discover('nxt')", 
                 "results = unittest.TestResult()", 
                 "results.failfast = ${fail_fast}", 
                 "tests.run(results)", 
                 "", 
-                "if results.failures:", 
+                "if results.failures or results.errors:", 
                 "    for _, fail in results.failures:", 
                 "        print(fail)", 
-                "    raise Exception('{} unit tests failed!'.format(len(results.failures)))", 
+                "    for _, error in results.errors:", 
+                "        print(error)", 
+                "    raise Exception('{} unit tests failed! {} errors'.format(len(results.failures), ", 
+                "                                                             len(results.errors)))", 
                 "    ", 
                 "print('All {} unit tests passed!'.format(results.testsRun))"
             ]
