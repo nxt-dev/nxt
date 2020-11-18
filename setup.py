@@ -25,7 +25,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/nxt-dev/nxt",
     packages=setuptools.find_packages(),
-    python_requires='>=2.7, <=3.7',
+    python_requires='>=2.7, <=3.7.*',
     entry_points={
         'console_scripts': [
             'nxt=nxt.cli:main',
@@ -36,12 +36,13 @@ setuptools.setup(
         "": ["*.nxt"],
         # Covers builtin, and full depth of test graphs/files
         "nxt": ["version.json",
-                "nxt/test/spec_graphs/*",
-                "nxt/test/legacy/*",
-                "nxt/test/plugins/*",
-                "nxt/test/plugins/fallbacks/*",
-                "nxt/test/plugins/fallbacks/another/*",
-                "nxt/test/plugins/fallbacks/base/*"
+                "builtin/*",
+                "test/spec_graphs/*",
+                "test/legacy/*",
+                "test/plugins/*",
+                "test/plugins/fallbacks/*",
+                "test/plugins/fallbacks/another/*",
+                "test/plugins/fallbacks/base/*"
                 ],
     }
 )

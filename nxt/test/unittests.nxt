@@ -1,0 +1,52 @@
+{
+    "version": "1.17", 
+    "alias": "unittests", 
+    "color": "#0052aa", 
+    "mute": false, 
+    "solo": false, 
+    "meta_data": {
+        "positions": {
+            "/test": [
+                0, 
+                0
+            ]
+        }, 
+        "collapse": {
+            "/test": false
+        }
+    }, 
+    "nodes": {
+        "/": {
+            "child_order": [
+                "test"
+            ], 
+            "attrs": {
+                "fail_fast": {
+                    "type": "bool", 
+                    "value": "False"
+                }
+            }, 
+            "code": [
+                "import unittest", 
+                ""
+            ]
+        }, 
+        "/test": {
+            "start_point": true, 
+            "code": [
+                "loader = unittest.TestLoader()", 
+                "tests = loader.discover('nxt.test')", 
+                "results = unittest.TestResult()", 
+                "results.failfast = ${fail_fast}", 
+                "tests.run(results)", 
+                "", 
+                "if results.failures:", 
+                "    for _, fail in results.failures:", 
+                "        print(fail)", 
+                "    raise Exception('{} unit tests failed!'.format(len(results.failures)))", 
+                "    ", 
+                "print('All {} unit tests passed!'.format(results.testsRun))"
+            ]
+        }
+    }
+}

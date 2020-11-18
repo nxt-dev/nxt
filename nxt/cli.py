@@ -225,7 +225,7 @@ def main():
         convert(args)
     elif args.which == 'test':
         d = os.path.dirname(__file__)
-        path = os.path.join(d, '..', 'build/unittests.nxt').replace(os.sep, '/')
+        path = os.path.join(d, 'test/unittests.nxt').replace(os.sep, '/')
         test_args = argparse.Namespace(path=[path])
         execute(test_args)
     elif args.which == 'ui':
