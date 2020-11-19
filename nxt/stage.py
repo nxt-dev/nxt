@@ -1395,7 +1395,11 @@ class Stage:
         tracked = (attr not in INTERNAL_ATTRS.PROTECTED or
                    attr in INTERNAL_ATTRS.TRACKED)
         for sub_attr, value in values.items():
-            if isinstance(value, unicode):
+            if sys.version_info[0] == 2:
+                str_check = isinstance(value, basestring)
+            else:
+                str_check = isinstance(value, str)
+            if str_check:
                 if value == u'':
                     value = None
                 elif value.startswith('"'):
@@ -1760,7 +1764,10 @@ class Stage:
         :rtype: list
         """
         if not isinstance(string, str):
-            if isinstance(string, unicode):
+            is_unicode = False
+            if sys.version_info[0] == 2:
+                is_unicode = isinstance(string, unicode)
+            if is_unicode:
                 string = str(string)
             else:
                 return []
@@ -2180,11 +2187,11 @@ class Stage:
         """
         unresolved = getattr(node, attr)
         if sys.version_info[0] == 2:
-            if not isinstance(unresolved, basestring):
-                return unresolved
+            str_val = isinstance(unresolved, basestring)
         else:
-            if not isinstance(unresolved, str):
-                return unresolved
+            str_val = isinstance(unresolved, str)
+        if not str_val:
+            return unresolved
         resolved = self.resolve(node, unresolved, layer)
         typ = determine_nxt_type(resolved)
         if typ not in ('NoneType', 'raw', 'str'):

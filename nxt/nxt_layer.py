@@ -201,7 +201,11 @@ class SpecLayer(object):
         ancestor_paths = []
         node_table = []
         name_dict = {}
-        if not isinstance(node_path, (str, unicode)):
+        if sys.version_info[0] == 2:
+            node_path_is_str = isinstance(node_path, basestring)
+        else:
+            node_path_is_str = isinstance(node_path, str)
+        if not node_path_is_str:
             node_path = self.get_node_path(node_path)
         node = self.lookup(node_path)
         parent_path = getattr(node, nxt_node.INTERNAL_ATTRS.PARENT_PATH)
