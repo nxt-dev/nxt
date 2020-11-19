@@ -111,7 +111,7 @@ class V1(LegacyFileConverter):
 
     def convert(self):
         super(V1, self).convert()
-        keys = self.file_data.keys()
+        keys = list(self.file_data.keys())
         if 'children' in keys:
             children = self.file_data.pop('children')
         else:
@@ -163,7 +163,7 @@ class V1(LegacyFileConverter):
 
     def arrange_node_data(self):
         try:
-            unsorted_paths = self.file_data['nodes'].keys()
+            unsorted_paths = list(self.file_data['nodes'].keys())
         except KeyError:
             return
         paths_by_depth = {}
@@ -174,7 +174,7 @@ class V1(LegacyFileConverter):
             paths_by_depth[depth].append(path)
             if depth > max_depth:
                 max_depth = depth
-        for depth in paths_by_depth.keys():
+        for depth in list(paths_by_depth.keys()):
             paths_by_depth[depth].sort()
 
         sorted_paths = []
@@ -208,7 +208,7 @@ class V1(LegacyFileConverter):
                       'execute_order', 'nodes', 'attributes', 'code',
                       'real_path']
         for key in keys_order:
-            if key in node_dict.keys():
+            if key in list(node_dict.keys()):
                 node_dict[key] = node_dict.pop(key)
         # iterate over deeper values
         for value in node_dict.values():
@@ -327,7 +327,7 @@ class V109(LegacyFileConverter):
 
     def arrange_node_data(self):
         try:
-            unsorted_paths = self.file_data['nodes'].keys()
+            unsorted_paths = list(self.file_data['nodes'].keys())
         except KeyError:
             return
         paths_by_depth = {}
@@ -338,7 +338,7 @@ class V109(LegacyFileConverter):
             paths_by_depth[depth].append(path)
             if depth > max_depth:
                 max_depth = depth
-        for depth in paths_by_depth.keys():
+        for depth in list(paths_by_depth.keys()):
             paths_by_depth[depth].sort()
 
         sorted_paths = []
@@ -373,7 +373,7 @@ class V109(LegacyFileConverter):
                       'execute_in', 'execute_order', 'nodes', 'attributes',
                       'code', 'real_path']
         for key in keys_order:
-            if key in node_dict.keys():
+            if key in list(node_dict.keys()):
                 node_dict[key] = node_dict.pop(key)
         # iterate over deeper values
         for value in node_dict.values():
@@ -417,7 +417,7 @@ class V114(LegacyFileConverter):
 
     def arrange_node_data(self):
         try:
-            unsorted_paths = self.file_data['nodes'].keys()
+            unsorted_paths = list(self.file_data['nodes'].keys())
         except KeyError:
             return
         paths_by_depth = {}
@@ -428,7 +428,7 @@ class V114(LegacyFileConverter):
             paths_by_depth[depth].append(path)
             if depth > max_depth:
                 max_depth = depth
-        for depth in paths_by_depth.keys():
+        for depth in list(paths_by_depth.keys()):
             paths_by_depth[depth].sort()
 
         sorted_paths = []
@@ -463,7 +463,7 @@ class V114(LegacyFileConverter):
                       'execute_in', 'execute_order', 'nodes', 'attributes',
                       'code', 'real_path']
         for key in keys_order:
-            if key in node_dict.keys():
+            if key in list(node_dict.keys()):
                 node_dict[key] = node_dict.pop(key)
         # iterate over deeper values
         for value in node_dict.values():
@@ -526,7 +526,7 @@ class V115(LegacyFileConverter):
         return result
 
     def order_nodes_dict(self, nodes_dict):
-        unsorted = nodes_dict.keys()
+        unsorted = list(nodes_dict.keys())
         out_nodes = OrderedDict()
         sorted_paths = sorted(unsorted)
         for path in sorted_paths:
@@ -542,7 +542,7 @@ class V115(LegacyFileConverter):
                 continue
             if key == 'attrs':
                 old_attrs = node_data['attrs']
-                attrs_order = sorted(old_attrs.keys())
+                attrs_order = sorted(list(old_attrs.keys()))
                 result_attrs = OrderedDict()
                 for attr_name in attrs_order:
                     old_sub_attrs = old_attrs[attr_name]

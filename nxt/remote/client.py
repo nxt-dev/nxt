@@ -1,4 +1,11 @@
-from xmlrpclib import ServerProxy
+# Builtin
+import sys
+if sys.version_info[0] == 2:
+    from xmlrpclib import ServerProxy
+else:
+    from xmlrpc.client import ServerProxy
+
+# Internal
 from nxt.remote import RPC_PORT
 
 

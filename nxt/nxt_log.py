@@ -87,7 +87,7 @@ class NXTLogger(logging.getLoggerClass()):
             self._log(NODEOUT, message, args, **kwargs)
 
     def _log(self, level, message, args, **kwargs):
-        if 'links' in kwargs.keys():
+        if 'links' in list(kwargs.keys()):
             link_paths = kwargs.pop('links')
             kwargs['extra'] = {'links': link_paths}
         super(NXTLogger, self)._log(level, message, args, **kwargs)

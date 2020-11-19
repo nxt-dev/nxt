@@ -5,8 +5,13 @@ import sys
 import subprocess
 import logging.handlers
 import json
-from SocketServer import ThreadingMixIn
-from SimpleXMLRPCServer import SimpleXMLRPCServer
+
+if sys.version_info[0] == 2:
+    from SocketServer import ThreadingMixIn
+    from SimpleXMLRPCServer import SimpleXMLRPCServer
+else:
+    from socketserver import ThreadingMixIn
+    from xmlrpc.server import SimpleXMLRPCServer
 
 # Internal
 import nxt

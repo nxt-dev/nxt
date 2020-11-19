@@ -961,7 +961,7 @@ class Stage:
             if parent_node is not None and name in child_order:
                 child_order.remove(name)
         if rm_layer_data:
-            if path in comp_layer.collapse.keys():
+            if path in list(comp_layer.collapse.keys()):
                 comp_layer.collapse.pop(path)
 
     def ripple_delete(self, path, comp_node, target_layer, comp_layer,
@@ -1175,10 +1175,10 @@ class Stage:
                     setattr(n, INTERNAL_ATTRS.PARENT_PATH, new_parent_path)
 
             # Update layer data
-            if old_path in _collapse_data.keys():
+            if old_path in list(_collapse_data.keys()):
                 _collapse_data[new_path] = _collapse_data.pop(old_path)
             not_top = layer is not self.top_layer
-            if not_top and old_path in _top_collapse_data.keys():
+            if not_top and old_path in list(_top_collapse_data.keys()):
                 old_collapsed = self.top_layer.collapse.pop(old_path)
                 self.top_layer.collapse[new_path] = old_collapsed
 
@@ -1317,11 +1317,11 @@ class Stage:
                             '_nodes_path_as_key']
         for data_dict in layer_data_dicts:
             active_dict = getattr(layer, data_dict)
-            if old_node_path in active_dict.keys():
+            if old_node_path in list(active_dict.keys()):
                 active_dict[new_node_path] = active_dict.pop(old_node_path)
         if layer is not self.top_layer:
             active_dict = self.top_layer.positions
-            if old_node_path in active_dict.keys():
+            if old_node_path in list(active_dict.keys()):
                 active_dict[new_node_path] = active_dict.pop(old_node_path)
         if node not in layer._nodes_node_as_key.keys():
             raise Exception("Node rename failed!")
@@ -3332,7 +3332,7 @@ class Stage:
             return dirty_map
         if node_path in dirty_map.keys():
             dirty_map.pop(node_path)
-        for k, v in dirty_map.items():
+        for k, v in list(dirty_map.items()):
             if node_path in v:
                 v.remove(node_path)
         return dirty_map
@@ -3799,7 +3799,7 @@ class Stage:
                 if ref_file_name == ref:
                     continue
                 comp_overs = save_data.get(SAVE_KEY.COMP_ORVERRIDES, {})
-                for path, over in comp_overs.items():
+                for path, over in list(comp_overs.items()):
                     if path == ref:
                         comp_overs[ref_file_name] = comp_overs.pop(ref)
                 refs[idx] = ref_file_name

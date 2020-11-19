@@ -431,7 +431,7 @@ class SpecLayer(object):
             raise ValueError('When including implied, can only return path. '
                              'Nothing else exists for implicit nodes.')
         if return_type == LayerReturnTypes.Path:
-            paths = self._nodes_path_as_key.keys()
+            paths = list(self._nodes_path_as_key.keys())
             if nxt_path.WORLD in paths:
                 paths.remove(nxt_path.WORLD)
             if not include_implied:
@@ -444,7 +444,7 @@ class SpecLayer(object):
                 implied_paths.remove(nxt_path.WORLD)
             return implied_paths.union(paths)
         if return_type == LayerReturnTypes.Node:
-            nodes = self._nodes_node_as_key.keys()
+            nodes = list(self._nodes_node_as_key.keys())
             world_node = self._nodes_path_as_key.get(nxt_path.WORLD)
             if world_node:
                 nodes.remove(world_node)
@@ -632,7 +632,7 @@ class SpecLayer(object):
         if not root:
             logger.error('Can not set alias override on top layer!')
         if alias is None:
-            if layer_path in root.aliases.keys():
+            if layer_path in list(root.aliases.keys()):
                 root.aliases.pop(layer_path)
         else:
             root.aliases[layer_path] = alias
@@ -666,7 +666,7 @@ class SpecLayer(object):
         if not root:
             logger.error('Can not set colors override on top layer!')
         if color is None:
-            if layer_path in root.colors.keys():
+            if layer_path in list(root.colors.keys()):
                 root.colors.pop(layer_path)
         else:
             root.colors[layer_path] = color
@@ -1020,7 +1020,7 @@ def order_nodes_dict(node_dict):
     :return: ordered dctionary with keys sosrted
     :rtype: OrderedDict
     """
-    unsorted_paths = node_dict.keys()
+    unsorted_paths = list(node_dict.keys())
     sorted_paths = sorted(unsorted_paths)
     ordered_nodes = OrderedDict()
     for path in sorted_paths:
