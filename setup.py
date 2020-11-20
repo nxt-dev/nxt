@@ -16,7 +16,7 @@ api_patch = api_v_data['PATCH']
 api_version = '{}.{}.{}'.format(api_major, api_minor, api_patch)
 
 setuptools.setup(
-    name="nxt_core",
+    name="nxt-core",
     version=api_version,
     author="The nxt contributors",
     author_email="dev@opennxt.dev",

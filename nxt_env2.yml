@@ -2,3 +2,4 @@ name: nxt
 dependencies:
   - python=2.7.*
   - requests
+  - twine
