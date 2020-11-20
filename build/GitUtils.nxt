@@ -1,383 +1,387 @@
 {
-    "version": "1.17", 
-    "alias": "GitUtils", 
-    "color": "#806a70", 
-    "mute": false, 
-    "solo": false, 
+    "version": "1.17",
+    "alias": "GitUtils",
+    "color": "#806a70",
+    "mute": false,
+    "solo": false,
     "meta_data": {
         "positions": {
             "/GitCmd": [
-                -371.0, 
+                -371.0,
                 -257.0
-            ], 
+            ],
             "/GitCurBranch": [
-                109.45052337903013, 
+                109.45052337903013,
                 -360.62349384340297
-            ], 
+            ],
             "/GitPR": [
-                -318.0, 
+                -318.0,
                 -42.0
-            ], 
+            ],
             "/GitRelease": [
-                -328.0, 
+                -328.0,
                 -103.0
-            ], 
+            ],
             "/GitStatus": [
-                101.54142822649686, 
+                101.54142822649686,
                 -102.39260294554322
-            ], 
+            ],
             "/GitUpload": [
-                -1360.0, 
+                -1360.0,
                 920.0
-            ], 
+            ],
             "/JsonLoad": [
-                -346.0, 
+                -346.0,
                 257.0
-            ], 
+            ],
             "/populate": [
-                18.0, 
+                18.0,
                 195.0
-            ], 
+            ],
             "/ship": [
-                -304.0, 
+                -304.0,
                 44.0
-            ], 
+            ],
             "/unzip_env": [
-                79.51086299864536, 
+                79.51086299864536,
                 76.76910910214035
             ]
         }
-    }, 
+    },
     "nodes": {
         "/GitCmd": {
             "child_order": [
                 "ParseGitReturn"
-            ], 
+            ],
             "attrs": {
                 "cmd_args": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "\"-help\""
-                }, 
+                },
                 "input": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "''"
                 }
-            }, 
+            },
             "code": [
                 "self.input = subprocess.check_output([\"git\", ${cmd_args}]).decode(\"utf8\")"
             ]
-        }, 
+        },
         "/GitCmd/ParseGitReturn": {
             "attrs": {
                 "allow_multi_line": {
-                    "type": "bool", 
+                    "type": "bool",
                     "value": "False"
-                }, 
+                },
                 "input": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "''"
-                }, 
+                },
                 "key": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "\"\""
-                }, 
+                },
                 "lines": {
-                    "type": "list", 
+                    "type": "list",
                     "value": "[]"
-                }, 
+                },
                 "result": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "''"
                 }
-            }, 
+            },
             "code": [
-                "self.lines = [l for l in self.input.split(\"\\n\") if l.startswith(${key})]", 
-                "if ${allow_multi_line}:", 
-                "    self.result = [l.strip(${key}).strip() for l in self.lines]", 
-                "else:", 
-                "    if self.lines:", 
-                "        self.result = w(self.lines[0].strip(${key}).strip(), '\"\"\"')", 
+                "self.lines = [l for l in self.input.split(\"\\n\") if l.startswith(${key})]",
+                "if ${allow_multi_line}:",
+                "    self.result = [l.strip(${key}).strip() for l in self.lines]",
+                "else:",
+                "    if self.lines:",
+                "        self.result = w(self.lines[0].strip(${key}).strip(), '\"\"\"')",
                 "# print(self.input.split(\"\\n\"))"
             ]
-        }, 
+        },
         "/GitCurBranch": {
-            "start_point": false, 
+            "start_point": false,
             "child_order": [
-                "CurBranch", 
-                "ValidateLegalBranch", 
+                "CurBranch",
+                "ValidateLegalBranch",
                 "ValidateExactBranch"
-            ], 
-            "comment": "Get the name of the current branch.", 
+            ],
+            "comment": "Get the name of the current branch.",
             "attrs": {
                 "ILLEGAL_BRANCHES": {
-                    "type": "tuple", 
+                    "type": "tuple",
                     "value": "('release',)"
                 }
-            }, 
+            },
             "code": [
                 "print('Validating branch...')"
             ]
-        }, 
+        },
         "/GitCurBranch/CurBranch": {
-            "instance": "/GitCmd", 
+            "instance": "/GitCmd",
             "child_order": [
-                "ParseGitReturn", 
+                "ParseGitReturn",
                 "UpdateWorkingBranch"
-            ], 
+            ],
             "attrs": {
                 "cmd_args": {
                     "value": "'branch'"
                 }
             }
-        }, 
+        },
         "/GitCurBranch/CurBranch/ParseGitReturn": {
-            "instance": "/GitCmd/ParseGitReturn", 
+            "instance": "/GitCmd/ParseGitReturn",
             "code": [
-                "self.lines = [l for l in self.input.split(\"\\n\") if l.startswith(${key})]", 
-                "if ${allow_multi_line}:", 
-                "    self.result = [l.strip(${key}).strip() for l in self.lines]", 
-                "else:", 
-                "    if self.lines:", 
-                "        self.result = w(self.lines[0].strip(${key}).strip())", 
+                "self.lines = [l for l in self.input.split(\"\\n\") if l.startswith(${key})]",
+                "if ${allow_multi_line}:",
+                "    self.result = [l.strip(${key}).strip() for l in self.lines]",
+                "else:",
+                "    if self.lines:",
+                "        self.result = w(self.lines[0].strip(${key}).strip())",
                 "# print(self.input.split(\"\\n\"))"
             ]
-        }, 
+        },
         "/GitCurBranch/CurBranch/UpdateWorkingBranch": {
-            "enabled": false, 
-            "comment": "Updates the STAGE.branch to the current git branch.\n\n", 
+            "enabled": false,
+            "comment": "Updates the STAGE.branch to the current git branch.\n\n",
             "code": [
-                "STAGE.branch = ${../ParseGitReturn.result}", 
+                "STAGE.branch = ${../ParseGitReturn.result}",
                 "print('Updated STAGE.branch to \"{}\"'.format(STAGE.branch))"
             ]
-        }, 
+        },
         "/GitCurBranch/ValidateExactBranch": {
-            "enabled": false, 
+            "enabled": false,
             "attrs": {
                 "exact_branch": {
                     "type": "raw"
                 }
-            }, 
+            },
             "code": [
-                "branch = ${../CurBranch/ParseGitReturn.result}", 
-                "if branch != ${exact_branch}:", 
-                "    raise Exception(\"Invalid branch '{}' is not ${exact_branch}\".format(branch))", 
+                "branch = ${../CurBranch/ParseGitReturn.result}",
+                "if branch != ${exact_branch}:",
+                "    raise Exception(\"Invalid branch '{}' is not ${exact_branch}\".format(branch))",
                 "print('Your current branch \"{}\" is valid!'.format(branch))"
             ]
-        }, 
+        },
         "/GitCurBranch/ValidateLegalBranch": {
-            "enabled": false, 
+            "enabled": false,
             "code": [
-                "branch = ${../CurBranch/ParseGitReturn.result}", 
-                "if branch in ${ILLEGAL_BRANCHES}:", 
-                "    raise Exception('Can not push to \"{}\" with this bot!'.format(branch))", 
+                "branch = ${../CurBranch/ParseGitReturn.result}",
+                "if branch in ${ILLEGAL_BRANCHES}:",
+                "    raise Exception('Can not push to \"{}\" with this bot!'.format(branch))",
                 "print('Your current branch \"{}\" is valid!'.format(branch))"
             ]
-        }, 
+        },
         "/GitPR": {
-            "enabled": true, 
+            "enabled": true,
             "attrs": {
                 "body": {
                     "type": "raw"
-                }, 
-                "pr_data": {}, 
+                },
+                "pr_data": {},
                 "secrets_path": {
                     "type": "raw"
-                }, 
+                },
                 "target": {
                     "type": "raw"
-                }, 
+                },
                 "title": {
                     "type": "raw"
-                }, 
+                },
                 "upload_url": {
                     "type": "raw"
                 }
-            }, 
+            },
             "code": [
-                "data = {", 
-                "    \"title\": \"${title}\",", 
-                "    \"body\": \"${body}\",", 
-                "    \"head\": \"${branch}\",", 
-                "    \"base\": \"${target}\"", 
-                "}", 
-                "print('Opening PR \"${title}\" from \"${branch}\" to \"${target}\"')", 
-                "url = 'https://api.github.com/repos/SunriseProductions/nxt/pulls'", 
-                "all_rel_resp = requests.get(url, auth=self.secret)", 
-                "if all_rel_resp.status_code != 200:", 
-                "    raise Exception('Cannot access pulls ({})'.format(all_rel_resp.status_code))", 
-                "pr_found = False", 
-                "all_prs = all_rel_resp.json()", 
-                "for pr in all_prs:", 
-                "    if pr['title'] == data['title']:", 
-                "        if pr['head']['label'] != 'SunriseProductions:${branch}':", 
-                "            raise Exception('Incompatable exsisting PR called {}'.format(data['title']))", 
-                "        pr_dict = pr", 
-                "        pr_found = True", 
-                "        break", 
-                "    ", 
-                "", 
-                "if not pr_found:", 
-                "    print('Making new PR')", 
-                "    new_rel_resp = requests.post(url, auth=self.secret, data=json.dumps(data))", 
-                "    if new_rel_resp.status_code != 201:", 
-                "        raise Exception('Unsuccessful PR ({})'.format(new_rel_resp.text))", 
-                "    print('New PR made')", 
-                "    pr_dict = new_rel_resp.json()", 
-                "html_url = pr_dict[\"html_url\"]", 
-                "print(html_url)", 
-                "webbrowser.open_new_tab(html_url)", 
+                "data = {",
+                "    \"title\": \"${title}\",",
+                "    \"body\": \"${body}\",",
+                "    \"head\": \"${branch}\",",
+                "    \"base\": \"${target}\"",
+                "}",
+                "print('Opening PR \"${title}\" from \"${branch}\" to \"${target}\"')",
+                "url = 'https://api.github.com/repos/SunriseProductions/nxt/pulls'",
+                "all_rel_resp = requests.get(url, auth=self.secret)",
+                "if all_rel_resp.status_code != 200:",
+                "    raise Exception('Cannot access pulls ({})'.format(all_rel_resp.status_code))",
+                "pr_found = False",
+                "all_prs = all_rel_resp.json()",
+                "for pr in all_prs:",
+                "    if pr['title'] == data['title']:",
+                "        if pr['head']['label'] != 'SunriseProductions:${branch}':",
+                "            raise Exception('Incompatable exsisting PR called {}'.format(data['title']))",
+                "        pr_dict = pr",
+                "        pr_found = True",
+                "        break",
+                "    ",
+                "",
+                "if not pr_found:",
+                "    print('Making new PR')",
+                "    new_rel_resp = requests.post(url, auth=self.secret, data=json.dumps(data))",
+                "    if new_rel_resp.status_code != 201:",
+                "        raise Exception('Unsuccessful PR ({})'.format(new_rel_resp.text))",
+                "    print('New PR made')",
+                "    pr_dict = new_rel_resp.json()",
+                "html_url = pr_dict[\"html_url\"]",
+                "print(html_url)",
+                "webbrowser.open_new_tab(html_url)",
                 "self.pr_data = pr_dict"
             ]
-        }, 
+        },
         "/GitRelease": {
-            "enabled": true, 
+            "enabled": true,
             "attrs": {
+                "body": {
+                    "type": "raw",
+                    "value": "STAGE.changelog_text"
+                },
                 "secrets_path": {
                     "type": "raw"
-                }, 
+                },
                 "upload_url": {
                     "type": "raw"
                 }
-            }, 
+            },
             "code": [
-                "import os", 
-                "import sys", 
-                "import json", 
-                "import requests", 
-                "", 
-                "data = {", 
-                "    \"tag_name\": \"${version_tag}\",", 
-                "    \"target_commitish\": \"master\",", 
-                "    \"name\": \"${version_name} v${version_str}\",", 
-                "    \"body\": STAGE.changelog_text,", 
-                "    \"draft\": True,", 
-                "    \"prerelease\": False", 
-                "}", 
-                "url = 'https://api.github.com/repos/SunriseProductions/nxt/releases'", 
-                "all_rel_resp = requests.get(url, auth=self.secret)", 
-                "if all_rel_resp.status_code != 200:", 
-                "    print('cannot access releases')", 
-                "    print(all_rel_resp.status_code)", 
-                "    sys.exit()", 
-                "all_releases = all_rel_resp.json()", 
-                "existing_release = None", 
-                "for release in all_releases:", 
-                "    if release['tag_name'] == data['tag_name']:", 
-                "        existing_release = release", 
-                "        break", 
-                "", 
-                "if not existing_release:", 
-                "    print('making new release')", 
-                "    new_rel_resp = requests.post(url, auth=self.secret, data=json.dumps(data))", 
-                "    if new_rel_resp.status_code != 201:", 
-                "        print('unsuccessful release')", 
-                "        print(new_rel_resp.status_code)", 
-                "        sys.exit()", 
-                "    print('new release made')", 
-                "    release_dict = new_rel_resp.json()", 
-                "else:", 
-                "    print('using existing release')", 
-                "    release_dict = existing_release", 
+                "import os",
+                "import sys",
+                "import json",
+                "import requests",
+                "",
+                "data = {",
+                "    \"tag_name\": \"${version_tag}\",",
+                "    \"target_commitish\": \"master\",",
+                "    \"name\": \"${version_name} v${version_str}\",",
+                "    \"body\": ${body},",
+                "    \"draft\": True,",
+                "    \"prerelease\": False",
+                "}",
+                "url = 'https://api.github.com/repos/SunriseProductions/nxt/releases'",
+                "all_rel_resp = requests.get(url, auth=self.secret)",
+                "if all_rel_resp.status_code != 200:",
+                "    print('cannot access releases')",
+                "    print(all_rel_resp.status_code)",
+                "    sys.exit()",
+                "all_releases = all_rel_resp.json()",
+                "existing_release = None",
+                "for release in all_releases:",
+                "    if release['tag_name'] == data['tag_name']:",
+                "        existing_release = release",
+                "        break",
+                "",
+                "if not existing_release:",
+                "    print('making new release')",
+                "    new_rel_resp = requests.post(url, auth=self.secret, data=json.dumps(data))",
+                "    if new_rel_resp.status_code != 201:",
+                "        print('unsuccessful release')",
+                "        print(new_rel_resp.status_code)",
+                "        sys.exit()",
+                "    print('new release made')",
+                "    release_dict = new_rel_resp.json()",
+                "else:",
+                "    print('using existing release')",
+                "    release_dict = existing_release",
                 "STAGE.release_dict = release_dict"
             ]
-        }, 
+        },
         "/GitStatus": {
             "child_order": [
-                "Status", 
+                "Status",
                 "ValidateStatus"
-            ], 
-            "comment": "Check that there are no un-commited changes on the branch.", 
+            ],
+            "comment": "Check that there are no un-commited changes on the branch.",
             "code": [
                 "print('Getting status commits...')"
             ]
-        }, 
+        },
         "/GitStatus/Status": {
-            "instance": "/GitCmd", 
+            "instance": "/GitCmd",
             "child_order": [
                 "ParseGitReturn"
-            ], 
+            ],
             "attrs": {
                 "cmd_args": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "\"status\""
                 }
             }
-        }, 
+        },
         "/GitStatus/Status/ParseGitReturn": {
             "attrs": {
                 "key": {
                     "value": "'\\tmodified:'"
                 }
             }
-        }, 
+        },
         "/GitStatus/ValidateStatus": {
             "code": [
-                "if ${../Status/ParseGitReturn.result}:", 
-                "    print('Changes not staged for commit:', ${../Status/ParseGitReturn.result})", 
+                "if ${../Status/ParseGitReturn.result}:",
+                "    print('Changes not staged for commit:', ${../Status/ParseGitReturn.result})",
                 "    raise Exception('You have un-commited changes!')"
             ]
-        }, 
+        },
         "/GitUpload": {
             "child_order": [
                 "DoIt"
-            ], 
+            ],
             "attrs": {
                 "asset_path": {
-                    "type": "raw", 
+                    "type": "raw",
                     "value": "${path::asset}"
-                }, 
+                },
                 "content_type": {
-                    "type": "raw", 
+                    "type": "raw",
                     "value": "application/zip"
                 }
-            }, 
+            },
             "code": [
                 "print('Starting upload...')"
             ]
-        }, 
+        },
         "/GitUpload/DoIt": {
             "attrs": {
                 "upload_url": {
-                    "type": "str", 
+                    "type": "str",
                     "value": "''"
                 }
-            }, 
+            },
             "code": [
-                "asset_name = os.path.basename(r'${asset_path}')", 
-                "self.upload_url = STAGE.release_dict['upload_url']", 
-                "for asset in STAGE.release_dict['assets']:", 
-                "    if asset['name'] == asset_name:", 
-                "        exist_err = 'Existing asset found with name:\"{}\", not uploading.'.format(asset_name)", 
-                "        raise Exception(exist_err)", 
-                "        self.upload_url = None", 
-                "        break", 
-                "    ", 
-                "if self.upload_url:    ", 
-                "    self.upload_url = self.upload_url.replace('{?name,label}', '?name={}').format(asset_name)", 
-                "    headers = {'Content-Type': '${content_type}'}", 
-                "    # print(self.upload_url)", 
-                "    with open(r'${asset_path}', 'rb') as fp:", 
-                "        response = requests.post(self.upload_url, auth=self.secret,", 
-                "                                 data=fp, timeout=60, headers=headers)", 
-                "    if response.status_code == 201:", 
-                "        print('Successful upload!')", 
-                "    else:", 
+                "asset_name = os.path.basename(r'${asset_path}')",
+                "self.upload_url = STAGE.release_dict['upload_url']",
+                "for asset in STAGE.release_dict['assets']:",
+                "    if asset['name'] == asset_name:",
+                "        exist_err = 'Existing asset found with name:\"{}\", not uploading.'.format(asset_name)",
+                "        raise Exception(exist_err)",
+                "        self.upload_url = None",
+                "        break",
+                "    ",
+                "if self.upload_url:    ",
+                "    self.upload_url = self.upload_url.replace('{?name,label}', '?name={}').format(asset_name)",
+                "    headers = {'Content-Type': '${content_type}'}",
+                "    # print(self.upload_url)",
+                "    with open(r'${asset_path}', 'rb') as fp:",
+                "        response = requests.post(self.upload_url, auth=self.secret,",
+                "                                 data=fp, timeout=60, headers=headers)",
+                "    if response.status_code == 201:",
+                "        print('Successful upload!')",
+                "    else:",
                 "        raise Exception('Upload failed!')"
             ]
-        }, 
+        },
         "/JsonLoad": {
             "attrs": {
                 "file_data": {
                     "type": "raw"
-                }, 
+                },
                 "file_path": {
                     "type": "raw"
                 }
-            }, 
+            },
             "code": [
-                "with open('${file_path}', 'r') as f:", 
-                "    self.file_data = json.load(f)", 
-                "if self.file_data is None:", 
+                "with open('${file_path}', 'r') as f:",
+                "    self.file_data = json.load(f)",
+                "if self.file_data is None:",
                 "    raise Exception('Failed to load json from \"${file_path}\"')"
             ]
         }
