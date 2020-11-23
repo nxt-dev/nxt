@@ -83,9 +83,13 @@ class Session(object):
             new_stage = None
 
         if not new_stage:
+            try:
+                msg = e.message
+            except UnboundLocalError:
+                msg = ''
             new_stage = Stage(name='File Error')
             d = {'comment': 'Failed to load the file {}\n'
-                            '{}'.format(filepath, e.message)}
+                            '{}'.format(filepath, msg)}
             new_stage.add_node(name='ERR', data=d)
             new_stage.top_layer.color = 'red'
             new_stage.top_layer.alias = 'Failed_Open'
