@@ -5,19 +5,27 @@ import sys
 import subprocess
 import logging.handlers
 import json
-from SocketServer import ThreadingMixIn
-from SimpleXMLRPCServer import SimpleXMLRPCServer
+import socket
+
+if sys.version_info[0] == 2:
+    from SocketServer import ThreadingMixIn
+    from SimpleXMLRPCServer import SimpleXMLRPCServer
+else:
+    from socketserver import ThreadingMixIn
+    from xmlrpc.server import SimpleXMLRPCServer
 
 # Internal
 import nxt
-from nxt.remote import RPC_HOST, RPC_PORT
+from nxt.stage import GraphError
+from nxt.remote import get_server_info_filepath
+import nxt.remote.contexts
 from nxt import nxt_path, nxt_io, nxt_log
 
 server = None
 logger = logging.getLogger('nxt')
 
 
-class NxtServerException(Exception):
+class NxtServerException(GraphError):
     pass
 
 
@@ -28,8 +36,7 @@ class NxtServer(ThreadingMixIn, SimpleXMLRPCServer):
         :param allow_none: If True None type objects are marshaled.
         :param log_requests: If True connection requests are logged.
         """
-        SimpleXMLRPCServer.__init__(self, addr=address,
-                                    allow_none=allow_none,
+        SimpleXMLRPCServer.__init__(self, addr=address, allow_none=allow_none,
                                     logRequests=log_requests)
 
 
@@ -109,23 +116,22 @@ class ServerFunctions(object):
                                                  context_graph))
         logger.info('Cache location: {}\n'.format(cache_path))
         # Format the cli call
-        save_graph_path = nxt_path.full_file_expand(filepath)
+        safe_graph_path = nxt_path.full_file_expand(filepath)
         # open context with graph and parameters
         os.environ[nxt_log.VERBOSE_ENV_VAR] = 'socket'
         args = [context_exe, '-m', 'nxt.cli', 'exec', context_graph, '-p',
-                '/.graph_file', save_graph_path,
+                '/.graph_file', safe_graph_path,
                 '/.cache_file', cache_path,
                 '/.parameters_file', parameters_file]
         if start_node:
             args += ['/.start_node', start_node]
-        logger.info('call:  {}'.format(args))
-        dcc = subprocess.Popen(args)
-        poll = None
-        while poll is None:
-            poll = dcc.poll()
-        exit_code = dcc.returncode
-        if exit_code != 0:
-            raise NxtServerException(exit_code)
+        logger.debug('call:  {}'.format(args))
+        # TODO: Find a clean way to raise exceptions from the subprocess.
+        try:
+            subprocess.check_output(args)
+        except subprocess.CalledProcessError:
+            raise RuntimeError('Remote context graph "{}" failed! See log...'
+                               ''.format(safe_graph_path))
         return cache_path
 
     def kill(self):
@@ -149,28 +155,38 @@ class ServerFunctions(object):
                                    'stale.')
 
 
-def run_server(host=RPC_HOST, port=RPC_PORT, log_filepath='',
-               log_requests=False):
+def secure_address():
+    server_info_filepath = get_server_info_filepath()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('', 0))
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    _, port = s.getsockname()
+    with open(server_info_filepath, 'w+') as fp:
+        fp.write('localhost' + '\n')
+        fp.write(str(port))
+    return 'localhost', port
+
+
+def run_server(address=None, log_requests=False):
     nxt_root = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '../..')).replace(os.sep, '/')
     os.chdir(nxt_root)
     global server
-    server = NxtServer((host, port), log_requests=log_requests)
-    server.register_instance(ServerFunctions(log_filepath=log_filepath))
+    if address is None:
+        address = secure_address()
+    server = NxtServer(address, log_requests=log_requests)
+    server.register_instance(ServerFunctions(log_filepath=None))
     server.allow_reuse_address = True
     logger.info('Threaded nxt rpc server started!')
-    logger.debug('Listening on:   {}:{}'.format(host, port))
+    logger.debug('Listening on:  {}'.format(address))
     server.serve_forever()
 
 
 if __name__ == '__main__':
-    try:
-        log_file = sys.argv[1]
-    except IndexError:
-        log_file = None
     logger.info('Available contexts: '
                 '{}'.format(list(nxt.remote.contexts.iter_context_names())))
-    logger.debug('Logging to: {}'.format(log_file))
+    # TODO: Fix logging so non-hosting apps can get the stdout and logs
+    # logger.debug('Logging to: {}'.format(log_file))
     logger.info('Starting up server...')
-    run_server(log_filepath=log_file)
-    logger.info('Logging rpc stdout to: {}'.format(log_file))
+    run_server()
+    # logger.info('Logging rpc stdout to: {}'.format(log_file))

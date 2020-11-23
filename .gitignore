@@ -4,6 +4,7 @@
 *.name
 *.xml
 .vscode/
+*.code-workspace
 .idea
 docs/build/
 build/

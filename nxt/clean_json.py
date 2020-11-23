@@ -10,11 +10,11 @@ def _byteify(data, ignore_dicts=False):
     Encodes any unicode data as utf-8
     :param data: A data object from json.load or json.loads
     :param ignore_dicts: Should be true if loading json without a top level dict
-    :return: unicode free data
+    :return: unicode/byte free data
     '''
     # Python 2/3 compatibility
     if sys.version_info[0] == 2:
-        if isinstance(data, unicode):  # 2to3: change to bytes in Py3
+        if isinstance(data, unicode):
             return data.encode('utf-8')
     else:
         if isinstance(data, bytes):
