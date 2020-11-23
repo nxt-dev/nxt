@@ -5,9 +5,28 @@ branches:
   - dev
 python:
   - "2.7"
+
+before_install:
+  - |
+    if [ "$TRAVIS_BRANCH" = "dev" ] && [ "$TRAVIS_EVENT_TYPE" = "push" ]; then
+        echo "Push to dev, not running tests until PR"
+        exit 0
+    else
+      echo "Doing the build"
+    fi
+
 install:
   - cd ..
   - pip install ./nxt
 
 script:
-  - python nxt/ci.py
+  - |
+    if [ "$TRAVIS_BRANCH" = "release" ] && [ "$TRAVIS_EVENT_TYPE" = "pull_request" ]; then
+          python -m nxt.cli test
+          exit 0
+    fi
+  - |
+    if [ "$TRAVIS_BRANCH" = "release" ] && [ "$TRAVIS_EVENT_TYPE" = "push" ]; then
+          python -m nxt.cli exec nxt/build/packaging.nxt -s /make_and_test_upload
+          exit 0
+    fi
