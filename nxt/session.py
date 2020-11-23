@@ -10,7 +10,8 @@ import socket
 from nxt import nxt_log
 from . import nxt_io
 from . import nxt_path
-from . import remote
+from nxt.remote import get_running_server_address
+from nxt.remote.client import NxtClient
 from .remote import contexts
 from nxt.stage import Stage
 
@@ -199,11 +200,11 @@ class Session(object):
         :return: None
         """
         # Remote Graphs
-        remote_node_name = remote.contexts.REMOTE_CONTEXT_BUILTIN_NODE
+        remote_node_name = contexts.REMOTE_CONTEXT_BUILTIN_NODE
         remote_path = nxt_path.join_node_paths(nxt_path.NODE_SEP,
                                                remote_node_name)
         # Sub-graphs that might call remote graphs
-        sub_graph_node_name = remote.contexts.SUB_GRAPH_BUILTIN_NODE
+        sub_graph_node_name = contexts.SUB_GRAPH_BUILTIN_NODE
         sub_graph_path = nxt_path.join_node_paths(nxt_path.NODE_SEP,
                                                   sub_graph_node_name)
         start_rpc = False
@@ -308,7 +309,8 @@ class RPCServerProcess(object):
             logger.info('Server already running somewhere...')
             return False
         elif not self.is_port_available():
-            raise OSError('Port {} is not available!'.format(remote.RPC_PORT))
+            _, port = get_running_server_address(as_str=False)
+            raise OSError('Port {} is not available!'.format(port))
         old_env_verbosity = os.environ.get(nxt_log.VERBOSE_ENV_VAR, None)
         if self.socket_logging:
             os.environ[nxt_log.VERBOSE_ENV_VAR] = 'socket'
@@ -349,7 +351,7 @@ class RPCServerProcess(object):
         """
         is_running = False
         try:
-            proxy = remote.client.NxtClient()
+            proxy = NxtClient()
             is_running = proxy.is_alive()
         except Exception as e:
             # Connection refused
@@ -365,13 +367,13 @@ class RPCServerProcess(object):
         :return: None
         """
         try:
-            proxy = remote.client.NxtClient()
+            proxy = NxtClient()
             proxy.kill()
         except Exception as e:
             if getattr(e, 'errno', -1) == 10061 and self.terminal:
                 try:
                     logger.info('Telling rpc server to shutdown...')
-                    proxy = remote.client.NxtClient()
+                    proxy = NxtClient()
                     proxy.kill()
                     self.server_log_file = ''
                 except:
@@ -391,7 +393,7 @@ class RPCServerProcess(object):
         :return: bool
         """
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        address = (remote.RPC_HOST, remote.RPC_PORT)
+        address = get_running_server_address(as_str=False)
         results = s.connect_ex(address)
         s.close()
         if results == 0:
