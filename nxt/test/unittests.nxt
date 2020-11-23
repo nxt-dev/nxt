@@ -1,57 +1,113 @@
 {
-    "version": "1.17", 
-    "alias": "unittests", 
-    "color": "#0052aa", 
-    "mute": false, 
-    "solo": false, 
+    "version": "1.17",
+    "alias": "unittests",
+    "color": "#0071ea",
+    "mute": false,
+    "solo": false,
     "meta_data": {
         "positions": {
-            "/test": [
-                0, 
-                0
+            "/results": [
+                640.0,
+                0.0
+            ],
+            "/run_editor_tests": [
+                360.0,
+                60.0
+            ],
+            "/test_api": [
+                0.0,
+                0.0
+            ],
+            "/test_editor": [
+                320.0,
+                0.0
             ]
-        }, 
+        },
         "collapse": {
-            "/test": false
+            "/run_editor_tests": false,
+            "/test_api": false,
+            "/test_editor": false
         }
-    }, 
+    },
     "nodes": {
         "/": {
             "child_order": [
-                "test"
-            ], 
+                "test_api",
+                "run_editor_tests",
+                "test_editor",
+                "results"
+            ],
             "attrs": {
                 "fail_fast": {
-                    "type": "bool", 
+                    "type": "bool",
                     "value": "True"
+                },
+                "passed": {
+                    "type": "int",
+                    "value": "0"
                 }
-            }, 
+            },
             "code": [
-                "import unittest"
+                "import unittest",
+                "STAGE.passed = 0"
             ]
-        }, 
-        "/test": {
-            "start_point": true, 
+        },
+        "/results": {
+            "execute_in": "/test_editor",
             "code": [
-                "# Fixme: This is a hack to get the imports to work inside the test_plugin unittest", 
-                "# I'm not really sure why this hack is needed, will fix later.", 
-                "import nxt.plugins.file_fallbacks", 
-                "", 
-                "loader = unittest.TestLoader()", 
-                "tests = loader.discover('${file::../}')", 
-                "results = unittest.TestResult()", 
-                "results.failfast = ${fail_fast}", 
-                "tests.run(results)", 
-                "", 
-                "if results.failures or results.errors:", 
-                "    for _, fail in results.failures:", 
-                "        print(fail)", 
-                "    for _, error in results.errors:", 
-                "        print(error)", 
-                "    raise Exception('{} unit tests failed! {} errors'.format(len(results.failures), ", 
-                "                                                             len(results.errors)))", 
-                "    ", 
-                "print('All {} unit tests passed!'.format(results.testsRun))"
+                "print('='*79)",
+                "print('\\n')",
+                "print('All {} ${discover_location} unit tests passed!'.format(STAGE.passed))"
+            ]
+        },
+        "/run_editor_tests": {
+            "instance": "/test_api",
+            "attrs": {
+                "discover_location": {
+                    "value": "nxt_editor.test"
+                }
+            }
+        },
+        "/test_api": {
+            "start_point": true,
+            "attrs": {
+                "discover_location": {
+                    "type": "raw",
+                    "value": "nxt.test"
+                }
+            },
+            "code": [
+                "# Fixme: This is a hack to get the imports to work inside the test_plugin unittest",
+                "# I'm not really sure why this hack is needed, will fix later.",
+                "import nxt.plugins.file_fallbacks",
+                "",
+                "loader = unittest.TestLoader()",
+                "tests = loader.discover('${discover_location}')",
+                "results = unittest.TestResult()",
+                "results.failfast = ${fail_fast}",
+                "tests.run(results)",
+                "",
+                "if results.failures or results.errors:",
+                "    for _, fail in results.failures:",
+                "        print(fail)",
+                "    for _, error in results.errors:",
+                "        print(error)",
+                "    raise Exception('{} unit tests failed! {} errors'.format(len(results.failures), ",
+                "                                                             len(results.errors)))",
+                "STAGE.passed += results.testsRun",
+                ""
+            ]
+        },
+        "/test_editor": {
+            "execute_in": "/test_api",
+            "code": [
+                "try:",
+                "    import nxt_editor",
+                "    print('.'*79)",
+                "    print('Found editor, running tests for it now...')",
+                "    execute(start='/run_editor_tests')",
+                "except ImportError:",
+                "    pass"
             ]
         }
     }
