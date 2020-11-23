@@ -6,14 +6,14 @@ else:
     from xmlrpc.client import ServerProxy
 
 # Internal
-from nxt.remote import RPC_PORT
+from nxt.remote import get_running_server_address
 
 
 class NxtClient(ServerProxy, object):
-    def __init__(self, host='http://localhost', port=RPC_PORT):
-        self.host = host
-        self.port = port
-        self.address = '{host}:{port}'.format(host=self.host, port=self.port)
+    def __init__(self, address=None):
+        if address is None:
+            address = 'http://{}'.format(get_running_server_address())
+        self.address = address
         super(NxtClient, self).__init__(self.address, allow_none=True)
 
     def __repr__(self):
