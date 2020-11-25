@@ -6,13 +6,17 @@
     "solo": false,
     "meta_data": {
         "positions": {
+            "/GitClone": [
+                -380.0,
+                80.0
+            ],
             "/GitCmd": [
-                -371.0,
-                -257.0
+                -380.0,
+                -260.0
             ],
             "/GitCurBranch": [
-                109.45052337903013,
-                -360.62349384340297
+                100.0,
+                -380.0
             ],
             "/GitPR": [
                 -318.0,
@@ -49,6 +53,14 @@
         }
     },
     "nodes": {
+        "/GitClone": {
+            "instance": "/GitCmd",
+            "attrs": {
+                "cmd_args": {
+                    "value": "\"clone\""
+                }
+            }
+        },
         "/GitCmd": {
             "child_order": [
                 "ParseGitReturn"
