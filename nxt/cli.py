@@ -10,10 +10,12 @@ import unittest
 from nxt.session import Session
 
 from nxt import legacy
-from nxt import  nxt_log
+from nxt import nxt_log
+from nxt.constants import API_VERSION, GRAPH_VERSION
 has_editor = False
 try:
     import nxt_editor
+    from nxt_editor.constants import EDITOR_VERSION
     has_editor = True
 except ImportError:
     pass
@@ -53,6 +55,24 @@ def count_down(t=3):
         t -= 1
     sys.stdout.write('\r ')
     sys.stdout.flush()
+
+
+def get_version():
+    # Get API version
+    api_v = API_VERSION.VERSION_STR
+    # Get editor version
+    try:
+        editor_v = EDITOR_VERSION.VERSION_STR
+    except NameError:
+        editor_v = False
+    # Get graph version
+    graph_v = GRAPH_VERSION.VERSION_STR
+    # Assemble version string
+    if editor_v:
+        version_str = 'API {av} | Editor {ev} |  Graph {gv}'
+    else:
+        version_str = 'API {av} | Graph {gv}'
+    return version_str.format(av=api_v, ev=editor_v, gv=graph_v)
 
 
 def editor(args):
@@ -117,6 +137,7 @@ def main():
     parser.add_argument('-v', '--verbose', help='verbose execution '
                                                 '(-vv for debugging)',
                         action='count')
+    parser.add_argument('--version', action='version', version=get_version())
     # Legacy
     # TODO: Remove at 2.0
     leg_desc = ('Please convert your calls to the new system: '

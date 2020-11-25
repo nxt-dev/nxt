@@ -43,11 +43,15 @@ if SITE_DIR_ENV_VAR in os.environ:
 # Configs
 CONFIG_VERSION = str(API_VERSION.MAJOR)
 USER_CONFIG_DIR = os.path.join(USER_DIR, 'config', CONFIG_VERSION)
+if not os.path.isdir(USER_CONFIG_DIR):
+    os.mkdir(USER_CONFIG_DIR)
 SITE_CONFIG_DIR = os.path.join(SITE_DIR, 'config', CONFIG_VERSION)
 # Plugins
 PLUGIN_DIR_NAME = 'plugins'
 BUILTIN_PLUGIN_DIR = os.path.join(os.path.dirname(__file__), PLUGIN_DIR_NAME)
 USER_PLUGIN_DIR = os.path.join(USER_CONFIG_DIR, PLUGIN_DIR_NAME)
+if not os.path.isdir(USER_PLUGIN_DIR):
+    os.mkdir(USER_PLUGIN_DIR)
 SITE_PLUGIN_DIR = os.path.join(SITE_CONFIG_DIR, PLUGIN_DIR_NAME)
 PLUGIN_DIRS = [USER_PLUGIN_DIR, SITE_PLUGIN_DIR, BUILTIN_PLUGIN_DIR]
 
