@@ -3746,7 +3746,8 @@ class Stage:
                                         add_to_child_order=False)
 
         def execute(paths=(), start=None, parameters=None):
-            if (paths and start) or (not paths and not start):
+            if (paths and start) or (not paths and not start) or not \
+                    isinstance(paths, (list, tuple)):
                 raise ValueError("Must give either a start point or a list of,"
                                  " node paths to run.")
             if start:
