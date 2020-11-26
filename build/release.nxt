@@ -601,15 +601,9 @@
         "/ReleaseLoop": {
             "execute_in": "/GenerateChangelog",
             "comment": "Calls /CreateRelease",
-            "attrs": {
-                "release_types": {
-                    "type": "tuple",
-                    "value": "(${/versions.API}, ${/versions.GRAPH})"
-                }
-            },
             "code": [
                 "# Parse return from versions sub-graph",
-                "for version_info in ${release_types}:",
+                "for version_info in (${/versions.API}, ${/versions.GRAPH}):",
                 "    # TODO: Don't make a release for graphs, just open a tab to create a tag",
                 "    if not version_info:",
                 "        continue",
