@@ -625,7 +625,7 @@
                 "    parameters = {'/CreateRelease.version_tag': version_tag,",
                 "                  '/CreateRelease.version_name': version_name,",
                 "                  '/CreateRelease.version_str': version_str,",
-                "                  '/CreateRelease.graph_version': GRAPH_VERSION}",
+                "                  '/CreateRelease.graph_version': GRAPH_VERSION.VERSION_STR}",
                 "    execute(start='/CreateRelease', parameters=parameters)"
             ]
         },
