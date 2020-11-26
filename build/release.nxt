@@ -365,7 +365,7 @@
                 "import shutil",
                 "# Internal",
                 "import nxt",
-                "from nxt.constants import API_VERSION",
+                "from nxt.constants import API_VERSION, GRAPH_VERSION",
                 ""
             ]
         },
@@ -540,6 +540,10 @@
                     "type": "raw",
                     "value": "${contents::${file::release_footer.md}}"
                 },
+                "graph_version": {
+                    "type": "raw",
+                    "value": "unknown"
+                },
                 "repo": {
                     "value": "${/.repo}"
                 }
@@ -618,7 +622,8 @@
                 "    version_name = version_cat.capitalize()",
                 "    parameters = {'/CreateRelease.version_tag': version_tag,",
                 "                  '/CreateRelease.version_name': version_name,",
-                "                  '/CreateRelease.version_str': version_str}",
+                "                  '/CreateRelease.version_str': version_str,",
+                "                  '/CreateRelease.graph_version': GRAPH_VERSION}",
                 "    execute(start='/CreateRelease', parameters=parameters)"
             ]
         },
