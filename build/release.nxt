@@ -526,6 +526,12 @@
                 "OpenReleaseURL"
             ],
             "comment": "Create the draft release and open it in your browser.",
+            "attrs": {
+                "graph_version": {
+                    "type": "raw",
+                    "value": "unknown"
+                }
+            },
             "code": [
                 "print(\"Beginning release...\")"
             ]
@@ -539,10 +545,6 @@
                 "footer": {
                     "type": "raw",
                     "value": "${contents::${file::release_footer.md}}"
-                },
-                "graph_version": {
-                    "type": "raw",
-                    "value": "unknown"
                 },
                 "repo": {
                     "value": "${/.repo}"
