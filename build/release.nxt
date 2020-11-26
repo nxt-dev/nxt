@@ -365,7 +365,7 @@
                 "import shutil",
                 "# Internal",
                 "import nxt",
-                "from nxt.constants import API_VERSION",
+                "from nxt.constants import API_VERSION, GRAPH_VERSION",
                 ""
             ]
         },
@@ -526,6 +526,12 @@
                 "OpenReleaseURL"
             ],
             "comment": "Create the draft release and open it in your browser.",
+            "attrs": {
+                "graph_version": {
+                    "type": "raw",
+                    "value": "unknown"
+                }
+            },
             "code": [
                 "print(\"Beginning release...\")"
             ]
@@ -601,9 +607,15 @@
         "/ReleaseLoop": {
             "execute_in": "/GenerateChangelog",
             "comment": "Calls /CreateRelease",
+            "attrs": {
+                "release_types": {
+                    "type": "tuple",
+                    "value": "(${/versions.API}, ${/versions.GRAPH})"
+                }
+            },
             "code": [
                 "# Parse return from versions sub-graph",
-                "for version_info in (${/versions.API}, ${/versions.GRAPH}):",
+                "for version_info in ${release_types}:",
                 "    # TODO: Don't make a release for graphs, just open a tab to create a tag",
                 "    if not version_info:",
                 "        continue",
@@ -612,7 +624,8 @@
                 "    version_name = version_cat.capitalize()",
                 "    parameters = {'/CreateRelease.version_tag': version_tag,",
                 "                  '/CreateRelease.version_name': version_name,",
-                "                  '/CreateRelease.version_str': version_str}",
+                "                  '/CreateRelease.version_str': version_str,",
+                "                  '/CreateRelease.graph_version': GRAPH_VERSION.VERSION_STR}",
                 "    execute(start='/CreateRelease', parameters=parameters)"
             ]
         },
