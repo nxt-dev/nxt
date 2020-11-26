@@ -309,7 +309,7 @@
                 "master_pr_url": {
                     "comment": "The api url to the pr who's base is master",
                     "type": "raw",
-                    "value": "https://api.github.com/repos/SunriseProductions/nxt/pulls/123"
+                    "value": "https://api.github.com/repos/nxt-dev/${repo}/pulls/123"
                 },
                 "release_body": {
                     "comment": "Markdown or plain text used for the release body as well as the master PR",
@@ -334,6 +334,10 @@
                 "release_type": {
                     "comment": "minor or hotfix",
                     "type": "NoneType"
+                },
+                "repo": {
+                    "type": "raw",
+                    "value": "nxt"
                 },
                 "secret": {
                     "comment": "tuple of (github_username, auth_token). DO NOT enter those details here! Please create a file with them and let the layer node load them for you.",
@@ -362,17 +366,6 @@
                 "# Internal",
                 "import nxt",
                 "from nxt.constants import API_VERSION",
-                "from nxt.ui.constants import EDITOR_VERSION",
-                "",
-                "# Load git auth token",
-                "with open('${secret_path}', 'rb') as fp:",
-                "    self.secret = pickle.load(fp)",
-                "",
-                "",
-                "editor_version = 'editor-v' + EDITOR_VERSION.VERSION_STR",
-                "api_version = 'api-v' + API_VERSION.VERSION_STR",
-                "",
-                "self.version = editor_version + '-' + api_version",
                 ""
             ]
         },
@@ -404,6 +397,9 @@
                     "type": "raw",
                     "value": "Auto generated PR > ${target}"
                 },
+                "repo": {
+                    "value": "nxt"
+                },
                 "target": {
                     "type": "raw",
                     "value": "release"
@@ -411,7 +407,42 @@
                 "title": {
                     "value": "Release ${version}"
                 }
-            }
+            },
+            "code": [
+                "data = {",
+                "    \"title\": \"${title}\",",
+                "    \"body\": \"${body}\",",
+                "    \"head\": \"${branch}\",",
+                "    \"base\": \"${target}\"",
+                "}",
+                "print('Opening PR \"${title}\" from \"${branch}\" to \"${target}\"')",
+                "url = 'https://api.github.com/repos/nxt-dev/${repo}/pulls'",
+                "all_rel_resp = requests.get(url, auth=self.secret)",
+                "if all_rel_resp.status_code != 200:",
+                "    raise Exception('Cannot access pulls ({})'.format(all_rel_resp.status_code))",
+                "pr_found = False",
+                "all_prs = all_rel_resp.json()",
+                "for pr in all_prs:",
+                "    if pr['title'] == data['title']:",
+                "        if pr['head']['label'] != 'nxt-dev:${branch}':",
+                "            raise Exception('Incompatable exsisting PR called {}'.format(data['title']))",
+                "        pr_dict = pr",
+                "        pr_found = True",
+                "        break",
+                "    ",
+                "",
+                "if not pr_found:",
+                "    print('Making new PR')",
+                "    new_rel_resp = requests.post(url, auth=self.secret, data=json.dumps(data))",
+                "    if new_rel_resp.status_code != 201:",
+                "        raise Exception('Unsuccessful PR ({})'.format(new_rel_resp.text))",
+                "    print('New PR made')",
+                "    pr_dict = new_rel_resp.json()",
+                "html_url = pr_dict[\"html_url\"]",
+                "print(html_url)",
+                "webbrowser.open_new_tab(html_url)",
+                "self.pr_data = pr_dict"
+            ]
         },
         "/BeginPR/PR_Master/GetPR_URL": {
             "enabled": true,
@@ -422,6 +453,8 @@
         "/BeginRelease": {
             "start_point": true,
             "child_order": [
+                "load_auth",
+                "set_version_string",
                 "GitCurBranch",
                 "CheckCommits"
             ],
@@ -473,6 +506,19 @@
         "/BeginRelease/GitCurBranch/ValidateLegalBranch": {
             "enabled": true
         },
+        "/BeginRelease/load_auth": {
+            "code": [
+                "# Load git auth token",
+                "with open('${secret_path}', 'rb') as fp:",
+                "    STAGE.secret = pickle.load(fp)",
+                ""
+            ]
+        },
+        "/BeginRelease/set_version_string": {
+            "code": [
+                "STAGE.version = 'api-v' + API_VERSION.VERSION_STR"
+            ]
+        },
         "/CreateRelease": {
             "child_order": [
                 "DraftRelease",
@@ -492,6 +538,9 @@
                 "footer": {
                     "type": "raw",
                     "value": "${contents::${file::release_footer.md}}"
+                },
+                "repo": {
+                    "value": "${/.repo}"
                 }
             }
         },
@@ -575,17 +624,21 @@
             ],
             "comment": "Push your changes to remote.",
             "code": [
-                "print('Pushing...')"
+                "print('Validating pushed...')"
             ]
         },
         "/ValidatePushed/GetRemoteHEAD": {
             "attrs": {
-                "remote_sha": {}
+                "remote_sha": {},
+                "repo": {
+                    "type": "raw",
+                    "value": "nxt"
+                }
             },
             "code": [
-                "response = requests.get('https://api.github.com/repos/SunriseProductions/nxt/branches/${branch}', auth=self.secret, timeout=30)",
-                "remote_branch = json.loads(response.content)",
-                "self.remote_sha = remote_branch['commit']['sha']"
+                "response = requests.get('https://api.github.com/repos/nxt-dev/${repo}/branches/${branch}', auth=self.secret, timeout=30)",
+                "self.remote_branch_data = json.loads(response.content)",
+                "self.remote_sha = self.remote_branch_data['commit']['sha']"
             ]
         },
         "/ValidatePushed/Push": {

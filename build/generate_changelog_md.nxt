@@ -60,10 +60,6 @@
                 -160.0,
                 420.0
             ],
-            "/GitPR": [
-                -1200.0,
-                680.0
-            ],
             "/GitRelease": [
                 -800.0,
                 600.0
@@ -167,7 +163,6 @@
             "/GitCurBranch/CurBranch/UpdateWorkingBranch": false,
             "/GitCurBranch/ValidateExactBranch": false,
             "/GitCurBranch/ValidateLegalBranch": false,
-            "/GitPR": false,
             "/GitStatus": true,
             "/GitUpload": true,
             "/GitUpload/DoIt": false,
@@ -254,7 +249,7 @@
                 "master_pr_url": {
                     "comment": "The api url to the pr who's base is master",
                     "type": "raw",
-                    "value": "https://api.github.com/repos/SunriseProductions/nxt/pulls/123"
+                    "value": "https://api.github.com/repos/nxt-dev/${repo}/pulls/123"
                 },
                 "release_body": {
                     "comment": "Markdown or plain text used for the release body as well as the master PR",
@@ -280,6 +275,7 @@
                     "comment": "minor or hotfix",
                     "type": "NoneType"
                 },
+                "repo": {},
                 "secret": {
                     "comment": "tuple of (github_username, auth_token). DO NOT enter those details here! Please create a file with them and let the layer node load them for you.",
                     "type": "tuple",
