@@ -398,7 +398,8 @@
                     "value": "Auto generated PR > ${target}"
                 },
                 "repo": {
-                    "value": "nxt"
+                    "type": "raw",
+                    "value": "${/.repo}"
                 },
                 "target": {
                     "type": "raw",
