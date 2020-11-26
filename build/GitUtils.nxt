@@ -6,13 +6,17 @@
     "solo": false,
     "meta_data": {
         "positions": {
+            "/GitClone": [
+                -380.0,
+                80.0
+            ],
             "/GitCmd": [
-                -371.0,
-                -257.0
+                -380.0,
+                -260.0
             ],
             "/GitCurBranch": [
-                109.45052337903013,
-                -360.62349384340297
+                100.0,
+                -380.0
             ],
             "/GitPR": [
                 -318.0,
@@ -49,6 +53,14 @@
         }
     },
     "nodes": {
+        "/GitClone": {
+            "instance": "/GitCmd",
+            "attrs": {
+                "cmd_args": {
+                    "value": "\"clone\""
+                }
+            }
+        },
         "/GitCmd": {
             "child_order": [
                 "ParseGitReturn"
@@ -180,6 +192,7 @@
                     "type": "raw"
                 },
                 "pr_data": {},
+                "repo": {},
                 "secrets_path": {
                     "type": "raw"
                 },
@@ -201,7 +214,7 @@
                 "    \"base\": \"${target}\"",
                 "}",
                 "print('Opening PR \"${title}\" from \"${branch}\" to \"${target}\"')",
-                "url = 'https://api.github.com/repos/SunriseProductions/nxt/pulls'",
+                "url = 'https://api.github.com/repos/nxt-dev/${repo}/pulls'",
                 "all_rel_resp = requests.get(url, auth=self.secret)",
                 "if all_rel_resp.status_code != 200:",
                 "    raise Exception('Cannot access pulls ({})'.format(all_rel_resp.status_code))",
@@ -209,7 +222,7 @@
                 "all_prs = all_rel_resp.json()",
                 "for pr in all_prs:",
                 "    if pr['title'] == data['title']:",
-                "        if pr['head']['label'] != 'SunriseProductions:${branch}':",
+                "        if pr['head']['label'] != 'nxt-dev:${branch}':",
                 "            raise Exception('Incompatable exsisting PR called {}'.format(data['title']))",
                 "        pr_dict = pr",
                 "        pr_found = True",
@@ -236,6 +249,7 @@
                     "type": "raw",
                     "value": "STAGE.changelog_text"
                 },
+                "repo": {},
                 "secrets_path": {
                     "type": "raw"
                 },
@@ -257,7 +271,7 @@
                 "    \"draft\": True,",
                 "    \"prerelease\": False",
                 "}",
-                "url = 'https://api.github.com/repos/SunriseProductions/nxt/releases'",
+                "url = 'https://api.github.com/repos/nxt-dev/${repo}/releases'",
                 "all_rel_resp = requests.get(url, auth=self.secret)",
                 "if all_rel_resp.status_code != 200:",
                 "    print('cannot access releases')",
