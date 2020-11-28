@@ -88,7 +88,7 @@ def editor(args):
         paths = args.path
     else:
         paths = [args.path]
-    sys.exit(nxt_editor.launch_editor(paths))
+    sys.exit(nxt_editor.launch_editor(paths, no_rpc=args.no_rpc))
 
 
 def execute(args):
@@ -150,6 +150,10 @@ def main():
         gui_parser.set_defaults(which='ui')
         gui_parser.add_argument('path', type=str, nargs='?',
                                 help='file(s) to open', default='')
+        no_rpc_help = ('Start editor without setting up an rpc server during '
+                       'startup.')
+        gui_parser.add_argument('-no-rpc', help=no_rpc_help,
+                                action='store_true')
 
     exec_parser = subs.add_parser('exec', help='Execute graph. See: exec -h')
     exec_parser.set_defaults(which='exec')
