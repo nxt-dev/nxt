@@ -88,7 +88,7 @@ def editor(args):
         paths = args.path
     else:
         paths = [args.path]
-    sys.exit(nxt_editor.launch_editor(paths, no_rpc=args.no_rpc))
+    sys.exit(nxt_editor.launch_editor(paths, start_rpc=not args.no_rpc))
 
 
 def execute(args):
