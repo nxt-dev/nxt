@@ -1,0 +1,50 @@
+{
+    "version": "1.17",
+    "alias": "Maya_Context",
+    "color": "#128283",
+    "mute": false,
+    "solo": false,
+    "references": [
+        "$NXT_BUILTINS/_context.nxt"
+    ],
+    "nodes": {
+        "/": {
+            "child_order": [
+                "enter"
+            ],
+            "attrs": {
+                "maya_inst_name": {
+                    "type": "raw",
+                    "value": "nxt"
+                }
+            },
+            "code": [
+                "# Builtin",
+                "import os",
+                "import sys",
+                "import json",
+                "cwd = os.path.dirname(sys.executable)",
+                "python_home = os.path.abspath(os.path.join(cwd, '..', 'Python/Lib/site-packages'))",
+                "sys.path.insert(0, python_home)",
+                "# External",
+                "from maya import standalone"
+            ]
+        },
+        "/enter/init": {
+            "comment": "Initalize DCC",
+            "code": [
+                "STAGE.old_cwd = os.getcwd()",
+                "maya_cwd = os.path.dirname(sys.executable)",
+                "os.chdir(maya_cwd)",
+                "standalone.initialize(name='${maya_inst_name}')"
+            ]
+        },
+        "/enter/teardown": {
+            "comment": "Any clean up that needs to happen after the graph runs",
+            "code": [
+                "standalone.uninitialize(name='${maya_inst_name}')",
+                "os.chdir(STAGE.old_cwd)"
+            ]
+        }
+    }
+}
