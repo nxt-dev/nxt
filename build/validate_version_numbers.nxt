@@ -127,10 +127,6 @@
                     "type": "NoneType",
                     "value": "None"
                 },
-                "EDITOR": {
-                    "type": "NoneType",
-                    "value": "None"
-                },
                 "GRAPH": {
                     "comment": "minor or hotfix",
                     "type": "NoneType",
@@ -150,11 +146,6 @@
                     "type": "list",
                     "value": "[0, 0, 0]"
                 },
-                "release_editor_version": {
-                    "comment": "Expected EDITOR version number",
-                    "type": "list",
-                    "value": "[0, 0, 0]"
-                },
                 "release_graph_version": {
                     "comment": "Expected GRAPH version number",
                     "type": "list",
@@ -171,7 +162,6 @@
                 "import json",
                 "# Internal",
                 "from nxt.constants import API_VERSION, GRAPH_VERSION",
-                "from nxt_editor.constants import EDITOR_VERSION",
                 "attrs = ('API', 'EDITOR', 'GRAPH')",
                 "for attr in attrs:",
                 "    val = getattr(self, attr)",
@@ -320,8 +310,7 @@
         "/ParseVersions": {
             "execute_in": "/CheckoutRelease",
             "child_order": [
-                "Parse_API_Version",
-                "Parse_EDITOR_Version"
+                "Parse_API_Version"
             ]
         },
         "/ParseVersions/Parse_API_Version": {
@@ -352,15 +341,6 @@
                 "    setattr(STAGE, attr_name, version_number)"
             ]
         },
-        "/ParseVersions/Parse_EDITOR_Version": {
-            "instance": "../Parse_API_Version",
-            "attrs": {
-                "file_path": {
-                    "type": "raw",
-                    "value": "${file::../../nxt_editor/nxt_editor/version.json}"
-                }
-            }
-        },
         "/ValidateVersion": {
             "execute_in": "/CheckoutWorking",
             "code": [
@@ -371,10 +351,7 @@
                 "        'actual': API_VERSION.VERSION_TUPLE},",
                 "'GRAPH': {'rel_type': ${/.GRAPH},",
                 "            'version': ${/.release_graph_version},",
-                "            'actual': GRAPH_VERSION.VERSION_TUPLE},",
-                "'EDITOR': {'rel_type': ${/.EDITOR},",
-                "            'version': ${/.release_editor_version},",
-                "            'actual': EDITOR_VERSION.VERSION_TUPLE}",
+                "            'actual': GRAPH_VERSION.VERSION_TUPLE}",
                 "            }",
                 "passed = True",
                 "for rel_cat, rel_dict in version_data.items():",
@@ -411,8 +388,14 @@
         },
         "/init": {
             "start_point": true,
+            "attrs": {
+                "rel_cats": {
+                    "type": "tuple",
+                    "value": "(${/.API}, ${/.GRAPH})"
+                }
+            },
             "code": [
-                "rel_cats = (${/.API}, ${/.EDITOR}, ${/.GRAPH})",
+                "rel_cats = ${rel_cats}",
                 "if not any(rel_cats):",
                 "    print(\"\"\"API: ${/.API}, EDITOR:${/.EDITOR}, GRAPH:${/.GRAPH}\"\"\")",
                 "    raise Exception('Unable to validate version numbers, no parameters provided!')",
