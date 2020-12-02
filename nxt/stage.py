@@ -3771,15 +3771,16 @@ class Stage:
         return_type = runtime_layer.RETURNS.NodeTable
         for path, node in runtime_layer.descendants(return_type=return_type):
             setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
-        # Set parameter overloads
-        if parameters:
-            self.set_runtime_parameters(parameters, runtime_layer)
+        # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:
             spec_layer = SpecNode.new()
             layer_node = CompNode.new(spec_layer)
             self.add_node_to_comp_layer(nxt_path.WORLD, layer_node, comp_layer,
                                         add_to_child_order=False)
+        # Set parameter overloads
+        if parameters:
+            self.set_runtime_parameters(parameters, runtime_layer)
 
         def execute(paths=(), start=None, parameters=None):
             if (paths and start) or (not paths and not start) or not \
