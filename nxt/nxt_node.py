@@ -61,7 +61,7 @@ class INTERNAL_ATTRS(object):
     ALLOW_NO_OPINION = (ENABLED,)
     # Dict mapping internal attr to a partial object that generates a default
     # for the given attr
-    DEFAULTS = {COMPUTE: partial(list, ())}
+    DEFAULTS = {COMPUTE: partial(list, ()), PARENT_PATH: nxt_path.WORLD}
     REQUIRES_RECOMP = tuple(set(ALL) - {CHILD_ORDER, INSTANCE_PATH, COMPUTE})
 
 
@@ -124,7 +124,7 @@ def create_spec_node(node_data, layer, parent_path=nxt_path.WORLD,
         if (not has_opinion(val) and attr not in
                 INTERNAL_ATTRS.ALLOW_NO_OPINION):
             val = INTERNAL_ATTRS.DEFAULTS.get(attr)
-            if val is not None:
+            if callable(val):
                 val = val()
         attrs[attr] = val
     # Remove duplicates in child order

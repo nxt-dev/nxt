@@ -1,5 +1,6 @@
 # Builtin
 import sys
+import os
 import logging
 from collections import namedtuple
 
@@ -10,6 +11,9 @@ SUB_GRAPH_BUILTIN_NODE = '_sub_graph'
 REMOTE_CONTEXT_ATTR_NAME = '_context'
 RemoteContext = namedtuple('RemoteContext', ('name', 'exe', 'graph'))
 _CONTEXTS = []
+starter_contexts = {'maya':
+                        os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                     'maya_context.nxt'))}
 
 
 def register_context(context):
@@ -33,3 +37,9 @@ def iter_context_names():
 PYTHON_CONTEXT = RemoteContext('python', sys.executable,
                                '$NXT_BUILTINS/_context.nxt')
 register_context(PYTHON_CONTEXT)
+
+
+def get_current_context_exe_name():
+    exe_name = os.path.basename(sys.executable)
+    exe_name, _ = os.path.splitext(exe_name)
+    return exe_name

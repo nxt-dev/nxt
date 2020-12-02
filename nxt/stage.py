@@ -3133,9 +3133,12 @@ class Stage:
         :return: list of dirty node paths
         """
         dirty_nodes = []
+        update_attr_map = {}
         for arc in CompArc.POST_PROXY_ARCS:
             overload_attrs = CompArc.INHERITANCE_MAP[arc]
             for dirty_node, arc_dict in proxy_map.items():
+                update_attr_map.setdefault(dirty_node, [])
+                update_attr_map[dirty_node] += [arc]
                 parent_path = getattr(dirty_node, INTERNAL_ATTRS.PARENT_PATH)
                 name = getattr(dirty_node, INTERNAL_ATTRS.NAME)
                 dirty_path = nxt_path.join_node_paths(parent_path, name)
@@ -3157,6 +3160,10 @@ class Stage:
                 self._safe_mro_add_base_class(dirty_node, base)
                 if comp_layer:
                     dirty_nodes += comp_layer.get_node_dirties(dirty_path)
+
+        if comp_layer:
+            for comp_node, arcs in update_attr_map.items():
+                self.update_inherited_attrs(comp_node, comp_layer, arcs)
         return dirty_nodes
 
     def targeted_uncomp(self, comp_node, comp_layer,
@@ -3194,7 +3201,6 @@ class Stage:
                 for descendant in descendants:
                     dirties += comp_layer.get_node_dirties(descendant)
             self._replace_base_classes(comp_node, tuple(cur_bases))
-
         node_path = comp_layer.get_node_path(comp_node)
         descendants = comp_layer.descendants(node_path)
         ripple_deletes = set([d for d in dirties if d in descendants])
@@ -3213,7 +3219,37 @@ class Stage:
                 if expanded != getattr(dirty_node,
                                        INTERNAL_ATTRS.INSTANCE_PATH):
                     setattr(dirty_node, INTERNAL_ATTRS.INSTANCE_PATH, expanded)
+        self.update_inherited_attrs(comp_node, comp_layer, arcs)
         return dirties
+
+    @staticmethod
+    def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
+        handled_arcs = []
+        for b in comp_node.__bases__:
+            base_arc = CompArc.get_arc(comp_node, b, comp_layer)
+            if base_arc not in arcs:
+                continue
+            handled_arcs += [base_arc]
+            arc_attrs = CompArc.INHERITANCE_MAP.get(base_arc, ())
+            for attr in arc_attrs:
+                val, has_op = get_opinion(b, attr)
+                if has_op:
+                    setattr(comp_node, attr, val)
+                    continue
+                else:
+                    val = INTERNAL_ATTRS.DEFAULTS.get(attr)
+                    if callable(val):
+                        val = val()
+                    setattr(comp_node, attr, val)
+        for arc in arcs:
+            if arc in handled_arcs:
+                continue
+            arc_attrs = CompArc.INHERITANCE_MAP.get(arc, ())
+            for attr in arc_attrs:
+                val = INTERNAL_ATTRS.DEFAULTS.get(attr)
+                if callable(val):
+                    val = val()
+                setattr(comp_node, attr, val)
 
     @staticmethod
     def _add_base_class(comp_node, base):
@@ -3735,15 +3771,16 @@ class Stage:
         return_type = runtime_layer.RETURNS.NodeTable
         for path, node in runtime_layer.descendants(return_type=return_type):
             setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
-        # Set parameter overloads
-        if parameters:
-            self.set_runtime_parameters(parameters, runtime_layer)
+        # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:
             spec_layer = SpecNode.new()
             layer_node = CompNode.new(spec_layer)
             self.add_node_to_comp_layer(nxt_path.WORLD, layer_node, comp_layer,
                                         add_to_child_order=False)
+        # Set parameter overloads
+        if parameters:
+            self.set_runtime_parameters(parameters, runtime_layer)
 
         def execute(paths=(), start=None, parameters=None):
             if (paths and start) or (not paths and not start) or not \
