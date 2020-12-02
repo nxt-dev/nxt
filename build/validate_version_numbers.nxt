@@ -154,6 +154,10 @@
                 "release_types": {
                     "type": "dict",
                     "value": "{'major':0, 'minor':1, 'hotfix':2, 'patch':2}"
+                },
+                "version_attrs": {
+                    "type": "tuple",
+                    "value": "('API', 'GRAPH')"
                 }
             },
             "code": [
@@ -162,7 +166,7 @@
                 "import json",
                 "# Internal",
                 "from nxt.constants import API_VERSION, GRAPH_VERSION",
-                "attrs = ('API', 'EDITOR', 'GRAPH')",
+                "attrs = ${version_attrs}",
                 "for attr in attrs:",
                 "    val = getattr(self, attr)",
                 "    if val == 'None' or val is None:",
