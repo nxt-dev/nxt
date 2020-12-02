@@ -124,11 +124,11 @@ class ServerFunctions(object):
                 '/.cache_file', cache_path,
                 '/.parameters_file', parameters_file]
         if start_node:
-            args += ['/.start_node', start_node]
+            args += ['/enter/call_graph._start', start_node]
         logger.debug('call:  {}'.format(args))
         # TODO: Find a clean way to raise exceptions from the subprocess.
         try:
-            subprocess.check_output(args)
+            subprocess.call(args)
         except subprocess.CalledProcessError:
             raise RuntimeError('Remote context graph "{}" failed! See log...'
                                ''.format(safe_graph_path))
