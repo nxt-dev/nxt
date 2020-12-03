@@ -57,7 +57,7 @@ class INTERNAL_ATTRS(object):
     # Defines order of node attrs in the save file
     SAVED = (START_POINT, INSTANCE_PATH, EXECUTE_IN, CHILD_ORDER, ENABLED,
              COMMENT, COMPUTE)
-
+    WORLD_NODE_SAVED = (COMMENT, COMPUTE)
     ALLOW_NO_OPINION = (ENABLED,)
     # Dict mapping internal attr to a partial object that generates a default
     # for the given attr
@@ -270,8 +270,11 @@ def get_node_as_dict(spec_node):
         sorted_attrs = OrderedDict(sorted(user_attrs.items(),
                                           key=lambda x: x[0]))
         spec_dict[nxt_io.SAVE_KEY.ATTRS] = sorted_attrs
-    # Saving of internall attrs
-    for attr in INTERNAL_ATTRS.SAVED:
+    # Saving of internal attrs
+    save_attrs = INTERNAL_ATTRS.SAVED
+    if getattr(spec_node, INTERNAL_ATTRS.NAME) == nxt_path.WORLD:
+        save_attrs = INTERNAL_ATTRS.WORLD_NODE_SAVED
+    for attr in save_attrs:
         value, has_opinion = get_opinion(spec_node, attr)
         if not has_opinion:
             continue
