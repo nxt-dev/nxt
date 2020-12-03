@@ -22,6 +22,11 @@
     },
     "nodes": {
         "/": {
+            "child_order": [
+                "make_and_test_upload",
+                "make_and_upload",
+                "make_package"
+            ],
             "code": [
                 "import os",
                 "import sys",
@@ -127,11 +132,6 @@
         "/make_package/pre_cleanup": {
             "comment": "Deletes resources.py so it will be generated on installed machine.",
             "code": [
-                "res_path = os.path.join('${repo_root}','nxt/ui/resources.py')",
-                "try:",
-                "    os.remove(res_path)",
-                "except OSError:",
-                "    pass",
                 "try:",
                 "    shutil.rmtree('${dest_dir}')",
                 "except OSError:",
