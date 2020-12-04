@@ -3774,7 +3774,8 @@ class Stage:
         # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:
-            spec_layer = SpecNode.new()
+            spec_layer = SpecNode.new({INTERNAL_ATTRS.NAME: nxt_path.WORLD,
+                                       INTERNAL_ATTRS.PARENT_PATH: ''})
             layer_node = CompNode.new(spec_layer)
             self.add_node_to_comp_layer(nxt_path.WORLD, layer_node, comp_layer,
                                         add_to_child_order=False)

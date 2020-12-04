@@ -78,7 +78,7 @@
                 "import subprocess",
                 "orig_cwd = os.getcwd()",
                 "os.chdir('${repo_root}')",
-                "subprocess.call([sys.executable, '-m', 'twine' ,'upload','${dest_dir}/*'])",
+                "subprocess.check_call([sys.executable, '-m', 'twine' ,'upload','${dest_dir}/*'])",
                 "os.chdir(orig_cwd)"
             ]
         },
@@ -127,11 +127,6 @@
         "/make_package/pre_cleanup": {
             "comment": "Deletes resources.py so it will be generated on installed machine.",
             "code": [
-                "res_path = os.path.join('${repo_root}','nxt/ui/resources.py')",
-                "try:",
-                "    os.remove(res_path)",
-                "except OSError:",
-                "    pass",
                 "try:",
                 "    shutil.rmtree('${dest_dir}')",
                 "except OSError:",
