@@ -272,7 +272,7 @@ def get_node_as_dict(spec_node):
         spec_dict[nxt_io.SAVE_KEY.ATTRS] = sorted_attrs
     # Saving of internal attrs
     save_attrs = INTERNAL_ATTRS.SAVED
-    if getattr(spec_node, INTERNAL_ATTRS.NAME) == nxt_path.WORLD:
+    if getattr(spec_node, INTERNAL_ATTRS.NAME, None) == nxt_path.WORLD:
         save_attrs = INTERNAL_ATTRS.WORLD_NODE_SAVED
     for attr in save_attrs:
         value, has_opinion = get_opinion(spec_node, attr)

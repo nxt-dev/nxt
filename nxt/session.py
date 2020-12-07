@@ -10,6 +10,7 @@ import socket
 from nxt import nxt_log
 from . import nxt_io
 from . import nxt_path
+from . import nxt_layer
 from nxt.remote import get_running_server_address
 from nxt.remote.client import NxtClient
 from .remote import contexts
@@ -154,7 +155,8 @@ class Session(object):
         else:
             return self.load_file(path)
 
-    def execute_graph(self, filepath, start=None, parameters=None):
+    def execute_graph(self, filepath, start=None, parameters=None,
+                      context='python'):
         """Execute the graph at the given file path. Optionally at given
         start. You may provided parameters to the parameter arg. The data
         should be formatted as follows:
@@ -177,14 +179,27 @@ class Session(object):
         value.
         :type parameters: dict
 
+        :param context: Optional name of remote context to execute graph in
+        :type context: str
+
         :return: a runtime CompLayer.
         """
         stage = self.get_stage(filepath)
-        self.start_rpc_if_needed(stage)
-        try:
-            return stage.execute(start=start, parameters=parameters)
-        finally:
-            self.shutdown_rpc_server()
+        if context == 'python':
+            self.start_rpc_if_needed(stage)
+            try:
+                return stage.execute(start=start, parameters=parameters)
+            finally:
+                self.shutdown_rpc_server()
+        else:
+            self._start_rpc_server()
+            proxy = NxtClient()
+            try:
+                cache_file = proxy.exec_in_headless(filepath, start, None,
+                                                    parameters, context)
+                return nxt_layer.CacheLayer.load_from_filepath(cache_file)
+            finally:
+                self.shutdown_rpc_server()
 
     def execute_nodes(self, filepath, node_paths, parameters=None):
         stage = self.get_stage(filepath)
