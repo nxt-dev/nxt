@@ -22,11 +22,6 @@
     },
     "nodes": {
         "/": {
-            "child_order": [
-                "make_and_test_upload",
-                "make_and_upload",
-                "make_package"
-            ],
             "code": [
                 "import os",
                 "import sys",
@@ -83,7 +78,7 @@
                 "import subprocess",
                 "orig_cwd = os.getcwd()",
                 "os.chdir('${repo_root}')",
-                "subprocess.call([sys.executable, '-m', 'twine' ,'upload','${dest_dir}/*'])",
+                "subprocess.check_call([sys.executable, '-m', 'twine' ,'upload','${dest_dir}/*'])",
                 "os.chdir(orig_cwd)"
             ]
         },
