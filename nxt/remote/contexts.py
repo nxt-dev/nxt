@@ -4,6 +4,8 @@ import os
 import logging
 from collections import namedtuple
 
+from nxt import nxt_io
+
 logger = logging.getLogger('nxt')
 
 REMOTE_CONTEXT_BUILTIN_NODE = '_remote_sub_graph'
@@ -34,8 +36,8 @@ def iter_context_names():
         yield context.name
 
 
-PYTHON_CONTEXT = RemoteContext('python', sys.executable,
-                               '$NXT_BUILTINS/_context.nxt')
+_context_graph = '${var}/_context.nxt'.format(var=nxt_io.BUILTIN_GRAPHS_ENV_VAR)
+PYTHON_CONTEXT = RemoteContext('python', sys.executable, _context_graph)
 register_context(PYTHON_CONTEXT)
 
 

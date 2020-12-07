@@ -117,7 +117,7 @@ register_context(_context)
                            'please open "{dest_path}" and edit as needed.'
                            ''.format(exe_name=exe_name, dest_path=dest_path))
             layer = nxt_layer.SpecLayer()
-            layer.add_reference(layer_path='$NXT_BUILTINS/_context.nxt')
+            layer.add_reference(layer_path=contexts._context_graph)
         layer.set_alias('custom_{name}_context'.format(name=custom_name))
         layer.save(filepath=dest_path)
     else:
