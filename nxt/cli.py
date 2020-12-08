@@ -12,6 +12,7 @@ from nxt.session import Session
 from nxt import legacy
 from nxt import nxt_log
 from nxt.constants import API_VERSION, GRAPH_VERSION
+from nxt.remote.contexts import iter_context_names
 has_editor = False
 try:
     import nxt_editor
@@ -118,7 +119,7 @@ def execute(args):
         val = parameter_list[i + 1]
         parameters[key] = val
         i += 2
-    Session().execute_graph(args.path[0], start, parameters)
+    Session().execute_graph(args.path[0], start, parameters, args.context)
     logger.execinfo('Execution finished!')
 
 
@@ -161,6 +162,9 @@ def main():
     exec_parser.add_argument('path', type=str, nargs=1, help='file to execute')
     exec_parser.add_argument('-s', '--start', nargs='?', default=None,
                              help='start node path')
+    exec_parser.add_argument('-c', '--context', nargs='?', default='python',
+                             help='optional remote context to call graph in',
+                             choices=list(iter_context_names()))
 
     convert_parser = subs.add_parser('convert', help='upgrades old save file to'
                                                      ' current version.'
