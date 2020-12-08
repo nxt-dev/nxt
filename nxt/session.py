@@ -156,7 +156,7 @@ class Session(object):
             return self.load_file(path)
 
     def execute_graph(self, filepath, start=None, parameters=None,
-                      context='python'):
+                      context=None):
         """Execute the graph at the given file path. Optionally at given
         start. You may provided parameters to the parameter arg. The data
         should be formatted as follows:
@@ -179,13 +179,14 @@ class Session(object):
         value.
         :type parameters: dict
 
-        :param context: Optional name of remote context to execute graph in
+        :param context: Optional name of remote context to execute graph in,
+        if none is passed the graph is executed in this interpreter.
         :type context: str
 
         :return: a runtime CompLayer.
         """
         stage = self.get_stage(filepath)
-        if context == 'python':
+        if context is None:
             self.start_rpc_if_needed(stage)
             try:
                 return stage.execute(start=start, parameters=parameters)

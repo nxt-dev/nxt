@@ -33,7 +33,7 @@ plugin_loader.load_plugins()
 logger = logging.getLogger('nxt')
 
 
-def execute_graph(filepath, start=None, parameters=None, context='python'):
+def execute_graph(filepath, start=None, parameters=None, context=None):
     """Shortest code path to executing a graph from the nxt package.
     Creates a 1 off session and executes the graph within that session.
     Arguments are a direct copy of Session.execute_graph, see there for full
@@ -46,7 +46,8 @@ def execute_graph(filepath, start=None, parameters=None, context='python'):
     :param parameters: Dict where key is attr path and value is new attr
     value.
     :type parameters: dict
-    :param context: Optional name of remote context to execute graph in
+    :param context: Optional name of remote context to execute graph in,
+    if none is passed the graph is executed in this interpreter.
     :type context: str
     """
     if context not in contexts.iter_context_names():
