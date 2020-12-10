@@ -3689,8 +3689,12 @@ class Stage:
         exec_start = time.time()
         rt_node = runtime_layer.lookup(node_path)
         resolved_code = self.resolve(rt_node, code_string, runtime_layer)
-        run(runtime_layer, stage=self, rt_node=rt_node,
-            custom_code=resolved_code)
+        runtime_layer.cache_layer.set_node_enter_time(node_path)
+        try:
+            run(runtime_layer, stage=self, rt_node=rt_node,
+                custom_code=resolved_code)
+        finally:
+            runtime_layer.cache_layer.set_node_exit_time(node_path)
         exec_time = str(round((time.time() - exec_start)))
         logger.execinfo("Successfully ran snippet in: "
                         "{} second(s).".format(exec_time))
