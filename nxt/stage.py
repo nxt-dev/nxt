@@ -2559,7 +2559,10 @@ class Stage:
         self._sub_layers.insert(logical_index, layer)
         layer._layer_idx = logical_index
 
-    def build_stage(self, from_idx=0):
+    def build_stage(self, from_idx=0, node_paths=()):
+        if node_paths and list(node_paths) != [nxt_path.WORLD]:
+            raise NotImplementedError('Only the world node path is supported '
+                                      'at this time!')
         build_start_time = time.time()
         sub_layer_count = len(self._sub_layers)
         comp_layer = CompLayer()
@@ -2592,7 +2595,15 @@ class Stage:
         for sub_layer in active_layers:
             # Sort the layer node table since we do not know if its sorted
             sub_layer.sort_node_table()
-            comp_layer._sublayer_node_tables += [sub_layer._node_table]
+            if not node_paths:
+                comp_layer._sublayer_node_tables += [sub_layer._node_table]
+            else:
+                parsed_node_table = []
+                for table_entry in sub_layer._node_table:
+                    _np = nxt_path.node_namespace_to_str_path(table_entry[0])
+                    if _np in node_paths:
+                        parsed_node_table += [table_entry]
+                comp_layer._sublayer_node_tables += [parsed_node_table]
             del sub_layer
         if not comp_layer._sublayer_node_tables:
             logger.compinfo("No nodes found!")
