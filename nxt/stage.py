@@ -2743,6 +2743,9 @@ class Stage:
                 if sub_layer_idx > tgt_idx or is_comp_node:
                     # If the spec node's layer index is higher than ours
                     # it means we need to insert before it as we are stronger
+                    bases += [b for b in existing_bases[:i] if
+                              CompArc.get_arc(comp_node, b, comp_layer) ==
+                              CompArc.REFERENCE]
                     bases += [spec_node]
                     bases += [b for b in existing_bases[i:] if
                               CompArc.get_arc(comp_node, b, comp_layer) ==
