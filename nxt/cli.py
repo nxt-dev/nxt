@@ -162,7 +162,7 @@ def main():
     exec_parser.add_argument('path', type=str, nargs=1, help='file to execute')
     exec_parser.add_argument('-s', '--start', nargs='?', default=None,
                              help='start node path')
-    exec_parser.add_argument('-c', '--context', nargs='?', default='python',
+    exec_parser.add_argument('-c', '--context', nargs='?', default=None,
                              help='optional remote context to call graph in',
                              choices=list(iter_context_names()))
 
