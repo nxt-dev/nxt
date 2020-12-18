@@ -15,6 +15,7 @@ from nxt.remote import get_running_server_address
 from nxt.remote.client import NxtClient
 from .remote import contexts
 from nxt.stage import Stage
+from nxt.constants import NXT_DCC_ENV_VAR, is_standalone
 
 logger = logging.getLogger(__name__)
 
@@ -308,11 +309,9 @@ class RPCServerProcess(object):
         :param socket_log: see __init__
         :return: None or RPCServerProcess instance
         """
-        if 'maya' in sys.executable.lower():
-            # Maya's reimplementation of subprocess prevents our rpc server
-            # from working.
-            logger.warning('The nxt rpc server cannot be started from inside '
-                           'Maya.')
+        if not is_standalone():
+            logger.warning('The nxt rpc server cannot be started unless nxt '
+                           'is launched as standalone.')
             return
         rpc_server = cls(use_custom_stdout=use_custom_stdout,
                          stdout_filepath=stdout_filepath,
