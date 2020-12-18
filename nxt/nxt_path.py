@@ -122,7 +122,7 @@ def expand_relative_node_path(rel_path, start_node_path):
         return rel_path
     current_path = start_node_path
     if rel_path.startswith(NODE_SEP):
-        current_path = ''
+        return rel_path
     split_path = rel_path.split(NODE_SEP)
     for directive in split_path:
         if directive == '..':

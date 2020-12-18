@@ -162,7 +162,7 @@ def main():
     exec_parser.add_argument('path', type=str, nargs=1, help='file to execute')
     exec_parser.add_argument('-s', '--start', nargs='?', default=None,
                              help='start node path')
-    exec_parser.add_argument('-c', '--context', nargs='?', default='python',
+    exec_parser.add_argument('-c', '--context', nargs='?', default=None,
                              help='optional remote context to call graph in',
                              choices=list(iter_context_names()))
 
@@ -255,7 +255,7 @@ def main():
     elif args.which == 'test':
         d = os.path.dirname(__file__)
         path = os.path.join(d, 'test/unittests.nxt').replace(os.sep, '/')
-        test_args = argparse.Namespace(path=[path])
+        test_args = argparse.Namespace(path=[path], context=None)
         execute(test_args)
     elif args.which == 'ui':
         editor(args)
