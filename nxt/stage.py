@@ -901,9 +901,12 @@ class Stage:
             dirty_nodes += [remove_path]
             idx += 1
         for path, comp_node, dirties in comps_to_remove:
+            keep_proxy = path in paths_to_keep
+            rm_from_child_order = not keep_proxy
             _dirty, deleted = self.ripple_delete(path, comp_node, layer,
-                                                 comp_layer, dirties)
-            if path in paths_to_keep:
+                                                 comp_layer, dirties,
+                                                 rm_from_child_order)
+            if keep_proxy:
                 for item in deleted:
                     if item not in proxies_to_keep:
                         proxies_to_keep += [item]
@@ -965,7 +968,7 @@ class Stage:
                 comp_layer.collapse.pop(path)
 
     def ripple_delete(self, path, comp_node, target_layer, comp_layer,
-                      dirties=()):
+                      dirties=(), rm_from_child_order=True):
         dirty_nodes = []
         deleted = []
         deleted_paths = []
@@ -1019,8 +1022,8 @@ class Stage:
         inst_src, is_inst = get_opinion(comp_node,
                                         INTERNAL_ATTRS.INSTANCE_PATH)
         is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
-        pop_from_co = True
-        if is_inst:
+        pop_from_co = rm_from_child_order
+        if is_inst and pop_from_co:
             inst_src_pp = nxt_path.get_parent_path(inst_src)
             rt = comp_layer.RETURNS.NameDict
             src_children = comp_layer.children(inst_src_pp,
@@ -2743,6 +2746,9 @@ class Stage:
                 if sub_layer_idx > tgt_idx or is_comp_node:
                     # If the spec node's layer index is higher than ours
                     # it means we need to insert before it as we are stronger
+                    bases += [b for b in existing_bases[:i] if
+                              CompArc.get_arc(comp_node, b, comp_layer) ==
+                              CompArc.REFERENCE]
                     bases += [spec_node]
                     bases += [b for b in existing_bases[i:] if
                               CompArc.get_arc(comp_node, b, comp_layer) ==
