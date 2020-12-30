@@ -10,10 +10,12 @@ import socket
 from nxt import nxt_log
 from . import nxt_io
 from . import nxt_path
+from . import nxt_layer
 from nxt.remote import get_running_server_address
 from nxt.remote.client import NxtClient
 from .remote import contexts
 from nxt.stage import Stage
+from nxt.constants import NXT_DCC_ENV_VAR, is_standalone
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,8 @@ class Session(object):
         else:
             return self.load_file(path)
 
-    def execute_graph(self, filepath, start=None, parameters=None):
+    def execute_graph(self, filepath, start=None, parameters=None,
+                      context=None):
         """Execute the graph at the given file path. Optionally at given
         start. You may provided parameters to the parameter arg. The data
         should be formatted as follows:
@@ -177,14 +180,28 @@ class Session(object):
         value.
         :type parameters: dict
 
+        :param context: Optional name of remote context to execute graph in,
+        if none is passed the graph is executed in this interpreter.
+        :type context: str
+
         :return: a runtime CompLayer.
         """
         stage = self.get_stage(filepath)
-        self.start_rpc_if_needed(stage)
-        try:
-            return stage.execute(start=start, parameters=parameters)
-        finally:
-            self.shutdown_rpc_server()
+        if context is None:
+            self.start_rpc_if_needed(stage)
+            try:
+                return stage.execute(start=start, parameters=parameters)
+            finally:
+                self.shutdown_rpc_server()
+        else:
+            self._start_rpc_server()
+            proxy = NxtClient()
+            try:
+                cache_file = proxy.exec_in_headless(filepath, start, None,
+                                                    parameters, context)
+                return nxt_layer.CacheLayer.load_from_filepath(cache_file)
+            finally:
+                self.shutdown_rpc_server()
 
     def execute_nodes(self, filepath, node_paths, parameters=None):
         stage = self.get_stage(filepath)
@@ -292,11 +309,9 @@ class RPCServerProcess(object):
         :param socket_log: see __init__
         :return: None or RPCServerProcess instance
         """
-        if 'maya' in sys.executable.lower():
-            # Maya's reimplementation of subprocess prevents our rpc server
-            # from working.
-            logger.warning('The nxt rpc server cannot be started from inside '
-                           'Maya.')
+        if not is_standalone():
+            logger.warning('The nxt rpc server cannot be started unless nxt '
+                           'is launched as standalone.')
             return
         rpc_server = cls(use_custom_stdout=use_custom_stdout,
                          stdout_filepath=stdout_filepath,

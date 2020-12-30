@@ -27,7 +27,8 @@ import tempfile
 
 nxt_folder = os.path.dirname(os.path.abspath(__file__))
 BUILTIN_GRAPHS_DIR = os.path.join(nxt_folder, 'builtin')
-os.environ['NXT_BUILTINS'] = BUILTIN_GRAPHS_DIR
+BUILTIN_GRAPHS_ENV_VAR = 'NXT_BUILTINS'
+os.environ[BUILTIN_GRAPHS_ENV_VAR] = BUILTIN_GRAPHS_DIR
 logger = logging.getLogger(__name__)
 
 plugin_expanders = []

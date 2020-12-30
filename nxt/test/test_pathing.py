@@ -151,6 +151,10 @@ class TestNodePathing(unittest.TestCase):
         inst_path = getattr(inst_target, INTERNAL_ATTRS.INSTANCE_PATH)
         inst_source_node = comp_layer.lookup(inst_path)
         self.assertIsNotNone(inst_source_node)
+        start_node = '/some/node'
+        not_rel = '/another/node'
+        result = nxt_path.expand_relative_node_path(not_rel, start_node)
+        self.assertEqual(result, not_rel)
 
     def test_depth_trimming(self):
         inp = '/keep/it/stupid/simple'

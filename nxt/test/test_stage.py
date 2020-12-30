@@ -743,6 +743,28 @@ class StageInstance3(unittest.TestCase):
         cls.stage = Session().load_file(filepath="./StageInstanceTest_Layer0.nxt")
         cls.comp_layer = cls.stage.build_stage()
 
+    def test_deep_localized_node(self):
+        """Tests that if a node, deep in a hierarchy, is localized and then
+        instanced, does not result in the instances getting mangled into
+        implied nodes.
+        """
+        print('Testing deep localized instance node does not end up implied.')
+        real_node = self.comp_layer.lookup('/left/leg2/joints/upper')
+        self.assertIsNotNone(real_node)
+
+    def test_incidental_node_creation(self):
+        """Test creating a node via adding an attr on a layer lower than
+        the one who calls for the instance.
+        """
+        print("Test that incidentally creating a node lower than the display "
+              "layer doesn't crash")
+        attr_data = {'attrs': {'attr1': {'value': 'asdf'}}, 'name': 'upper'}
+        node, _ = self.stage.add_node(name='upper', data=attr_data,
+                                      parent='/leg/create/fk/controls',
+                                      layer=2, comp_layer=self.comp_layer,
+                                      fix_names=False)
+        self.assertIsNotNone(node)
+
     def test_name_clash(self):
         """Test that child nodes with the same name as their parent "
               "instance correctly."""

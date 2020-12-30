@@ -33,8 +33,8 @@ plugin_loader.load_plugins()
 logger = logging.getLogger('nxt')
 
 
-def execute_graph(filepath, start=None, parameters=None):
-    """Shortest code path to exeucting a graph from the nxt package.
+def execute_graph(filepath, start=None, parameters=None, context=None):
+    """Shortest code path to executing a graph from the nxt package.
     Creates a 1 off session and executes the graph within that session.
     Arguments are a direct copy of Session.execute_graph, see there for full
     details.
@@ -46,10 +46,18 @@ def execute_graph(filepath, start=None, parameters=None):
     :param parameters: Dict where key is attr path and value is new attr
     value.
     :type parameters: dict
+    :param context: Optional name of remote context to execute graph in,
+    if none is passed the graph is executed in this interpreter.
+    :type context: str
     """
+    if context and context not in contexts.iter_context_names():
+        logger.info('Valid contexts are: '
+                    '{}'.format(list(contexts.iter_context_names())))
+        raise NameError('Unknown context: "{}"'.format(context))
     one_shot_session = Session()
     one_shot_session.execute_graph(filepath,
-                                   start=start, parameters=parameters)
+                                   start=start, parameters=parameters,
+                                   context=context)
 
 
 def create_context(custom_name, interpreter_exe=sys.executable,
@@ -117,7 +125,7 @@ register_context(_context)
                            'please open "{dest_path}" and edit as needed.'
                            ''.format(exe_name=exe_name, dest_path=dest_path))
             layer = nxt_layer.SpecLayer()
-            layer.add_reference(layer_path='$NXT_BUILTINS/_context.nxt')
+            layer.add_reference(layer_path=contexts._context_graph)
         layer.set_alias('custom_{name}_context'.format(name=custom_name))
         layer.save(filepath=dest_path)
     else:

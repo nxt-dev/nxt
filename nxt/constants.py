@@ -77,3 +77,9 @@ class FILE_FORMAT(object):
 UNTITLED = 'untitled'
 IGNORE = '<!ignore!>'
 GRID_SIZE = 20  # Must be int
+NXT_DCC_ENV_VAR = 'NXT_DCC'
+STANDALONE = 'standalone'
+
+
+def is_standalone():
+    return os.environ.get(NXT_DCC_ENV_VAR) == STANDALONE

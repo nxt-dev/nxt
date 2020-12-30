@@ -1,46 +1,20 @@
 {
-    "version": "1.15",
+    "version": "1.17",
     "alias": "StageInstanceTest_Layer0",
     "color": "#8a3600",
+    "mute": false,
+    "solo": false,
     "references": [
         "./StageInstanceTest_Layer1.nxt",
         "./StageInstanceTest_Layer2.nxt"
     ],
     "meta_data": {
         "positions": {
-            "/Parent": [
-                380.0,
-                -80.0
-            ],
-            "/Character/build/legs/node": [
-                0.0,
-                0.0
-            ],
-            "/spine": [
-                480.0,
-                -300.0
-            ],
-            "/OneLayerSource1": [
-                340.0,
-                0.0
-            ],
-            "/another": [
-                120.0,
-                -160.0
-            ],
-            "/node": [
-                -520.0,
-                -480.0
-            ],
             "/Character": [
                 -400.0,
                 -200.0
             ],
-            "/leg": [
-                -800.0,
-                -120.0
-            ],
-            "/OneLayerSource/node": [
+            "/Character/build/legs/node": [
                 0.0,
                 0.0
             ],
@@ -48,21 +22,65 @@
                 0.0,
                 0.0
             ],
+            "/OneLayerSource/node": [
+                0.0,
+                0.0
+            ],
             "/OneLayerSource/node1": [
                 0.0,
+                0.0
+            ],
+            "/OneLayerSource1": [
+                340.0,
+                0.0
+            ],
+            "/Parent": [
+                380.0,
+                -80.0
+            ],
+            "/another": [
+                120.0,
+                -160.0
+            ],
+            "/arm": [
+                -620.0,
+                -820.0
+            ],
+            "/control": [
+                -1200.0,
                 0.0
             ],
             "/dummy": [
                 500.0,
                 -320.0
             ],
-            "/control": [
-                -1200.0,
-                0.0
+            "/left": [
+                -220.0,
+                -900.0
+            ],
+            "/leg": [
+                -800.0,
+                -120.0
+            ],
+            "/limb": [
+                -960.0,
+                -740.0
+            ],
+            "/node": [
+                860.0,
+                -460.0
             ],
             "/node1": [
-                -100.0,
-                -480.0
+                1260.0,
+                -460.0
+            ],
+            "/right": [
+                280.0,
+                -960.0
+            ],
+            "/spine": [
+                480.0,
+                -300.0
             ]
         }
     },
@@ -74,16 +92,16 @@
             "enabled": true
         },
         "/Character/build": {
+            "child_order": [
+                "legs"
+            ],
+            "enabled": true,
             "attrs": {
                 "NAME": {
                     "type": "raw",
                     "value": "David"
                 }
-            },
-            "child_order": [
-                "legs"
-            ],
-            "enabled": true
+            }
         },
         "/Character/build/legs": {
             "child_order": [
@@ -93,37 +111,37 @@
             "enabled": true
         },
         "/Character/build/legs/left": {
+            "instance": "/leg",
+            "child_order": [
+                "create"
+            ],
+            "enabled": true,
             "attrs": {
                 "LOCAL": {},
                 "SIDE": {
                     "type": "raw",
                     "value": "L"
                 }
-            },
+            }
+        },
+        "/Character/build/legs/right": {
+            "instance": "/Character/build/legs/left",
             "child_order": [
                 "create"
             ],
-            "instance": "/leg",
-            "enabled": true
-        },
-        "/Character/build/legs/right": {
+            "enabled": true,
             "attrs": {
                 "SIDE": {
                     "type": "raw",
                     "value": "R"
                 }
-            },
-            "child_order": [
-                "create"
-            ],
-            "instance": "/Character/build/legs/left",
-            "enabled": true
+            }
         },
         "/another": {
+            "instance": "/Character",
             "child_order": [
                 "build"
             ],
-            "instance": "/Character",
             "enabled": true
         },
         "/another/build": {
@@ -140,11 +158,47 @@
             "enabled": true
         },
         "/another/build/legs/right": {
+            "instance": "/Character/build/legs/right",
             "child_order": [
                 "create"
             ],
-            "instance": "/Character/build/legs/right",
             "enabled": true
+        },
+        "/left": {
+            "child_order": [
+                "leg",
+                "leg2"
+            ],
+            "code": [
+                "",
+                "for i in range(10):",
+                "    print('Hello')"
+            ]
+        },
+        "/left/leg": {
+            "instance": "/arm",
+            "attrs": {
+                "attr": {
+                    "type": "raw",
+                    "value": "asdf"
+                }
+            },
+            "code": [
+                "import subprocess",
+                "ret = subprocess.call(['python', '-c' 'asdf'])",
+                "if ret != 1:",
+                "    raise Exception('Call failed!')"
+            ]
+        },
+        "/left/leg/joints/upper/snap_joint": {
+            "attrs": {
+                "attr": {
+                    "value": "123"
+                }
+            }
+        },
+        "/left/leg2": {
+            "instance": "/left/leg"
         },
         "/node": {
             "child_order": [
@@ -160,12 +214,15 @@
             "enabled": true
         },
         "/node1": {
+            "instance": "/node",
             "child_order": [
                 "node1",
                 "node"
             ],
-            "instance": "/node",
             "enabled": true
+        },
+        "/right": {
+            "instance": "/left"
         }
     }
 }

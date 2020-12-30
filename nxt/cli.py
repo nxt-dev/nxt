@@ -11,7 +11,9 @@ from nxt.session import Session
 
 from nxt import legacy
 from nxt import nxt_log
-from nxt.constants import API_VERSION, GRAPH_VERSION
+from nxt.constants import (API_VERSION, GRAPH_VERSION, NXT_DCC_ENV_VAR,
+                           STANDALONE)
+from nxt.remote.contexts import iter_context_names
 has_editor = False
 try:
     import nxt_editor
@@ -88,6 +90,7 @@ def editor(args):
         paths = args.path
     else:
         paths = [args.path]
+    os.environ[NXT_DCC_ENV_VAR] = STANDALONE
     sys.exit(nxt_editor.launch_editor(paths, start_rpc=not args.no_rpc))
 
 
@@ -118,7 +121,7 @@ def execute(args):
         val = parameter_list[i + 1]
         parameters[key] = val
         i += 2
-    Session().execute_graph(args.path[0], start, parameters)
+    Session().execute_graph(args.path[0], start, parameters, args.context)
     logger.execinfo('Execution finished!')
 
 
@@ -161,6 +164,9 @@ def main():
     exec_parser.add_argument('path', type=str, nargs=1, help='file to execute')
     exec_parser.add_argument('-s', '--start', nargs='?', default=None,
                              help='start node path')
+    exec_parser.add_argument('-c', '--context', nargs='?', default=None,
+                             help='optional remote context to call graph in',
+                             choices=list(iter_context_names()))
 
     convert_parser = subs.add_parser('convert', help='upgrades old save file to'
                                                      ' current version.'
@@ -251,7 +257,7 @@ def main():
     elif args.which == 'test':
         d = os.path.dirname(__file__)
         path = os.path.join(d, 'test/unittests.nxt').replace(os.sep, '/')
-        test_args = argparse.Namespace(path=[path])
+        test_args = argparse.Namespace(path=[path], context=None)
         execute(test_args)
     elif args.which == 'ui':
         editor(args)

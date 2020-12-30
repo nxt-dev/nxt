@@ -56,7 +56,7 @@ def make_token_str(token_content):
     :return: token content wrapped in token syntax
     :rtype: str
     """
-    return TOKEN_PREFIX + token_content + TOKEN_SUFFIX
+    return '{}{}{}'.format(TOKEN_PREFIX, token_content, TOKEN_SUFFIX)
 
 
 def get_standalone_tokens(raw_value, token_types=TOKENTYPE.ALL):
