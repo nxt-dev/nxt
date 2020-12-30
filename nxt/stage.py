@@ -2980,6 +2980,11 @@ class Stage:
                          links=[node_path])
             return to_do
         real_inst_path = _expand(instance_path, node_path)
+        # Check that instance isn't an ancestor
+        if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
+            logger.error('{} attempted to instance an ancestor!'
+                         ''.format(node_path), links=[node_path])
+            return to_do
         setattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, real_inst_path)
         self.extend_dirty_map(real_inst_path, node_path,
                               comp_layer._dirty_map)
