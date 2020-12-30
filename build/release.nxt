@@ -258,27 +258,6 @@
     },
     "nodes": {
         "/": {
-            "child_order": [
-                "CheckCommits",
-                "ValidatePushed",
-                "CreateRelease",
-                "BeginPR",
-                "ParseGitReturn",
-                "ParseGitReturn2",
-                "GitCmd",
-                "GitCmd2",
-                "JsonLoad2",
-                "BeginRelease",
-                "GitCurBranch2",
-                "GenerateHotkeysMD",
-                "UpdateMasterPR",
-                "GenerateChangelog",
-                "versions",
-                "ReleaseLoop",
-                "PR_Dev",
-                "MakeReleaseDir",
-                "make_module_folder"
-            ],
             "comment": "This graph is meant to be referenced into another graph to run, only edit if you are sure you know what you're doing.\nAttrs will auto populate with the correct data as the graph runs. The only thing you need to setup is the 'release_type'.\nExpects you to have a 'secrets' file in the same dir as this graph. See the attr comment on 'secrets'.",
             "attrs": {
                 "branch": {
@@ -382,7 +361,7 @@
         },
         "/BeginPR/DoDev": {
             "code": [
-                "if ${/versions.hotfix}:",
+                "if ${/versions.hotfix} and '${branch}' != 'dev':",
                 "    execute(start='/PR_Dev')"
             ]
         },
