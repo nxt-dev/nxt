@@ -11,7 +11,8 @@ from nxt.session import Session
 
 from nxt import legacy
 from nxt import nxt_log
-from nxt.constants import API_VERSION, GRAPH_VERSION
+from nxt.constants import (API_VERSION, GRAPH_VERSION, NXT_DCC_ENV_VAR,
+                           STANDALONE)
 from nxt.remote.contexts import iter_context_names
 has_editor = False
 try:
@@ -89,6 +90,7 @@ def editor(args):
         paths = args.path
     else:
         paths = [args.path]
+    os.environ[NXT_DCC_ENV_VAR] = STANDALONE
     sys.exit(nxt_editor.launch_editor(paths, start_rpc=not args.no_rpc))
 
 
@@ -255,7 +257,7 @@ def main():
     elif args.which == 'test':
         d = os.path.dirname(__file__)
         path = os.path.join(d, 'test/unittests.nxt').replace(os.sep, '/')
-        test_args = argparse.Namespace(path=[path])
+        test_args = argparse.Namespace(path=[path], context=None)
         execute(test_args)
     elif args.which == 'ui':
         editor(args)

@@ -901,9 +901,12 @@ class Stage:
             dirty_nodes += [remove_path]
             idx += 1
         for path, comp_node, dirties in comps_to_remove:
+            keep_proxy = path in paths_to_keep
+            rm_from_child_order = not keep_proxy
             _dirty, deleted = self.ripple_delete(path, comp_node, layer,
-                                                 comp_layer, dirties)
-            if path in paths_to_keep:
+                                                 comp_layer, dirties,
+                                                 rm_from_child_order)
+            if keep_proxy:
                 for item in deleted:
                     if item not in proxies_to_keep:
                         proxies_to_keep += [item]
@@ -965,7 +968,7 @@ class Stage:
                 comp_layer.collapse.pop(path)
 
     def ripple_delete(self, path, comp_node, target_layer, comp_layer,
-                      dirties=()):
+                      dirties=(), rm_from_child_order=True):
         dirty_nodes = []
         deleted = []
         deleted_paths = []
@@ -1019,8 +1022,8 @@ class Stage:
         inst_src, is_inst = get_opinion(comp_node,
                                         INTERNAL_ATTRS.INSTANCE_PATH)
         is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
-        pop_from_co = True
-        if is_inst:
+        pop_from_co = rm_from_child_order
+        if is_inst and pop_from_co:
             inst_src_pp = nxt_path.get_parent_path(inst_src)
             rt = comp_layer.RETURNS.NameDict
             src_children = comp_layer.children(inst_src_pp,
@@ -1078,7 +1081,7 @@ class Stage:
 
         return dirty_nodes, deleted
 
-    def parent_nodes(self, nodes, parent_path, layer):
+    def parent_nodes(self, nodes, parent_path, layer, check_names=True):
         """Make the given parent path the parent of all the given nodes.
         :param nodes: Nodes that will become children of the parent.
         :type nodes: list | [tree.CompTreeNode]
@@ -1135,10 +1138,13 @@ class Stage:
                         if child_name in co:
                             co.remove(child_name)
             new_parent_node = layer.lookup(parent_path)
-            new_name = self.get_unique_node_name(name=name,
-                                                 layer=layer,
-                                                 parent_path=parent_path)
-            setattr(node, INTERNAL_ATTRS.NAME, new_name)
+            if check_names:
+                new_name = self.get_unique_node_name(name=name,
+                                                     layer=layer,
+                                                     parent_path=parent_path)
+                setattr(node, INTERNAL_ATTRS.NAME, new_name)
+            else:
+                new_name = name
             if new_parent_node is not None:
                 child_order = getattr(new_parent_node,
                                       INTERNAL_ATTRS.CHILD_ORDER)
@@ -1329,7 +1335,7 @@ class Stage:
         layer.clear_node_child_cache(new_node_path)
         layer.clear_node_child_cache(old_node_path)
         if children:
-            self.parent_nodes(children, new_node_path, layer)
+            self.parent_nodes(children, new_node_path, layer, check_names=False)
         layer.refresh()
         return new_node_path
 
@@ -2415,17 +2421,24 @@ class Stage:
         :return: NxtCompNode or False
         """
         implied = False
+        force_source_layer = False
         if new_tgt_ns is None:
             new_tgt_ns = nxt_path.str_path_to_node_namespace(tgt_path)
         inst_source_node = comp_layer.lookup(source_path)
         if not inst_source_node:
-            # return
-            data = {INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.NAME):
-                        nxt_path.node_name_from_node_path(source_path)}
+            node_name = nxt_path.node_name_from_node_path(source_path)
+            data = {INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.NAME): node_name}
             inst_pp = nxt_path.get_parent_path(source_path)
+            inst_parent = comp_layer.lookup(inst_pp)
+            name_dict = comp_layer.RETURNS.NameDict
+            p_inst = getattr(inst_parent, INTERNAL_ATTRS.INSTANCE_PATH, None)
+            inst_children = comp_layer.children(p_inst, return_type=name_dict)
             inst_source_node = create_spec_node(data, comp_layer,
                                                 parent_path=inst_pp)
-            implied = True
+            if node_name in inst_children:
+                force_source_layer = True
+            else:
+                implied = True
 
         target_parent_path = nxt_path.get_parent_path(tgt_path)
         existing_node = comp_layer.lookup(tgt_path)
@@ -2448,12 +2461,18 @@ class Stage:
             new_target = CompNode.new(spec_node=spec_node)
             self.add_node_to_comp_layer(tgt_path, new_target, comp_layer,
                                         ns=new_tgt_ns)
+            # This might be the wrong place to do this...
+            parent_node = comp_layer.lookup(target_parent_path)
+            parent_layer = getattr(parent_node, INTERNAL_ATTRS.SOURCE_LAYER)
+            if force_source_layer:
+                setattr(new_target, INTERNAL_ATTRS.SOURCE_LAYER, parent_layer)
             # Setting the instance path on the comp node because it is
             # persistent if and when the node is localized.
             setattr(new_target, INTERNAL_ATTRS.INSTANCE_PATH, source_path)
             setattr(new_target,
                     INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
-                    (layer.real_path, source_path))
+                    (parent_layer, source_path))
+
         else:
             new_target = existing_node
             setattr(existing_node, INTERNAL_ATTRS.INSTANCE_PATH, source_path)
@@ -2961,11 +2980,15 @@ class Stage:
                          links=[node_path])
             return to_do
         real_inst_path = _expand(instance_path, node_path)
+        # Check that instance isn't an ancestor
+        if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
+            logger.error('{} attempted to instance an ancestor!'
+                         ''.format(node_path), links=[node_path])
+            return to_do
         setattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, real_inst_path)
         self.extend_dirty_map(real_inst_path, node_path,
                               comp_layer._dirty_map)
-        real_inst_ns = nxt_path.str_path_to_node_namespace(
-            real_inst_path)
+        real_inst_ns = nxt_path.str_path_to_node_namespace(real_inst_path)
         len_real_instance_path = len(real_inst_ns)
         # Filter stray nodes
         if real_inst_path in comp_layer._nodes_path_as_key.keys():

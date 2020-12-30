@@ -50,7 +50,7 @@ def execute_graph(filepath, start=None, parameters=None, context=None):
     if none is passed the graph is executed in this interpreter.
     :type context: str
     """
-    if context not in contexts.iter_context_names():
+    if context and context not in contexts.iter_context_names():
         logger.info('Valid contexts are: '
                     '{}'.format(list(contexts.iter_context_names())))
         raise NameError('Unknown context: "{}"'.format(context))
