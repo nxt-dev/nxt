@@ -947,6 +947,8 @@ class Stage:
         # weren't handled in the `proxies_to_keep` list.
         for path in [p for p in remove_node_paths if p not in restored_paths]:
             comp_node = comp_layer.lookup(path)
+            if not comp_node:  # skip node if it really is gone
+                continue
             self.update_inherited_attrs(comp_node, comp_layer)
         return True, dirty_nodes
 
