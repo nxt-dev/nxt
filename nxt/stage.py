@@ -866,7 +866,9 @@ class Stage:
                     break
                 if self.get_node_source_layer(base) is not layer:
                     other_specs += [base]
-            if not other_specs or getattr(comp_node, INTERNAL_ATTRS.PROXY):
+            is_not_proxy = not getattr(comp_node, INTERNAL_ATTRS.PROXY)
+            is_inst_child = False
+            if is_not_proxy:
                 parent_path = nxt_path.get_parent_path(remove_path)
                 parent_node = comp_layer.lookup(parent_path)
                 parent_inst = getattr(parent_node,
@@ -880,6 +882,10 @@ class Stage:
                     if inst_src not in other_removed_nodes:
                         proxies_to_keep += [(inst_src, remove_path)]
                         paths_to_keep += [remove_path]
+                        is_inst_child = True
+            no_other_specs = not other_specs
+            remove_comp = no_other_specs and not is_inst_child
+            if remove_comp:
                 # This node path no longer exists
                 comps_to_remove += [[remove_path, comp_node, dirties]]
                 idx += 1
