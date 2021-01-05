@@ -923,9 +923,11 @@ class Stage:
             if remove_dirty_map:
                 self.remove_from_dirty_map(path, comp_layer._dirty_map)
         restored_proxies = []
+        restored_paths = []
         for inst_src, path in proxies_to_keep:
             proxy = self.create_instance_node(inst_src, path, comp_layer)
             restored_proxies += [proxy]
+            restored_paths += [path]
             proxy_map = self.targeted_comp_proxies(proxy, path, comp_layer)
             self.targeted_comp_post_proxies(proxy_map, comp_layer)
             if path in other_removed_nodes:
@@ -935,6 +937,11 @@ class Stage:
                         other_removed_nodes.remove(r)
             if path not in dirty_nodes:
                 dirty_nodes += [path]
+        # Update inherited attrs for node paths are still valid proxies but
+        # weren't handled in the `proxies_to_keep` list.
+        for path in [p for p in remove_node_paths if p not in restored_paths]:
+            comp_node = comp_layer.lookup(path)
+            self.update_inherited_attrs(comp_node, comp_layer)
         return True, dirty_nodes
 
     @staticmethod
@@ -3262,25 +3269,37 @@ class Stage:
     @staticmethod
     def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
         handled_arcs = []
+        handled_attrs = []
+        is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
+        if is_proxy:
+            # Don't update instance path on proxy nodes, that isn't the job
+            # of this method.
+            handled_attrs += [INTERNAL_ATTRS.INSTANCE_PATH]
         for b in comp_node.__bases__:
             base_arc = CompArc.get_arc(comp_node, b, comp_layer)
+            only_check_op = False
             if base_arc not in arcs:
-                continue
+                # All arcs must be checked, but only arcs listed in the arcs
+                # list will have their opinion updated.
+                only_check_op = True
             handled_arcs += [base_arc]
             arc_attrs = CompArc.INHERITANCE_MAP.get(base_arc, ())
             for attr in arc_attrs:
+                if attr in handled_attrs:
+                    continue
                 val, has_op = get_opinion(b, attr)
                 if has_op:
-                    setattr(comp_node, attr, val)
+                    if not only_check_op:
+                        setattr(comp_node, attr, val)
+                    # Once opinion is found we don't need to revisit the attr
+                    handled_attrs += [attr]
                     continue
-                else:
+                elif not only_check_op:
                     val = INTERNAL_ATTRS.DEFAULTS.get(attr)
                     if callable(val):
                         val = val()
                     setattr(comp_node, attr, val)
-        for arc in arcs:
-            if arc in handled_arcs:
-                continue
+        for arc in [a for a in arcs if a not in handled_arcs]:
             arc_attrs = CompArc.INHERITANCE_MAP.get(arc, ())
             for attr in arc_attrs:
                 val = INTERNAL_ATTRS.DEFAULTS.get(attr)
