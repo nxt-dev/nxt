@@ -3731,6 +3731,11 @@ class Stage:
             curr_node = runtime_layer.lookup(path)
             if get_node_enabled(curr_node) is False:
                 continue
+            if not curr_node:
+                logger.grapherror("Attempted to execute non-exsistant node! "
+                                  "{}".format(path), links=[path])
+                continue
+
             logger.execinfo("Executing: " + path, links=[path])
             runtime_layer.cache_layer.set_node_enter_time(path)
             try:
