@@ -2769,6 +2769,8 @@ class Stage:
             i = 0
             # Handle reference bases
             for base in existing_bases:
+                if getattr(base, INTERNAL_ATTRS.PROXY):
+                    continue
                 is_comp_node = base.__name__ == CompNode.__name__
                 src_layer = getattr(base, INTERNAL_ATTRS.SOURCE_LAYER)
                 sub_layer = self.lookup_layer(src_layer)
