@@ -81,3 +81,10 @@ class GraphSyntaxError(GraphError):
         syntax_err_msg = ''.join(print_lines)
         syntax_err_msg = syntax_err_msg.rstrip('\n')
         super(Exception, self).__init__(syntax_err_msg)
+
+
+class InvalidNodeError(GraphError):
+    def __init__(self, node_path):
+        super(Exception, self).__init__("Attempted to execute "
+                                        "non-exsistant node! \n"
+                                        "{}".format(node_path))
