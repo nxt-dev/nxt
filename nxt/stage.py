@@ -22,7 +22,8 @@ from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
                        sort_multidimensional_list, get_active_layers,
                        get_node_local_attr_names)
 from .tokens import TOKENTYPE, plugin_tokens, Token
-from .runtime import GraphError, GraphSyntaxError, get_traceback_lineno
+from .runtime import (GraphError, GraphSyntaxError, InvalidNodeError,
+                      get_traceback_lineno)
 
 logger = logging.getLogger(__name__)
 
@@ -3732,9 +3733,7 @@ class Stage:
             if get_node_enabled(curr_node) is False:
                 continue
             if not curr_node:
-                logger.grapherror("Attempted to execute non-exsistant node! "
-                                  "{}".format(path), links=[path])
-                continue
+                raise InvalidNodeError(path)
 
             logger.execinfo("Executing: " + path, links=[path])
             runtime_layer.cache_layer.set_node_enter_time(path)
