@@ -743,6 +743,31 @@ class StageInstance3(unittest.TestCase):
         cls.stage = Session().load_file(filepath="./StageInstanceTest_Layer0.nxt")
         cls.comp_layer = cls.stage.build_stage()
 
+    def test_localized_by_code(self):
+        """Tests the when a node is localized by setting its code the comp
+        node is properly updated."""
+        print('Testing setting code on proxy node properly comps.')
+        new_code = ['123']
+        self.stage.add_node(name='fk', data={'code': new_code},
+                            parent='/Character/build/legs/left/create',
+                            layer=0, comp_layer=self.comp_layer,
+                            fix_names=False)
+        full_path = '/Character/build/legs/left/create/fk'
+        new_node = self.comp_layer.lookup(full_path)
+        live_code = getattr(new_node, INTERNAL_ATTRS.COMPUTE)
+        # Test the code is set
+        self.assertIs(new_code, live_code)
+        layer = self.stage.top_layer
+        spec_node = layer.lookup(full_path)
+        self.stage.delete_node(spec_node, layer=layer,
+                               comp_layer=self.comp_layer,
+                               remove_layer_data=False)
+        comp_node = self.comp_layer.lookup(full_path)
+        live_code = getattr(new_node, INTERNAL_ATTRS.COMPUTE)
+        # Test the code is gone
+        self.assertEqual([], live_code)
+
+
     def test_deep_localized_node(self):
         """Tests that if a node, deep in a hierarchy, is localized and then
         instanced, does not result in the instances getting mangled into

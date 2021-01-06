@@ -22,7 +22,8 @@ from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
                        sort_multidimensional_list, get_active_layers,
                        get_node_local_attr_names)
 from .tokens import TOKENTYPE, plugin_tokens, Token
-from .runtime import GraphError, GraphSyntaxError, get_traceback_lineno
+from .runtime import (GraphError, GraphSyntaxError, InvalidNodeError,
+                      get_traceback_lineno)
 
 logger = logging.getLogger(__name__)
 
@@ -866,7 +867,9 @@ class Stage:
                     break
                 if self.get_node_source_layer(base) is not layer:
                     other_specs += [base]
-            if not other_specs or getattr(comp_node, INTERNAL_ATTRS.PROXY):
+            is_not_proxy = not getattr(comp_node, INTERNAL_ATTRS.PROXY)
+            is_inst_child = False
+            if is_not_proxy:
                 parent_path = nxt_path.get_parent_path(remove_path)
                 parent_node = comp_layer.lookup(parent_path)
                 parent_inst = getattr(parent_node,
@@ -880,6 +883,10 @@ class Stage:
                     if inst_src not in other_removed_nodes:
                         proxies_to_keep += [(inst_src, remove_path)]
                         paths_to_keep += [remove_path]
+                        is_inst_child = True
+            no_other_specs = not other_specs
+            remove_comp = no_other_specs and not is_inst_child
+            if remove_comp:
                 # This node path no longer exists
                 comps_to_remove += [[remove_path, comp_node, dirties]]
                 idx += 1
@@ -923,9 +930,11 @@ class Stage:
             if remove_dirty_map:
                 self.remove_from_dirty_map(path, comp_layer._dirty_map)
         restored_proxies = []
+        restored_paths = []
         for inst_src, path in proxies_to_keep:
             proxy = self.create_instance_node(inst_src, path, comp_layer)
             restored_proxies += [proxy]
+            restored_paths += [path]
             proxy_map = self.targeted_comp_proxies(proxy, path, comp_layer)
             self.targeted_comp_post_proxies(proxy_map, comp_layer)
             if path in other_removed_nodes:
@@ -935,6 +944,13 @@ class Stage:
                         other_removed_nodes.remove(r)
             if path not in dirty_nodes:
                 dirty_nodes += [path]
+        # Update inherited attrs for node paths are still valid proxies but
+        # weren't handled in the `proxies_to_keep` list.
+        for path in [p for p in remove_node_paths if p not in restored_paths]:
+            comp_node = comp_layer.lookup(path)
+            if not comp_node:  # skip node if it really is gone
+                continue
+            self.update_inherited_attrs(comp_node, comp_layer)
         return True, dirty_nodes
 
     @staticmethod
@@ -2753,6 +2769,8 @@ class Stage:
             i = 0
             # Handle reference bases
             for base in existing_bases:
+                if getattr(base, INTERNAL_ATTRS.PROXY):
+                    continue
                 is_comp_node = base.__name__ == CompNode.__name__
                 src_layer = getattr(base, INTERNAL_ATTRS.SOURCE_LAYER)
                 sub_layer = self.lookup_layer(src_layer)
@@ -3262,25 +3280,37 @@ class Stage:
     @staticmethod
     def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
         handled_arcs = []
+        handled_attrs = []
+        is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
+        if is_proxy:
+            # Don't update instance path on proxy nodes, that isn't the job
+            # of this method.
+            handled_attrs += [INTERNAL_ATTRS.INSTANCE_PATH]
         for b in comp_node.__bases__:
             base_arc = CompArc.get_arc(comp_node, b, comp_layer)
+            only_check_op = False
             if base_arc not in arcs:
-                continue
+                # All arcs must be checked, but only arcs listed in the arcs
+                # list will have their opinion updated.
+                only_check_op = True
             handled_arcs += [base_arc]
             arc_attrs = CompArc.INHERITANCE_MAP.get(base_arc, ())
             for attr in arc_attrs:
+                if attr in handled_attrs:
+                    continue
                 val, has_op = get_opinion(b, attr)
                 if has_op:
-                    setattr(comp_node, attr, val)
+                    if not only_check_op:
+                        setattr(comp_node, attr, val)
+                    # Once opinion is found we don't need to revisit the attr
+                    handled_attrs += [attr]
                     continue
-                else:
+                elif not only_check_op:
                     val = INTERNAL_ATTRS.DEFAULTS.get(attr)
                     if callable(val):
                         val = val()
                     setattr(comp_node, attr, val)
-        for arc in arcs:
-            if arc in handled_arcs:
-                continue
+        for arc in [a for a in arcs if a not in handled_arcs]:
             arc_attrs = CompArc.INHERITANCE_MAP.get(arc, ())
             for attr in arc_attrs:
                 val = INTERNAL_ATTRS.DEFAULTS.get(attr)
@@ -3704,6 +3734,9 @@ class Stage:
             curr_node = runtime_layer.lookup(path)
             if get_node_enabled(curr_node) is False:
                 continue
+            if not curr_node:
+                raise InvalidNodeError(path)
+
             logger.execinfo("Executing: " + path, links=[path])
             runtime_layer.cache_layer.set_node_enter_time(path)
             try:
