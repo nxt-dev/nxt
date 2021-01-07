@@ -1,7 +1,7 @@
 # NXT Python Core
 
 **nxt** (**/ɛn·ɛks·ti/**) is a general purpose code compositor designed for rigging, scene assembly, and automation. (node execution tree)  
-[Installation/Usage](#installationusage) | [Docs](https://nxt-devs.github.io/) | [Contributing](CONTRIBUTING.md) | [Licensing](LICENSE)
+[Installation/Usage](#installationusage) | [Docs](https://nxt-dev.github.io/) | [Contributing](CONTRIBUTING.md) | [Licensing](LICENSE)
 
 # Installation/Usage
 **This repo is the nxt core, it does not come with a UI. If you're looking for the UI, please see [the nxt editor](https://github.com/nxt-dev/nxt_editor).**
