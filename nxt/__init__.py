@@ -43,10 +43,10 @@ def execute_graph(filepath, start=None, parameters=None, context=None):
     :type filepath: str
     :param start: Path to the node to begin execution from.
     :type start: str
-    :param parameters: Dict where key is attr path and value is new attr
+    :param parameters: Dict where key is attr path and value is new attr\
     value.
     :type parameters: dict
-    :param context: Optional name of remote context to execute graph in,
+    :param context: Optional name of remote context to execute graph in, \
     if none is passed the graph is executed in this interpreter.
     :type context: str
     """
@@ -65,8 +65,9 @@ def create_context(custom_name, interpreter_exe=sys.executable,
     """Generate a remote context given the path to an interpreter executable,
     if none is provided the current sys.executable is used. You must provide a
     custom name for your context.
+
     :param interpreter_exe: String path to python executable
-    :param custom_name: String of context name. The name users will refer to
+    :param custom_name: String of context name. The name users will refer to\
     the context by
     :param context_graph: Optional path to an existing context startup graph
     :raises: IOError, NameError

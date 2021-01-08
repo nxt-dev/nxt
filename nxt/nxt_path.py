@@ -1,4 +1,4 @@
-"""Common nxt pathing operations. Both for files and nodes.
+"""Common nxt pathing operations. Both for file and node paths.
 """
 # Built-in
 import os
@@ -19,7 +19,7 @@ def full_file_expand(path, start=None):
     :type path: str
     :param start: base directory to expand from, defaults to os cwd
     :type start: str, optional
-    :return: given path expanded. Relative paths, environment
+    :return: given path expanded. Relative paths, environment \
     variables, and user character "~" are expanded.
     :rtype: [type]
     """
@@ -109,6 +109,7 @@ def expand_relative_node_path(rel_path, start_node_path):
     """Expands given node `rel_path` using `start_node_path` as root of
     relative path. This function does not validate the path, it is only a
     string machine.
+
     :param rel_path: relative path to expand.
     :type rel_path: str
     :param start_node_path: node to treat as root of relative path.
@@ -147,6 +148,7 @@ def path_attr_partition(str_path):
     ('..', 'attr')
     >>> nxt_path.node_path_partition('..attr')
     ('.', 'attr')
+
     :param str_path: node or attribute path
     :type str_path: str
     :return: tuple of node path and attr name ('node/path', 'attr_name')
@@ -181,16 +183,37 @@ def node_namespace_to_str_path(namespace):
 
 
 def node_path_from_attr_path(attr_path):
+    """Given an attribute path, return the node path contained within.
+
+    :param attr_path: path to attribute
+    :type attr_path: str
+    :return: node path
+    :rtype: str
+    """
     node_path, _ = path_attr_partition(attr_path)
     return node_path
 
 
 def attr_name_from_attr_path(attr_path):
+    """Given an attribute path, return the attribute name.
+
+    :param attr_path: path to attribute
+    :type attr_path: str
+    :return: attr name contained within input
+    :rtype: str
+    """
     _, attr_name = path_attr_partition(attr_path)
     return attr_name
 
 
 def node_name_from_node_path(node_path):
+    """Given a node path, return the node name of specified node.
+
+    :param node_path: str
+    :type node_path: node path to get node name from
+    :return: node name
+    :rtype: str
+    """
     if node_path == WORLD:
         return WORLD
     _, _, node_name = node_path.rpartition(NODE_SEP)
@@ -199,6 +222,11 @@ def node_name_from_node_path(node_path):
 
 def get_parent_path(node_path):
     """Returns the parent path implied by given `node_path`
+
+    :param node_path: str
+    :type node_path: node path to get parent path from
+    :return: parent path
+    :rtype: str
     """
     if node_path == WORLD:
         return ''
@@ -211,6 +239,11 @@ def get_parent_path(node_path):
 def get_root_path(node_path):
     """Returns the implied "root" node of the given path.
     A root is a node with no parent.
+
+    :param node_path: str
+    :type node_path: node path to get root path from
+    :return: root path
+    :rtype: str
     """
     root_name, _, _ = node_path[1:].partition(NODE_SEP)
     return NODE_SEP + root_name
@@ -218,15 +251,39 @@ def get_root_path(node_path):
 
 def is_attr_path(path):
     """Whether the given `path` appears to be a path to an attribute.
+
+    :param node_path: str
+    :type node_path: path to check
+    :return: True/False whether path appears to be an attribute path.
+    :rtype: bool
     """
     return ATTR_SEP in path
 
 
 def make_attr_path(node_path, attr_name):
+    """Given a node path and attr name, join them into an attribute path.
+
+    :param node_path: node path to join
+    :type node_path: str
+    :param attr_name: attr name to join
+    :type attr_name: str
+    :return: constructed attribute path
+    :rtype: str
+    """
     return node_path + ATTR_SEP + attr_name
 
 
 def join_node_paths(node_path1, node_path2):
+    """Given 2 node paths, treat node_path1 as ancestor, and combine their
+    paths together
+
+    :param node_path1: intended ancestor of given paths
+    :type node_path1: str
+    :param node_path2: intended descendant of given paths
+    :type node_path2: str
+    :return: path to descendant of node_path1
+    :rtype: str
+    """
     if not isinstance(node_path2, (tuple, list)):
         node_path2 = (node_path2,)
     extras = (node_path1,) + node_path2
@@ -235,6 +292,18 @@ def join_node_paths(node_path1, node_path2):
 
 
 def replace_ancestor(path, old_ancestor, new_ancestor):
+    """Given a node path, replace given old ancestor path with new ancestor \
+        path.
+
+    :param path: Original path which will have its ancestor replaced
+    :type path: str
+    :param old_ancestor: Path to ancestor of `path` that will be replaced
+    :type old_ancestor: str
+    :param new_ancestor: New ancestor to replace `old_ancestor`
+    :type new_ancestor: str
+    :return: New path with `old_ancestor` replaced with `new_ancestor`
+    :rtype: str
+    """
     path = _add_path_terminator(path)
     old_ancestor = _add_path_terminator(old_ancestor)
     new_ancestor = _add_path_terminator(new_ancestor)

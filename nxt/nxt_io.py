@@ -1,3 +1,5 @@
+"""Methods for file input and output of nxt file data.
+"""
 # Builtin
 import json
 import logging
@@ -35,6 +37,13 @@ plugin_expanders = []
 
 
 def register_reference_path_expander(expander):
+    """Register a method to expand reference paths. An expander is a callable \
+    that takes exactly 1 argument, a filepath.
+
+    :param expander: A python callable that takes a single argument, and \
+    returns an expanded filepath.
+    :type expander: callable
+    """
     global plugin_expanders
     msg = 'Registered reference path expander from ' + str(expander.__module__)
     logger.info(msg)
@@ -45,7 +54,9 @@ def load_file_data(filepath):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
     to the legacy converter for conversion.
+
     :param filepath: string of save file filepath
+    :type filepath: str
     :return: dict of file data
     """
     real_path = nxt_path.full_file_expand(filepath)
@@ -105,6 +116,7 @@ def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
     """Saves the given file data to the given file path in the given file
     format. If no filepath is provided a temp file is generated.
     The default file format is ASCII.
+
     :param save_data: dict of save data
     :param filepath: string of desired output file path or None
     :param file_format: FILE_FORMAT constant
@@ -139,6 +151,7 @@ def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
 
 def generate_temp_file(suffix='.nxt'):
     """Safely generates a temp file and returns a Windows safe path
+
     :param suffix: Optional suffix for the file, default is `.nxt`
     :return: String filepath
     """
@@ -148,6 +161,7 @@ def generate_temp_file(suffix='.nxt'):
 
 def generate_temp_dir(prefix='nxt_tmp_'):
     """Safely generates a temp dir and returns a Windows safe path
+
     :param prefix: Optional prefix to the dir name, default is `nxt_tmp_`
     :return: String dir path
     """

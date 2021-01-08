@@ -1,3 +1,5 @@
+"""Logging utilities and constants.
+"""
 # Built-in
 import pickle
 import logging
@@ -173,19 +175,18 @@ def initial_setup():
 
 def set_verbosity(level):
     """Set the verbosity of nxt logging. Controls what to output to stderr.
-    3 legal levels specified by integer. NOTE node prints are not affected.
-    0 - Nothing
-    1 - EXECINFO and higher
-    2 - Everything
-
-    TODO when the swap to dedicated loggers is made. Level 1 should install
-    a stderr handler only to the node execution logger.
+    3 legal levels specified by integer. NOTE node prints are not affected.\n
+    0 - Nothing\n
+    1 - EXECINFO and higher\n
+    2 - Everything\n
 
     :param level: level to set stderr verbosity to: 0, 1, or 2
     :type level: int
     :return: stderr handler, if there is one
     :rtype: logging.StreamHandler or None
     """
+    # TODO when the swap to dedicated loggers is made. Level 1 should install
+    # a stderr handler only to the node execution logger.
     root_logger = logging.getLogger('nxt')
     global verbose_handler
     if level == 'socket':
@@ -367,6 +368,7 @@ record_receiver = None
 def startup_log_socket(stream_handler=LogRecordStreamHandler):
     """Starts threaded logging socket receiver, if using a visual app a
     thread safe stream handler should be provided.
+
     :param stream_handler: Logging stream handler default LogRecordStreamHandler
     :return: LogRecordSocketReceiver()
     """
