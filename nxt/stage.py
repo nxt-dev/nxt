@@ -332,9 +332,10 @@ class Stage:
 
     def load_from_file(self, layer_data, parent_layer=None):
         """Loads from filepath into a layer. Calls itself for sub-layers it finds.
+
         :param layer_data: Clean dict of an nxt save file
-        :param parent_layer: `Layer` object that this layer will be
-        sub-layered under.
+        :param parent_layer: `Layer` object that this layer will be \
+        sub-layered under. \
         If you are creating a top layer it should be `None`
         :return: Layer object
         """
@@ -4038,6 +4039,7 @@ def determine_nxt_type(value):
 
 def w(string, quote_type=0):
     """Wraps your string in quotes.
+
     :param string: Input string to be wrapped
     :type string: str
     :param quote_type: Int 1: ', 2: ", 3: ''', 4: \"\"\"

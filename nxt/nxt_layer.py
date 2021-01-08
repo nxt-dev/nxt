@@ -1,3 +1,5 @@
+"""Ways to operate on and ask questions of nxt layers.
+"""
 # Built-in
 import os
 import json
@@ -72,10 +74,19 @@ class LayerReturnTypes(object):
 
 
 class SpecLayer(object):
+    """Layer object representing layer data from disk.
+    """
     RETURNS = LayerReturnTypes
 
     @classmethod
     def load_from_filepath(cls, filepath):
+        """Given a filepath, return a SpecLayer loaded from that path.
+
+        :param filepath: path to file to load
+        :type filepath: str
+        :return: Loaded SpecLayer
+        :rtype: SpecLayer
+        """
         layer_data = nxt_io.load_file_data(filepath)
         return cls.load_from_layer_data(layer_data)
 
@@ -84,6 +95,11 @@ class SpecLayer(object):
         return cls(layer_data)
 
     def __init__(self, layer_data=None):
+        """Create a SpecLayer, optionally from layer data.
+
+        :param layer_data: layer data dictionary, defaults to None
+        :type layer_data: dict, optional
+        """
         if layer_data is None:
             layer_data = {}
         self._cached_children = {}
@@ -568,12 +584,12 @@ class SpecLayer(object):
         """Given a layer path, a layer object, or both, add a reference to
         specified layer on this layer, optionally at a specified insert index.
 
-        :param layer_path: Path to use as reference path, defaults to None,
+        :param layer_path: Path to use as reference path, defaults to None, \
         if None is given, defaults to given `layer.real_path`
         :type layer_path: str, optional
         :param layer: layer to add as reference layer in this layer
         :type layer: SpecLayer
-        :param insert_idx: index to insert given layer at, defaults to None,
+        :param insert_idx: index to insert given layer at, defaults to None, \
         if None is given, defaults to lowest reference layer.
         :type insert_idx: int, optional
         :return: index given layer was inserted at.

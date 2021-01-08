@@ -160,7 +160,7 @@ class Session(object):
                       context=None):
         """Execute the graph at the given file path. Optionally at given
         start. You may provided parameters to the parameter arg. The data
-        should be formatted as follows:
+        should be formatted as follows::
             {
                 '/node.attr': 'New value!',
                 '/another.count: 5
@@ -171,19 +171,15 @@ class Session(object):
 
         :param filepath: Path to the graph file.
         :type filepath: str
-
-        :param start: Path to the node to begin execution from OR int
+        :param start: Path to the node to begin execution from OR int \
         of start node index
         :type start: str or int
-
-        :param parameters: Dict where key is attr path and value is new attr
+        :param parameters: Dict where key is attr path and value is new attr \
         value.
         :type parameters: dict
-
-        :param context: Optional name of remote context to execute graph in,
+        :param context: Optional name of remote context to execute graph in, \
         if none is passed the graph is executed in this interpreter.
         :type context: str
-
         :return: a runtime CompLayer.
         """
         stage = self.get_stage(filepath)
@@ -217,6 +213,7 @@ class Session(object):
         """Given a stage this method parses for the remote context node,
         if it is found in the stage's sub_layers an rpc is started.
         (if one is already run a new on will NOT be started)
+
         :param stage: stage.Stage instance
         :return: None
         """
@@ -304,6 +301,7 @@ class RPCServerProcess(object):
     def start(cls, use_custom_stdout=False, stdout_filepath=None,
               socket_log=False, stream_handler=None):
         """Quick start method for starting and returning a server if needed
+
         :param use_custom_stdout: see __init__
         :param stdout_filepath: see __init__
         :param socket_log: see __init__
@@ -321,6 +319,7 @@ class RPCServerProcess(object):
 
     def run(self):
         """Method for starting rpc server sub-process
+
         :raises: OSError
         :return: True if server was started, else False.
         """
@@ -366,6 +365,7 @@ class RPCServerProcess(object):
         because the connection is refused the subprocess is polled. If this
         instance doesn't own the subprocess and it fails to connect as a
         client False is returned.
+
         :return: bool of server running state
         """
         is_running = False
@@ -383,6 +383,7 @@ class RPCServerProcess(object):
     def terminate(self):
         """Attempts to kill the rpc server.
         Note: The server is killed even if it isn't owned by this class!
+
         :return: None
         """
         try:

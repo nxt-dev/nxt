@@ -1,3 +1,5 @@
+"""Code used while a graph is running.
+"""
 # Built-in
 import code
 import sys
@@ -9,6 +11,37 @@ from . import IGNORE
 
 logger = logging.getLogger(__name__)
 
+def w(string, quote_type=0):
+    """Wraps given string in quotes.
+
+    :param string: Input string to be wrapped
+    :type string: str
+    :param quote_type: Int 1: ', 2: ", 3: ''', 4: \"\"\" Default is 1, any \
+        string can also be provided and we will wrap the string arg in that \
+        string ie w('Hello World', '$') returns '$Hello World$'.
+    :type quote_type: int or str
+    :return: String wrapped in quote marks or custom string
+    """
+    raise NotImplementedError("Written here for documentation, real "
+                              "implementation in stage.py")
+
+def execute(paths=(), start=None, parameters=None):
+    """While within node code, this method runs other parts of the graph, \
+        allowing non-linear execution.
+
+    :param paths: iterable of paths to execute, defaults to ()
+    :type paths: iterable, optional
+    :param start: node path to start from, defaults to None. \
+        NOTE must give *either* paths or start, both is invalid input.
+    :type start: str, optional
+    :param parameters: parameters dictionary to apply before exectuion, \
+        defaults to None
+    :type parameters: dict, optional
+    :raises GraphError: When there is a problem with execution.
+    :raises ValueError: When not given either node paths or a start path.
+    """
+    raise NotImplementedError("Written here for documentation, real "
+                              "implementation in stage.py")
 
 class Console(code.InteractiveConsole):
     def __init__(self, _globals=None, _locals=None, filename=IGNORE,

@@ -1,3 +1,5 @@
+"""Utitiles for parsing and create nxt token strings.
+"""
 # Built-in
 import logging
 import sys
@@ -14,6 +16,19 @@ plugin_tokens = []
 
 
 def register_token(prefix, detect, resolve):
+    """Define a token to be expandable by resolve. Requires 3 components, a \
+        prefix, a detect callable, and a resolve callable.
+
+    For an example token see the example plugin in the nxt plugins directory.
+
+    :param prefix: prefix of token
+    :type prefix: str
+    :param detect: callable that takes a single argument and returns True if \
+        given input can be resolved by this token type.
+    :type detect: callable
+    :param resolve: callable that resolves token content
+    :type resolve: callable
+    """
     logger.info('Registered token: ' + prefix)
     new_token = Token(prefix, detect, resolve)
     global plugin_tokens
@@ -59,7 +74,7 @@ def make_token_str(token_content):
     return '{}{}{}'.format(TOKEN_PREFIX, token_content, TOKEN_SUFFIX)
 
 
-def get_standalone_tokens(raw_value, token_types=TOKENTYPE.ALL):
+def get_standalone_tokens(raw_value, token_types=None):
     """Get tokens in the given value that are not nested within another token.
     If none are found, an empty list is returned.
     If the token syntax is malformed(extra starts or ends), return empty list.
@@ -67,10 +82,10 @@ def get_standalone_tokens(raw_value, token_types=TOKENTYPE.ALL):
 
     :param raw_value: value to find standalone tokens in.
     :type raw_value: str
-    :param token_types: Optionally a list of specific token types can be
-    provided, only standalone tokens that look like those token type(s) will
+    :param token_types: Optionally a list of specific token types can be \
+    provided, only standalone tokens that look like those token type(s) will \
     be returned.
-    :type token_types: list or tuple
+    :type token_types: list, tuple, or None
     :return: list of standalone tokens, if found.
     :rtype: list
     """
@@ -81,6 +96,8 @@ def get_standalone_tokens(raw_value, token_types=TOKENTYPE.ALL):
     else:
         if not raw_value or not isinstance(raw_value, str):
             return []
+    if token_types is None:
+        token_types = TOKENTYPE.ALL
     i = 0
     bounds = []
     starts = 0
