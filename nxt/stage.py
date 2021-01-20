@@ -3312,7 +3312,7 @@ class Stage:
                     setattr(comp_node, attr, val)
         for arc in [a for a in arcs if a not in handled_arcs]:
             arc_attrs = CompArc.INHERITANCE_MAP.get(arc, ())
-            for attr in arc_attrs:
+            for attr in [a for a in arc_attrs if a not in handled_attrs]:
                 val = INTERNAL_ATTRS.DEFAULTS.get(attr)
                 if callable(val):
                     val = val()
