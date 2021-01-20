@@ -2,10 +2,7 @@ name: nxtdocs
 channels:
   - conda-forge
 dependencies:
-  - python=2.7
-  - qt.py=1.1
-  - pyside2=5.6
-  - pip
+  - nxt-core
   - pip:
     - sphinx
     - sphinx-rtd-theme

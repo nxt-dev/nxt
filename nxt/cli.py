@@ -79,6 +79,7 @@ def get_version():
 
 def editor(args):
     """Launches editor
+
     :param args: Namespace Object
     :return: None
     """
@@ -96,6 +97,7 @@ def editor(args):
 
 def execute(args):
     """Executes graph
+
     :param args: Namespace Object
     :return: None"""
     if not hasattr(args, 'parameters'):
@@ -127,6 +129,7 @@ def execute(args):
 
 def convert(args):
     """Convert save file
+
     :param args: Namespace Object
     :return: None"""
     legacy.cli_file_convert(args.path[0], args.replace)
