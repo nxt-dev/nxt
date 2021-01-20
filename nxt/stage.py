@@ -63,7 +63,7 @@ class CompArc(object):
         :return: CompArc or None
         """
         parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
-        inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH) or '/'
+        inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH) or ''
         comp_path = nxt_path.join_node_paths(parent_path,
                                              getattr(comp_node,
                                                      INTERNAL_ATTRS.NAME))
