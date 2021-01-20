@@ -325,12 +325,7 @@ def is_ancestor(path_to_check, ancestor_path):
     :return: Whether ancestor_path is ancestor of path_to_check
     :rtype: bool
     """
-    if path_to_check == ancestor_path:
-        return False
-    elif ancestor_path == WORLD:
-        return True
-    head, sep, tail = path_to_check.partition(ancestor_path)
-    return not head and tail[0] == NODE_SEP
+    return path_to_check.startswith(ancestor_path + NODE_SEP)
 
 
 def all_ancestor_paths(path):
