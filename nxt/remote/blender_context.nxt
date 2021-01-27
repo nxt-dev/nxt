@@ -1,0 +1,27 @@
+{
+    "version": "1.17",
+    "alias": "Blender_Context",
+    "color": "#e87d0d",
+    "mute": false,
+    "solo": false,
+    "references": [
+        "$NXT_BUILTINS/_context.nxt"
+    ],
+    "nodes": {
+        "/": {
+            "code": [
+                "# Builtin",
+                "import os",
+                "import sys",
+                "import json",
+                "# External",
+                "import bpy"
+            ]
+        },
+        "/enter/teardown": {
+            "code": [
+                "bpy.ops.wm.quit_blender()"
+            ]
+        }
+    }
+}

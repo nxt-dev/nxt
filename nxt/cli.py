@@ -216,7 +216,9 @@ def main():
                                default='')
     test_parser = subs.add_parser('test', help='Runs unit tests')
     test_parser.set_defaults(which='test')
-
+    if '--' in sys.argv:
+        idx = sys.argv.index('--')
+        sys.argv = sys.argv[idx:]
     try:
         args = parser.parse_args()
     except (InvalidChoice, UnrecognizedArg):
