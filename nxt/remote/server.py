@@ -119,12 +119,28 @@ class ServerFunctions(object):
         safe_graph_path = nxt_path.full_file_expand(filepath)
         # open context with graph and parameters
         os.environ[nxt_log.VERBOSE_ENV_VAR] = 'socket'
-        args = [context_exe, '-m', 'nxt.cli', 'exec', context_graph, '-p',
+        cli_args = ['exec', context_graph, '-p',
                 '/.graph_file', safe_graph_path,
                 '/.cache_file', cache_path,
                 '/.parameters_file', parameters_file]
-        if start_node:
-            args += ['/enter/call_graph._start', start_node]
+        if not context.args:
+            args = [context_exe, '-m'] + cli_args
+            if start_node:
+                args += ['/enter/call_graph._start', start_node]
+        script = os.path.join(os.path.dirname(__file__), '..', 'cli.py')
+        script = os.path.abspath(script)
+        script = script.replace(os.sep, '/')
+        if context.args:
+            extra_args = []
+            if context.args:
+                extra_args = list(context.args)
+            args = [context_exe] + extra_args + [script, '--'] + cli_args
+        # HACK solution only until refined context system rolls out to relate
+        # format strings to context names to include space for cli args.
+        if 'UE4Editor' in context_exe:
+            args = context_exe.format(cli_path=script,
+                                      cli_args=' '.join(cli_args))
+
         logger.debug('call:  {}'.format(args))
         # TODO: Find a clean way to raise exceptions from the subprocess.
         try:

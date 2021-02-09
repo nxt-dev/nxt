@@ -1430,6 +1430,11 @@ class TestExecOrder(unittest.TestCase):
         expected = ['/a', '/a/b', '/c']
         self.assertEqual(expected, found)
 
+    def test_under_disabled_parent(self):
+        found = self.comp_layer.get_exec_order('/SKIP/NO')
+        expected = ['/SKIP/NO', '/SKIP/MOON', '/c']
+        self.assertEqual(expected, found)
+
 
 if __name__ == '__main__':
     unittest.main()

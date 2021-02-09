@@ -498,7 +498,7 @@ class SpecLayer(object):
             enabled = nxt_node.get_node_enabled(node)
             if enabled is None:
                 enabled = True
-            if not enabled:
+            if start_found and not enabled:
                 continue
             if start_found:
                 exec_order += [root_path]

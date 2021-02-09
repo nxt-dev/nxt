@@ -61,50 +61,37 @@ def execute_graph(filepath, start=None, parameters=None, context=None):
 
 
 def create_context(custom_name, interpreter_exe=sys.executable,
-                   context_graph=None):
+                   context_graph=None, exe_script_args=()):
     """Generate a remote context given the path to an interpreter executable,
     if none is provided the current sys.executable is used. You must provide a
-    custom name for your context.
+    custom name for your context. If no errors are raised, the context should
+    be available without restarting NXT.
 
-    :param interpreter_exe: String path to python executable
+    :param interpreter_exe: String path to Python executable.  If another\
+    executable is supplied a script to call with that executable is expected.
     :param custom_name: String of context name. The name users will refer to\
     the context by
     :param context_graph: Optional path to an existing context startup graph
+    :param exe_script_args: If the exe arg is not a Python interpreter \
+    additional args may need to passed. For example in Blender its possible \
+    to call the blender.exe with the arg `--python`. After the args the path \
+    to the nxt cli module is inserted into the subprocess call.
+    :type exe_script_args: list | tuple
     :raises: IOError, NameError
     :return: string of the new context name
     """
-    if sys.platform.startswith('win'):
-        user_dir = os.environ['USERPROFILE']
-    else:
-        import pwd
-        user_dir = pwd.getpwuid(os.getuid()).pw_dir
-    if USER_DIR_ENV_VAR not in os.environ:
-        bad_user_dir = os.path.expanduser(os.path.join('~'))
-        bad_plugin_dir = USER_PLUGIN_DIR.replace(os.sep, '/')
-        _, _, plugin_dir = bad_plugin_dir.partition(bad_user_dir)
-        _, _, plugin_dir = plugin_dir.partition('/')
-    else:
-        plugin_dir = USER_PLUGIN_DIR
-    _user_plugin_dir = os.path.join(user_dir, plugin_dir).replace(os.sep, '/')
+    _user_plugin_dir = USER_PLUGIN_DIR.replace(os.sep, '/')
     if not custom_name:
         raise NameError('Must provide a valid name for your context!')
     interpreter_exe = interpreter_exe.replace(os.sep, '/')
-    default_c_path = ("os.path.abspath(os.path.join(os.path.dirname(__file__), "
-                      "'custom_{name}_context.nxt'))".format(name=custom_name))
-    py_file = """
-# Builtin
-import os
-
-# External
-from nxt.remote.contexts import RemoteContext, register_context
-
-# Setup Context
-_name = '{name}'
-_exe = '{interpreter_exe}'
-_graph = {context_graph}
-_context = RemoteContext(_name, _exe, _graph)
-register_context(_context)
-    """
+    default_context_graph = 'custom_{name}_context.nxt'.format(name=custom_name)
+    default_c_path = os.path.abspath(os.path.join(_user_plugin_dir,
+                                                  default_context_graph))
+    default_c_path = default_c_path.replace(os.sep, '/')
+    template_path = os.path.join(os.path.dirname(__file__),
+                                 'remote/remote_context_template.py')
+    with open(template_path, 'r') as fp:
+        py_str = fp.read()
 
     context_py_file = 'custom_{name}_context.py'.format(name=custom_name)
     context_py_filepath = os.path.join(_user_plugin_dir, context_py_file)
@@ -118,6 +105,10 @@ register_context(_context)
                                                                      '/')
         exe_name = contexts.get_current_context_exe_name()
         starter_context = contexts.starter_contexts.get(exe_name)
+        if starter_context is None:
+            fallback_exe_name = os.path.basename(interpreter_exe.lower())
+            fallback_exe_name, _ = os.path.splitext(fallback_exe_name)
+            starter_context = contexts.starter_contexts.get(fallback_exe_name)
         if starter_context:
             layer = nxt_layer.SpecLayer.load_from_filepath(starter_context)
         else:
@@ -139,9 +130,9 @@ register_context(_context)
             context_graph = os.path.relpath(context_graph, root)
         context_graph.replace(os.sep, '/')
 
-    py_file = py_file.format(name=custom_name, interpreter_exe=interpreter_exe,
-                             context_graph=context_graph)
+    py_str = py_str.format(name=custom_name, interpreter_exe=interpreter_exe,
+                           context_graph=context_graph, args=exe_script_args)
     with open(context_py_filepath, 'w+') as fp:
-        fp.write(py_file)
-    exec(py_file)
+        fp.write(py_str)
+    exec(py_str)
     return custom_name
