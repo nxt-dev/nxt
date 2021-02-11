@@ -505,7 +505,8 @@ class SpecLayer(object):
                                               LayerReturnTypes.NameDict:
                                                   name_dict}
 
-    def remove_child_to_child_cache(self, parent_path, child_path, child_node):
+    def remove_child_from_child_cache(self, parent_path, child_path,
+                                      child_node):
         if parent_path is nxt_path.WORLD:
             return
         children_cache = self._cached_children.get(parent_path)
@@ -523,13 +524,13 @@ class SpecLayer(object):
         key = getattr(child_node, nxt_node.INTERNAL_ATTRS.NAME)
         name_dict.pop(key)
 
-    def clear_node_child_cache(self, node_path):
+    def clear_node_child_cache(self, parent_path):
         try:
-            self._cached_children.pop(node_path)
+            self._cached_children.pop(parent_path)
         except KeyError:
             pass
         try:
-            self._cached_implied_children.pop(node_path)
+            self._cached_implied_children.pop(parent_path)
         except KeyError:
             pass
 
