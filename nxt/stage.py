@@ -970,7 +970,7 @@ class Stage:
         comp_layer._nodes_path_as_key.pop(path)
         comp_layer._nodes_node_as_key.pop(comp_node)
         comp_layer.clear_node_child_cache(path)
-        comp_layer.remove_child_to_child_cache(parent_path, path, comp_node)
+        comp_layer.remove_child_from_child_cache(parent_path, path, comp_node)
 
         if rm_from_child_order:
             parent_node = comp_layer.lookup(parent_path)
