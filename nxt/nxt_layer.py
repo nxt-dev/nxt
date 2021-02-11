@@ -271,9 +271,9 @@ class SpecLayer(object):
             if return_type in (LayerReturnTypes.Node, LayerReturnTypes.Path,
                                LayerReturnTypes.NodeTable):
                 return []
-            elif return_type == LayerReturnTypes.NameDict:
+            elif return_type is LayerReturnTypes.NameDict:
                 return {}
-            elif return_type == LayerReturnTypes.Boolean:
+            elif return_type is LayerReturnTypes.Boolean:
                 return False
             else:
                 logger.error('Invalid return type provided')
@@ -303,12 +303,13 @@ class SpecLayer(object):
         # Lookup implied cache
         cache_implied = False
         if include_implied:
-            implied_c_cache = self._cached_implied_children.get(node_path)
-            if node_path == nxt_path.WORLD:
+            if node_path is nxt_path.WORLD:
                 implied_c_cache = None
+            else:
+                implied_c_cache = self._cached_implied_children.get(node_path)
             if implied_c_cache is not None:
                 implied_children = implied_c_cache[LayerReturnTypes.Path][:]
-                if return_type == LayerReturnTypes.Boolean and not cache_real:
+                if return_type is LayerReturnTypes.Boolean and not cache_real:
                     return bool(implied_children + children_paths)
             else:
                 path_implied = {LayerReturnTypes.Path: implied_children}
@@ -320,7 +321,7 @@ class SpecLayer(object):
                 if cache_real:
                     parent_path = getattr(node,
                                           nxt_node.INTERNAL_ATTRS.PARENT_PATH)
-                    if parent_path == node_path:
+                    if parent_path is node_path:
                         children_nodes += [node]
                         children_paths += [path]
                         node_table += [[path, node]]
@@ -328,6 +329,7 @@ class SpecLayer(object):
                         name_dict[key] = node
                 if not include_implied or not cache_implied:
                     continue
+                # TODO: Caching the ancestors could save around 51ms per loop
                 if nxt_path.is_ancestor(path, node_path):
                     trim_depth = nxt_path.get_path_depth(node_path) + 1
                     trimmed = nxt_path.trim_to_depth(path, trim_depth)
@@ -340,7 +342,7 @@ class SpecLayer(object):
             for imp in implied_children:
                 if imp not in children_paths:
                     children_paths += [imp]
-        if return_type == LayerReturnTypes.Boolean:
+        if return_type is LayerReturnTypes.Boolean:
             return bool(children_paths)
         if ordered:
             node = self.lookup(node_path)
@@ -357,7 +359,7 @@ class SpecLayer(object):
                 # return type NODE
                 for n in children_nodes:
                     c_name = getattr(n, nxt_node.INTERNAL_ATTRS.NAME)
-                    if c_name == child_name:
+                    if c_name is child_name:
                         ordered_child_nodes += [n]
                 # return type PATH
                 for p in children_paths:
@@ -385,15 +387,15 @@ class SpecLayer(object):
                     ordered_node_table += [item]
             node_table = ordered_node_table
 
-        if return_type == LayerReturnTypes.Node:
+        if return_type is LayerReturnTypes.Node:
             return children_nodes
-        elif return_type == LayerReturnTypes.Path:
+        elif return_type is LayerReturnTypes.Path:
             return children_paths
-        elif return_type == LayerReturnTypes.NodeTable:
+        elif return_type is LayerReturnTypes.NodeTable:
             return node_table
-        elif return_type == LayerReturnTypes.NameDict:
+        elif return_type is LayerReturnTypes.NameDict:
             return name_dict
-        elif return_type == LayerReturnTypes.Boolean:
+        elif return_type is LayerReturnTypes.Boolean:
             return False
         else:
             logger.error('Invalid return type provided')
@@ -474,13 +476,61 @@ class SpecLayer(object):
             return node_table
         raise TypeError('Unsupported return type {}'.format(return_type))
 
-    def clear_node_child_cache(self, node_path):
+    def add_child_to_child_cache(self, parent_path, child_path, child_node):
+        if parent_path is nxt_path.WORLD:
+            return
+        children_nodes = []
+        children_paths = []
+        node_table = []
+        name_dict = {}
+        children_cache = self._cached_children.get(parent_path)
+        if children_cache is not None:
+            children_nodes = children_cache[LayerReturnTypes.Node][:]
+            children_paths = children_cache[LayerReturnTypes.Path][:]
+            node_table = children_cache[LayerReturnTypes.NodeTable][:]
+            name_dict = copy.copy(children_cache[LayerReturnTypes.NameDict])
+
+        children_nodes += [child_node]
+        children_paths += [child_path]
+        node_table += [[child_path, child_node]]
+        key = getattr(child_node, nxt_node.INTERNAL_ATTRS.NAME)
+        name_dict[key] = child_node
+
+        self._cached_children[parent_path] = {LayerReturnTypes.Node:
+                                                  children_nodes,
+                                              LayerReturnTypes.Path:
+                                                  children_paths,
+                                              LayerReturnTypes.NodeTable:
+                                                  node_table,
+                                              LayerReturnTypes.NameDict:
+                                                  name_dict}
+
+    def remove_child_from_child_cache(self, parent_path, child_path,
+                                      child_node):
+        if parent_path is nxt_path.WORLD:
+            return
+        children_cache = self._cached_children.get(parent_path)
+        if children_cache is None:
+            return
+
+        children_nodes = children_cache[LayerReturnTypes.Node]
+        children_paths = children_cache[LayerReturnTypes.Path]
+        node_table = children_cache[LayerReturnTypes.NodeTable]
+        name_dict = children_cache[LayerReturnTypes.NameDict]
+
+        children_nodes.remove(child_node)
+        children_paths.remove(child_path)
+        node_table.remove([child_path, child_node])
+        key = getattr(child_node, nxt_node.INTERNAL_ATTRS.NAME)
+        name_dict.pop(key)
+
+    def clear_node_child_cache(self, parent_path):
         try:
-            self._cached_children.pop(node_path)
+            self._cached_children.pop(parent_path)
         except KeyError:
             pass
         try:
-            self._cached_implied_children.pop(node_path)
+            self._cached_implied_children.pop(parent_path)
         except KeyError:
             pass
 
@@ -1067,17 +1117,22 @@ def sort_multidimensional_list(multi_list, sort_by_idx):
     :param sort_by_idx: Index of sub list item to sort by
     :return: list
     """
+    if not multi_list:
+        return multi_list
     list_len = len(multi_list)
     i = 0
     while i <= list_len:
         ii = 0
-        while ii < (list_len - i - 1):
-            item_len = len(multi_list[ii][sort_by_idx])
-            next_item_len = len(multi_list[ii + 1][sort_by_idx])
+        ii_high_end = list_len - i - 1
+        item_len = len(multi_list[ii_high_end][sort_by_idx])
+        while ii < ii_high_end:
+            ii_plus_one = ii + 1
+            next_item_len = len(multi_list[ii_plus_one][sort_by_idx])
             if item_len > next_item_len:
                 _temp = multi_list[ii]
-                multi_list[ii] = multi_list[ii + 1]
-                multi_list[ii + 1] = _temp
-            ii += 1
+                multi_list[ii] = multi_list[ii_plus_one]
+                multi_list[ii_plus_one] = _temp
+            item_len = next_item_len
+            ii = ii_plus_one
         i += 1
     return multi_list

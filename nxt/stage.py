@@ -82,10 +82,10 @@ class CompArc(object):
         # instant path and finally if all that fails we check if the node to
         # check is in the instance trace. We check in this order to cut down
         # on speed cost as much as possible.
-        if parent_path == check_path and nxt_path.is_ancestor(comp_path,
+        if parent_path is check_path and nxt_path.is_ancestor(comp_path,
                                                               check_path):
             return CompArc.PARENT
-        if (inst_path == check_path or
+        if (inst_path is check_path or
                 nxt_path.is_ancestor(check_path, inst_path) or
                 node_to_check in Stage.get_instance_sources(comp_node, [],
                                                             comp_layer)):
@@ -565,7 +565,7 @@ class Stage:
         comp_layer.clear_node_child_cache(path)
         parent_node = None
         parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
-        comp_layer.clear_node_child_cache(parent_path)
+        comp_layer.add_child_to_child_cache(parent_path, path, comp_node)
         if add_to_child_order:
             parent_node = comp_layer.lookup(parent_path)
         if parent_node is not None:
@@ -970,9 +970,9 @@ class Stage:
         comp_layer._nodes_path_as_key.pop(path)
         comp_layer._nodes_node_as_key.pop(comp_node)
         comp_layer.clear_node_child_cache(path)
-        comp_layer.clear_node_child_cache(parent_path)
+        comp_layer.remove_child_from_child_cache(parent_path, path, comp_node)
+
         if rm_from_child_order:
-            comp_layer.clear_node_child_cache(parent_path)
             parent_node = comp_layer.lookup(parent_path)
             try:
                 child_order = getattr(parent_node, INTERNAL_ATTRS.CHILD_ORDER)
@@ -1180,7 +1180,7 @@ class Stage:
             # Update descendants nodes
             old_paths += [old_path]
             for path, n in list(_path_data.items()):
-                if path == new_path:
+                if path is new_path:
                     continue
                 # Update all other paths that start with the old path
                 if nxt_path.is_ancestor(path, old_path):
@@ -2920,7 +2920,7 @@ class Stage:
                 else:
                     cur_inst = getattr(inst_node,
                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
-                    if cur_inst != des:
+                    if cur_inst is not des:
                         setattr(inst_node, INTERNAL_ATTRS.INSTANCE_PATH, des)
                 arc_dict = proxy_map.get(inst_node, {})
                 proxy_parent_path = nxt_path.get_parent_path(tgt_path)
@@ -2994,7 +2994,7 @@ class Stage:
         if not instance_path:
             return to_do
         _expand = nxt_path.expand_relative_node_path
-        if instance_path == nxt_path.WORLD:
+        if instance_path is nxt_path.WORLD:
             logger.error("Invalid instance path on {}".format(node_path),
                          links=[node_path])
             return to_do
@@ -3030,7 +3030,7 @@ class Stage:
         for src_path in children:
             c_ns = nxt_path.str_path_to_node_namespace(src_path)
             # Handle instances from root node
-            if len_real_instance_path == 1:
+            if len_real_instance_path is 1:
                 split_idx = c_ns.index(real_inst_ns[0]) + 1
                 trimmed_source_ns = namespace + c_ns[split_idx:]
                 target_ns = trimmed_source_ns
@@ -3047,7 +3047,6 @@ class Stage:
             tgt_path = nxt_path.node_namespace_to_str_path(target_ns)
             target = comp_layer.lookup(tgt_path)
             if target:
-                comp_layer.clear_node_child_cache(tgt_path)
                 # Can be empty string to overload a lower layer
                 ex_inst_path = getattr(target,
                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
@@ -3110,7 +3109,7 @@ class Stage:
             for _, comp_node in instance_sorted_nodes:
                 base_path = None
                 node_path = comp_layer.get_node_path(comp_node)
-                if arc == CompArc.PARENT:
+                if arc is CompArc.PARENT:
                     parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
                     if not parent_path:
                         del node_path, comp_node
@@ -3121,7 +3120,7 @@ class Stage:
                             if comp_layer.lookup(parent_path):
                                 break
                     base_path = parent_path
-                elif arc == CompArc.INSTANCE:
+                elif arc is CompArc.INSTANCE:
                     try:
                         base_path = getattr(comp_node,
                                             INTERNAL_ATTRS.INSTANCE_PATH)
@@ -3133,7 +3132,7 @@ class Stage:
                         continue
                 base = comp_layer._nodes_path_as_key.get(base_path)
                 if not base:
-                    if base_path and base_path != nxt_path.WORLD:
+                    if base_path and base_path is not nxt_path.WORLD:
                         _node_data = comp_layer._nodes_node_as_key
                         _expand = nxt_path.expand_relative_node_path
                         cur_node_path = _node_data[comp_node]
@@ -3163,11 +3162,11 @@ class Stage:
                     self._add_base_class(comp_node, base)
                 # Assemble roots and node count
                 parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
-                no_parent = parent_path == nxt_path.WORLD
+                no_parent = parent_path is nxt_path.WORLD
                 if no_parent and comp_node not in roots:
                     roots += [comp_node]
                     root_count += 1
-                if arc_idx == 0:
+                if arc_idx is 0:
                     total_count += 1
                 del base, node_path, comp_node
             arc_idx += 1
@@ -3421,18 +3420,18 @@ class Stage:
         :param dirty_map: Dict of concerns {node/path: [other/node/path]}
         :return: Dict
         """
-        if node_path == nxt_path.WORLD or concern == nxt_path.WORLD:
+        if node_path is nxt_path.WORLD or concern is nxt_path.WORLD:
             return dirty_map
         node_concerns = dirty_map.get(node_path, [])
         if not node_concerns:
             dirty_map[node_path] = node_concerns
-        if concern != node_path and concern not in node_concerns:
+        if concern is not node_path and concern not in node_concerns:
             node_concerns += [concern]
         return dirty_map
 
     @staticmethod
     def remove_from_dirty_map(node_path, dirty_map):
-        if node_path == nxt_path.WORLD:
+        if node_path is nxt_path.WORLD:
             return dirty_map
         if node_path in dirty_map.keys():
             dirty_map.pop(node_path)
