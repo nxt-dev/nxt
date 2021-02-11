@@ -120,10 +120,9 @@ class ServerFunctions(object):
         # open context with graph and parameters
         os.environ[nxt_log.VERBOSE_ENV_VAR] = 'socket'
         cli_args = ['exec', context_graph, '-p',
-                    '/.graph_file', safe_graph_path,
-                    '/.cache_file', cache_path]
-        if parameters_file:
-            cli_args += ['/.parameters_file', parameters_file]
+                '/.graph_file', safe_graph_path,
+                '/.cache_file', cache_path,
+                '/.parameters_file', parameters_file]
         if not context.args:
             args = [context_exe, '-m'] + cli_args
             if start_node:
