@@ -562,7 +562,6 @@ class Stage:
         comp_layer._node_table += [[ns, comp_node]]
         comp_layer._nodes_path_as_key[path] = comp_node
         comp_layer._nodes_node_as_key[comp_node] = path
-        comp_layer.clear_node_child_cache(path)
         parent_node = None
         parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
         comp_layer.add_child_to_child_cache(parent_path, path, comp_node)
@@ -2700,7 +2699,6 @@ class Stage:
                                             add_to_child_order=False)
                 base_mapping[comp_node_path] = bases
                 node_count += 1
-                del spec_node, namespace, comp_node_path, comp_node
         # Loop pre comp arcs
         for arc in CompArc.PRE_PROXY_ARCS:
             overload_attrs = set(CompArc.INHERITANCE_MAP[arc] +
@@ -2740,8 +2738,6 @@ class Stage:
                         setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER,
                                 child_order_overload)
                         del spec_node
-                    del bases, idx, comp_node, ref_node_path
-            del arc
         return node_count
 
     def targeted_comp_pre_proxies(self, spec_node, new_node_path, comp_layer,
@@ -2975,7 +2971,8 @@ class Stage:
                                              rm_layer_data=False)
         return proxy_map
 
-    def discover_proxies(self, node_path, comp_node, comp_layer):
+    def discover_proxies(self, node_path, comp_node, comp_layer,
+                         namespace=None):
         """Given a node and the current comp layer this function will return
         a multi list of proxy nodes that need to be created. Its called
         discover because it must be called many times as we discover nodes
@@ -2988,7 +2985,8 @@ class Stage:
         :return: sorted list of tuples [(target_ns, src_path, tgt_path)]
         """
         to_do = []
-        namespace = nxt_path.str_path_to_node_namespace(node_path)
+        if not namespace:
+            namespace = nxt_path.str_path_to_node_namespace(node_path)
         instance_path = getattr(comp_node,
                                 INTERNAL_ATTRS.INSTANCE_PATH, None)
         if not instance_path:
@@ -3020,15 +3018,15 @@ class Stage:
         '''Get children'''
         # Loop the children of the instance source and create proxy
         # nodes as needed
-        children = comp_layer.children(real_inst_path,
-                                       comp_layer.RETURNS.Path,
-                                       include_implied=True)
-        if children:
+        inst_children = comp_layer.children(real_inst_path,
+                                            comp_layer.RETURNS.Path,
+                                            include_implied=True)
+        if inst_children:
             offset = len(namespace)
         else:
             offset = 0
-        for src_path in children:
-            c_ns = nxt_path.str_path_to_node_namespace(src_path)
+        for inst_child_src_path in inst_children:
+            c_ns = nxt_path.str_path_to_node_namespace(inst_child_src_path)
             # Handle instances from root node
             if len_real_instance_path is 1:
                 split_idx = c_ns.index(real_inst_ns[0]) + 1
@@ -3036,7 +3034,35 @@ class Stage:
                 target_ns = trimmed_source_ns
             # Handle instances from a shallow to deep ns
             elif offset > len(c_ns):
-                split_idx = c_ns.index(real_inst_ns[-1]) + 1
+                split_name = real_inst_ns[-1]
+                # TODO: Make this check smarter or make determining target
+                #  namespace smarter
+                if c_ns.count(split_name) > 1:
+                    # Make inst src children's ns safe
+                    safe_c_ns = []
+                    i = 0
+                    for n in c_ns:
+                        if n == split_name:
+                            safe_n = [n + str(i)]
+                            i += 1
+                        else:
+                            safe_n = [n]
+                        safe_c_ns += safe_n
+                    # Make the inst parent's ns safe
+                    safe_real_inst_ns = []
+                    i = 0
+                    for n in real_inst_ns:
+                        if n == split_name:
+                            safe_n = [n + str(i)]
+                            i += 1
+                        else:
+                            safe_n = [n]
+                        safe_real_inst_ns += safe_n
+                    safe_split_name = safe_real_inst_ns[-1]
+                    split_idx = safe_c_ns.index(safe_split_name) + 1
+                else:
+                    split_idx = c_ns.index(split_name) + 1
+
                 trimmed_source_ns = namespace + c_ns[split_idx:]
                 target_ns = trimmed_source_ns
             # Handle instances from a deep to a shallow ns
@@ -3051,9 +3077,9 @@ class Stage:
                 ex_inst_path = getattr(target,
                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
                 if ex_inst_path is not '':
-                    setattr(target, INTERNAL_ATTRS.INSTANCE_PATH, src_path)
+                    setattr(target, INTERNAL_ATTRS.INSTANCE_PATH, inst_child_src_path)
             else:
-                to_do += [(target_ns, src_path, tgt_path)]
+                to_do += [(target_ns, inst_child_src_path, tgt_path)]
         sort_multidimensional_list(to_do, 0)
         return to_do
 
@@ -3075,7 +3101,8 @@ class Stage:
             to_do = []
             for namespace, comp_node in comp_layer._node_table:
                 node_path = nxt_path.node_namespace_to_str_path(namespace)
-                to_do += self.discover_proxies(node_path, comp_node, comp_layer)
+                to_do += self.discover_proxies(node_path, comp_node,
+                                               comp_layer, namespace=namespace)
             sort_multidimensional_list(to_do, 0)
             # Create and add new proxy nodes to the comp layer
             for new_tgt_ns, new_source_path, new_tgt_path, in to_do:
