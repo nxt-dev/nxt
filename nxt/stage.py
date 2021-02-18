@@ -3021,55 +3021,9 @@ class Stage:
         inst_children = comp_layer.children(real_inst_path,
                                             comp_layer.RETURNS.Path,
                                             include_implied=True)
-        if inst_children:
-            offset = len(namespace)
-        else:
-            offset = 0
         for inst_child_src_path in inst_children:
             c_ns = nxt_path.str_path_to_node_namespace(inst_child_src_path)
-            # Handle instances from root node
-            if len_real_instance_path is 1:
-                split_idx = c_ns.index(real_inst_ns[0]) + 1
-                trimmed_source_ns = namespace + c_ns[split_idx:]
-                target_ns = trimmed_source_ns
-            # Handle instances from a shallow to deep ns
-            elif offset > len(c_ns):
-                split_name = real_inst_ns[-1]
-                # TODO: Make this check smarter or make determining target
-                #  namespace smarter
-                if c_ns.count(split_name) > 1:
-                    # Make inst src children's ns safe
-                    safe_c_ns = []
-                    i = 0
-                    for n in c_ns:
-                        if n == split_name:
-                            safe_n = [n + str(i)]
-                            i += 1
-                        else:
-                            safe_n = [n]
-                        safe_c_ns += safe_n
-                    # Make the inst parent's ns safe
-                    safe_real_inst_ns = []
-                    i = 0
-                    for n in real_inst_ns:
-                        if n == split_name:
-                            safe_n = [n + str(i)]
-                            i += 1
-                        else:
-                            safe_n = [n]
-                        safe_real_inst_ns += safe_n
-                    safe_split_name = safe_real_inst_ns[-1]
-                    split_idx = safe_c_ns.index(safe_split_name) + 1
-                else:
-                    split_idx = c_ns.index(split_name) + 1
-
-                trimmed_source_ns = namespace + c_ns[split_idx:]
-                target_ns = trimmed_source_ns
-            # Handle instances from a deep to a shallow ns
-            else:
-                trimmed_source_ns = c_ns[len_real_instance_path - offset:]
-                target_ns = self.namespace_merger(trimmed_source_ns,
-                                                  namespace)
+            target_ns = namespace + [c_ns[-1]]
             tgt_path = nxt_path.node_namespace_to_str_path(target_ns)
             target = comp_layer.lookup(tgt_path)
             if target:
