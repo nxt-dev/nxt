@@ -477,18 +477,19 @@ class SpecLayer(object):
         raise TypeError('Unsupported return type {}'.format(return_type))
 
     def add_child_to_child_cache(self, parent_path, child_path, child_node):
-        if parent_path is nxt_path.WORLD:
+        if not parent_path or parent_path == nxt_path.WORLD:
             return
-        children_nodes = []
-        children_paths = []
-        node_table = []
-        name_dict = {}
         children_cache = self._cached_children.get(parent_path)
         if children_cache is not None:
             children_nodes = children_cache[LayerReturnTypes.Node][:]
             children_paths = children_cache[LayerReturnTypes.Path][:]
             node_table = children_cache[LayerReturnTypes.NodeTable][:]
             name_dict = copy.copy(children_cache[LayerReturnTypes.NameDict])
+        else:
+            children_nodes = []
+            children_paths = []
+            node_table = []
+            name_dict = {}
 
         children_nodes += [child_node]
         children_paths += [child_path]
@@ -496,14 +497,13 @@ class SpecLayer(object):
         key = getattr(child_node, nxt_node.INTERNAL_ATTRS.NAME)
         name_dict[key] = child_node
 
-        self._cached_children[parent_path] = {LayerReturnTypes.Node:
-                                                  children_nodes,
-                                              LayerReturnTypes.Path:
-                                                  children_paths,
-                                              LayerReturnTypes.NodeTable:
-                                                  node_table,
-                                              LayerReturnTypes.NameDict:
-                                                  name_dict}
+        cache = {LayerReturnTypes.Node: children_nodes,
+                 LayerReturnTypes.Path: children_paths,
+                 LayerReturnTypes.NodeTable: node_table,
+                 LayerReturnTypes.NameDict: name_dict}
+
+        self._cached_children[parent_path] = cache
+        return
 
     def remove_child_from_child_cache(self, parent_path, child_path,
                                       child_node):
@@ -518,11 +518,23 @@ class SpecLayer(object):
         node_table = children_cache[LayerReturnTypes.NodeTable]
         name_dict = children_cache[LayerReturnTypes.NameDict]
 
-        children_nodes.remove(child_node)
-        children_paths.remove(child_path)
-        node_table.remove([child_path, child_node])
+        try:
+            children_nodes.remove(child_node)
+        except ValueError:
+            pass
+        try:
+            children_paths.remove(child_path)
+        except ValueError:
+            pass
+        try:
+            node_table.remove([child_path, child_node])
+        except ValueError:
+            pass
         key = getattr(child_node, nxt_node.INTERNAL_ATTRS.NAME)
-        name_dict.pop(key)
+        try:
+            name_dict.pop(key)
+        except KeyError:
+            pass
 
     def clear_node_child_cache(self, parent_path):
         try:

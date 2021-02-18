@@ -10,6 +10,10 @@
                 -638.4929307876455,
                 -514.9907000415888
             ],
+            "/exec_test": [
+                -1349.8916442844734,
+                -379.5868350816572
+            ],
             "/limb": [
                 -518.4929307876455,
                 -394.99070004158875
@@ -79,6 +83,12 @@
             ],
             "enabled": true
         },
+        "/exec_test": {
+            "child_order": [
+                "exec_test_child"
+            ]
+        },
+        "/exec_test/exec_test_child": {},
         "/leg": {
             "child_order": [
                 "create"
@@ -134,6 +144,9 @@
         },
         "/limb/joints/mid": {
             "instance": "../upper",
+            "child_order": [
+                "snap_joint"
+            ],
             "attrs": {
                 "jack": {
                     "type": "raw",

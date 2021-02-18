@@ -1436,5 +1436,18 @@ class TestExecOrder(unittest.TestCase):
         self.assertEqual(expected, found)
 
 
+class TestExecOrder2(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.stage = Session().load_file(filepath="./StageInstanceTest_Layer0.nxt")
+        cls.comp_layer = cls.stage.build_stage()
+
+    def test_child_cache(self):
+        found = self.comp_layer.get_exec_order('/exec_test')
+        expected = ['/exec_test', '/exec_test/exec_test_child',
+                    '/exec_test/exec_test_child/could_be_missing']
+        self.assertEqual(expected, found)
+
+
 if __name__ == '__main__':
     unittest.main()
