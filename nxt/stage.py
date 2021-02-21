@@ -4015,7 +4015,8 @@ def determine_nxt_type(value):
         type_name = 'raw'
     elif vs.startswith('[') and vs.endswith(']'):
         type_name = 'list'
-    elif vs.startswith('(') and vs.endswith(')'):
+    elif (vs.startswith('(') and vs.endswith(',)') or
+            vs.startswith('(') and vs.endswith(')') and vs.count(',')):
         type_name = 'tuple'
     elif vs.startswith('{') and vs.endswith('}'):
         type_name = 'dict'
