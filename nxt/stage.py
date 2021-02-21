@@ -6,6 +6,7 @@ import re
 import sys
 import time
 import types
+import traceback
 from ast import literal_eval
 from collections import OrderedDict
 
@@ -2649,9 +2650,15 @@ class Stage:
         proxy_count, loops = self.comp_proxies(comp_layer=comp_layer,
                                                node_count=node_count)
         '''Post proxy comp'''
-        root_count, total_count = self.post_proxy_comp(comp_layer=comp_layer)
-        logger.compinfo(('Number of nodes -->', total_count))
-        logger.compinfo(('Number of roots --> ', root_count))
+        try:
+            root_count, total_count = self.post_proxy_comp(comp_layer)
+            logger.compinfo(('Number of nodes -->', total_count))
+            logger.compinfo(('Number of roots --> ', root_count))
+        except Exception as e:
+            logger.debug(e)
+            logger.critical('The comp encounter a critical error')
+            comp_layer.failure = traceback.format_exc()
+
         logger.compinfo(('Number of instances created --> ', proxy_count))
         logger.compinfo(('Number of layers --> ', active_layer_count))
         logger.compinfo(('Number of loops --> ', loops))
@@ -3000,6 +3007,11 @@ class Stage:
         # Check that instance isn't an ancestor
         if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
             logger.error('{} attempted to instance an ancestor!'
+                         ''.format(node_path), links=[node_path])
+            return to_do
+        dirties = comp_layer.get_node_dirties(node_path)
+        if real_inst_path in dirties:
+            logger.error('{} attempted to instance dependant!'
                          ''.format(node_path), links=[node_path])
             return to_do
         setattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, real_inst_path)
