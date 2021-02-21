@@ -876,6 +876,8 @@ class CompLayer(SpecLayer):
         self.running = False
         self._console = Console(_globals={}, _locals={}, node_path='STAGE')
         self.cache_layer = CacheLayer()
+        # Quick and dirty hack to be used by the UI
+        self.failure = False
 
     def layer_idx(self):
         return self._layer_range[0]
