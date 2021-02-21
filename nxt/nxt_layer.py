@@ -1138,7 +1138,7 @@ def sort_multidimensional_list(multi_list, sort_by_idx):
     while i <= list_len:
         ii = 0
         ii_high_end = list_len - i - 1
-        item_len = len(multi_list[ii_high_end][sort_by_idx])
+        item_len = len(multi_list[0][sort_by_idx])
         while ii < ii_high_end:
             ii_plus_one = ii + 1
             next_item_len = len(multi_list[ii_plus_one][sort_by_idx])
@@ -1146,7 +1146,8 @@ def sort_multidimensional_list(multi_list, sort_by_idx):
                 _temp = multi_list[ii]
                 multi_list[ii] = multi_list[ii_plus_one]
                 multi_list[ii_plus_one] = _temp
-            item_len = next_item_len
+            else:
+                item_len = next_item_len
             ii = ii_plus_one
         i += 1
     return multi_list
