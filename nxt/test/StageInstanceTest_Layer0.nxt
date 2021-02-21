@@ -54,6 +54,10 @@
                 500.0,
                 -320.0
             ],
+            "/exec_test": [
+                -1349.8916442844734,
+                -379.5868350816572
+            ],
             "/left": [
                 -220.0,
                 -900.0
@@ -164,6 +168,7 @@
             ],
             "enabled": true
         },
+        "/exec_test/exec_test_child/could_be_missing": {},
         "/left": {
             "child_order": [
                 "leg",
