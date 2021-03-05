@@ -136,6 +136,8 @@ class ServerFunctions(object):
             if context.args:
                 extra_args = list(context.args)
             args = [context_exe] + extra_args + [script, '--'] + cli_args
+        else:
+            args = [context_exe, script] + cli_args
         # HACK solution only until refined context system rolls out to relate
         # format strings to context names to include space for cli args.
         if 'UE4Editor' in context_exe:
