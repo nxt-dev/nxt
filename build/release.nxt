@@ -576,7 +576,7 @@
                 },
                 "title": {
                     "type": "raw",
-                    "value": "Release v${version} (${target})"
+                    "value": "Release ${version} (${target})"
                 }
             }
         },
