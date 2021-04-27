@@ -2979,7 +2979,7 @@ class Stage:
         return proxy_map
 
     def discover_proxies(self, node_path, comp_node, comp_layer,
-                         namespace=None):
+                         namespace=None):  # real_inst_path,
         """Given a node and the current comp layer this function will return
         a multi list of proxy nodes that need to be created. Its called
         discover because it must be called many times as we discover nodes
@@ -3018,7 +3018,6 @@ class Stage:
         self.extend_dirty_map(real_inst_path, node_path,
                               comp_layer._dirty_map)
         real_inst_ns = nxt_path.str_path_to_node_namespace(real_inst_path)
-        len_real_instance_path = len(real_inst_ns)
         # Filter stray nodes
         if real_inst_path in comp_layer._nodes_path_as_key.keys():
             inst_source_node = comp_layer.lookup(real_inst_path)
@@ -3057,7 +3056,6 @@ class Stage:
         new_node_count = -1
         proxy_count = 0
         loops = 0
-        strays = {}  # Requested instances that don't exist
         implied_proxies = []
         # Create all the proxy nodes called for by instance paths
         while node_count != new_node_count:
@@ -3065,11 +3063,14 @@ class Stage:
             loops += 1
             added_inst_count = 0
             to_do = []
-            for namespace, comp_node in comp_layer._node_table:
-                node_path = nxt_path.node_namespace_to_str_path(namespace)
-                to_do += self.discover_proxies(node_path, comp_node,
-                                               comp_layer, namespace=namespace)
-            sort_multidimensional_list(to_do, 0)
+            instance_sorted = self.sort_instances(comp_layer, deep_sort=True)
+            for _, comp_node in instance_sorted:
+                node_path = comp_layer.get_node_path(comp_node)
+                namespace = nxt_path.str_path_to_node_namespace(node_path)
+                to_do += self.discover_proxies(node_path,
+                                               comp_node,
+                                               comp_layer,
+                                               namespace=namespace)
             # Create and add new proxy nodes to the comp layer
             for new_tgt_ns, new_source_path, new_tgt_path, in to_do:
                 new = self.create_instance_node(new_source_path, new_tgt_path,
@@ -3271,6 +3272,38 @@ class Stage:
         return dirties
 
     @staticmethod
+    def instance_is_possible(node_path, comp_node, comp_layer,
+                             namespace=None):
+        """Simply checks that the given node has a valid shot at having
+        proxies (instances) connected to it.
+
+        :return: Expanded instance path instance is possible, else None
+        """
+        if not namespace:
+            namespace = nxt_path.str_path_to_node_namespace(node_path)
+        instance_path = getattr(comp_node,
+                                INTERNAL_ATTRS.INSTANCE_PATH, None)
+        if not instance_path:
+            return
+        _expand = nxt_path.expand_relative_node_path
+        if instance_path is nxt_path.WORLD:
+            logger.error("Invalid instance path on {}".format(node_path),
+                         links=[node_path])
+            return
+        real_inst_path = _expand(instance_path, node_path)
+        # Check that instance isn't an ancestor
+        if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
+            logger.error('{} attempted to instance an ancestor!'
+                         ''.format(node_path), links=[node_path])
+            return
+        dirties = comp_layer.get_node_dirties(node_path)
+        if real_inst_path in dirties:
+            logger.error('{} attempted to instance dependant!'
+                         ''.format(node_path), links=[node_path])
+            return
+        return real_inst_path
+
+    @staticmethod
     def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
         handled_arcs = []
         handled_attrs = []
@@ -3355,19 +3388,52 @@ class Stage:
         else:
             self._add_base_class(comp_node, base)
 
-    def sort_instances(self, comp_layer):
+    def sort_instances(self, comp_layer, deep_sort=False):
         """Sorts instances based on the length of their trace list. An
         instance trace list is every node that is directly or indirectly
         instanced by the node in question.
+
         :param comp_layer: CompLayer
+        :param deep_sort: If True nodes are double sorted such that it is
+        guaranteed that the inst target is after its inst source. This is of
+        course slower and not always needed.
         :return: Sorted list of instance target nodes
         """
         inst_sorted_nodes = []
+        src_dict = {}
         for _, node in comp_layer._node_table:
             trace = self.get_instance_sources(node, [], comp_layer)
-            inst_sorted_nodes += [(trace, node)]
+            node_path = comp_layer.get_node_path(node)
+            item = (trace, node)
+            src_dict[node_path] = item
+            inst_sorted_nodes += [item]
         sort_multidimensional_list(inst_sorted_nodes, sort_by_idx=0)
-        return inst_sorted_nodes
+        if not deep_sort:
+            return inst_sorted_nodes
+        deep_sorted_nodes = inst_sorted_nodes[:]
+        offset_dict = {}
+        for item in inst_sorted_nodes:
+            # Now we sort relative instances to make sure they fall after
+            # their instance source in the list.
+            _, node = item
+            node_path = comp_layer.get_node_path(node)
+            real_inst_path = self.instance_is_possible(node_path, node,
+                                                       comp_layer)
+            src_item = src_dict.get(real_inst_path)
+            if src_item:
+                idx = deep_sorted_nodes.index(src_item)
+                # Track how far we've offset nodes around the given instance
+                # path. This prevents a sub-set of items in the list being
+                # reversed by _just_ inserting them directly after their inst
+                # src node
+                offset = offset_dict.get(real_inst_path, 1)  # Default to +1
+                insert_idx = idx + offset
+                deep_sorted_nodes.remove(item)
+                deep_sorted_nodes.insert(insert_idx, item)
+                # Track the new offset
+                offset_dict[real_inst_path] = offset + 1
+
+        return deep_sorted_nodes
 
     @staticmethod
     def get_instance_sources(node, trace_list, comp_layer):
@@ -3489,23 +3555,36 @@ class Stage:
             return
         old_child_order = self.get_node_child_order(node)
         setattr(node, INTERNAL_ATTRS.CHILD_ORDER, child_order)
-        if comp_layer:
-            source_node = comp_layer.lookup(node_path)
-            comp_safe_co = child_order[:]
-            if old_child_order and not child_order:  # Must re-merge orders
-                bases_dict = CompArc.get_bases_arc_dict(source_node, comp_layer)
-                for ref in bases_dict.get(CompArc.REFERENCE, []):
-                    ref_co = self.get_node_child_order(ref)
-                    comp_safe_co = list_merger(comp_safe_co, ref_co)
-                inst = bases_dict.get(CompArc.INSTANCE)
-                if inst:
-                    inst_co = self.get_node_child_order(inst)
-                    comp_safe_co = list_merger(comp_safe_co, inst_co)
-            setattr(source_node, INTERNAL_ATTRS.CHILD_ORDER, comp_safe_co)
-            dirty = self.propagate_child_order(source_node_path=node_path,
-                                               old_child_order=old_child_order,
-                                               new_child_order=comp_safe_co,
-                                               comp_layer=comp_layer)
+        if not comp_layer:
+            return dirty
+        source_node = comp_layer.lookup(node_path)
+        comp_safe_co = child_order[:]
+        comp_co = self.get_node_child_order(source_node)
+        if old_child_order and not child_order:  # Must re-merge orders
+            bases_dict = CompArc.get_bases_arc_dict(source_node, comp_layer)
+            for ref in bases_dict.get(CompArc.REFERENCE, []):
+                ref_co = self.get_node_child_order(ref)
+                comp_safe_co = list_merger(comp_safe_co, ref_co)
+            inst = bases_dict.get(CompArc.INSTANCE)
+            if inst:
+                inst_co = self.get_node_child_order(inst)
+                comp_safe_co = list_merger(comp_safe_co, inst_co)
+        else:
+            lower_child_orders = []
+            for layer in self._sub_layers[target_layer.layer_idx():]:
+                lower_node = layer.lookup(node_path)
+                if lower_node:
+                    lower_co = self.get_node_child_order(lower_node)
+                    lower_child_orders += [lower_co]
+            merged_lower_co = child_order
+            for lower_co in lower_child_orders:
+                merged_lower_co = list_merger(merged_lower_co, lower_co)
+            comp_safe_co = list_merger(merged_lower_co, comp_co)
+        setattr(source_node, INTERNAL_ATTRS.CHILD_ORDER, comp_safe_co)
+        dirty = self.propagate_child_order(source_node_path=node_path,
+                                           old_child_order=old_child_order,
+                                           new_child_order=comp_safe_co,
+                                           comp_layer=comp_layer)
         return dirty
 
     def propagate_child_order(self, source_node_path, old_child_order,
