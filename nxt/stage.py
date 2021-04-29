@@ -2979,7 +2979,7 @@ class Stage:
         return proxy_map
 
     def discover_proxies(self, node_path, comp_node, comp_layer,
-                         namespace=None):  # real_inst_path,
+                         namespace=None):
         """Given a node and the current comp layer this function will return
         a multi list of proxy nodes that need to be created. Its called
         discover because it must be called many times as we discover nodes
@@ -4193,4 +4193,3 @@ def nxt_uuid(extra=0, f=False):
     else:
         uid = (time.time() * 10) + extra
         return int(uid)
-
