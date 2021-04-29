@@ -902,6 +902,59 @@ class StageInstance3(unittest.TestCase):
         self.assertEqual(expected, inst_attrs)
 
 
+class StageInstance4(unittest.TestCase):
+
+    def setUp(self):
+        self.stage = Session().load_file(filepath="./StageRelativeInstanceChildOrder.nxt")
+        self.comp_layer = self.stage.build_stage()
+
+    def test_child_orders(self):
+        print("Testing that child order remains the same across relative "
+              "(sibling) instances")
+        expected = ['init', 'build']
+        case1_node_path = '/rig_components/limb'
+        case1_node = self.comp_layer.lookup(case1_node_path)
+        case1_co = self.stage.get_node_child_order(case1_node)
+        self.assertEqual(expected, case1_co)
+
+        case2_node_path = '/rig_components/arm'
+        case2_node = self.comp_layer.lookup(case2_node_path)
+        case2_co = self.stage.get_node_child_order(case2_node)
+        self.assertEqual(expected, case2_co)
+
+        case3_node_path = '/rig_components/leg'
+        case3_node = self.comp_layer.lookup(case3_node_path)
+        case3_co = self.stage.get_node_child_order(case3_node)
+        self.assertEqual(expected, case3_co)
+
+    def test_child_order_propagation(self):
+        print("Testing that child order propagates to relative (sibling) "
+              "instances")
+        # Set new child order
+        expected = ['build', 'init']
+        base_node_path = '/rig_components/_component'
+        target = self.stage._sub_layers[0]
+        base_node = target.lookup(base_node_path)
+        self.stage.set_node_child_order(base_node, expected,
+                                        target, comp_layer=self.comp_layer)
+        # Test it changed all the instances
+        case1_node_path = '/rig_components/limb'
+        case1_node = self.comp_layer.lookup(case1_node_path)
+        case1_co = self.stage.get_node_child_order(case1_node)
+        self.assertEqual(expected, case1_co)
+
+        case2_node_path = '/rig_components/arm'
+        case2_node = self.comp_layer.lookup(case2_node_path)
+        case2_co = self.stage.get_node_child_order(case2_node)
+        self.assertEqual(expected, case2_co)
+
+        case3_node_path = '/rig_components/leg'
+        case3_node = self.comp_layer.lookup(case3_node_path)
+        case3_co = self.stage.get_node_child_order(case3_node)
+        self.assertEqual(expected, case3_co)
+
+
+
 class StageRuntimeResolveScenarios(unittest.TestCase):
 
     def test_run_with_no_change(self):
