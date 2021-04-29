@@ -38,6 +38,7 @@
                 "",
                 "# Internal",
                 "from nxt import nxt_path, nxt_io",
+                "from nxt.runtime import GraphError",
                 "from nxt.remote.client import NxtClient",
                 "from nxt.remote.server import NxtServerException",
                 "from nxt.nxt_node import META_ATTRS, get_node_as_dict",
