@@ -1,0 +1,720 @@
+{
+    "version": "1.17",
+    "alias": "StageRelativeInstanceChildOrder",
+    "color": "#991c24",
+    "mute": false,
+    "solo": false,
+    "comp_overrides": {
+        "maya_utils_childOrderExampe.nxt": {
+            "mute": false
+        }
+    },
+    "meta_data": {
+        "positions": {
+            "/attrs": [
+                226.3406017267514,
+                -210.40255001236807
+            ],
+            "/masterControl": [
+                122.91388753912815,
+                -391.68250610525666
+            ],
+            "/mayaUtils": [
+                -520.0,
+                -40.0
+            ],
+            "/rig_components": [
+                0,
+                0
+            ],
+            "/root": [
+                1420.0,
+                220.0
+            ]
+        },
+        "collapse": {
+            "/rig_components/_component/build": true,
+            "/rig_components/_component/init": true,
+            "/rig_components/arm/build": true,
+            "/rig_components/arm/init": true,
+            "/rig_components/leg/build": true,
+            "/rig_components/leg/init": true,
+            "/rig_components/limb": false,
+            "/rig_components/limb/build": true,
+            "/rig_components/limb/init": true
+        }
+    },
+    "nodes": {
+        "/rig_components": {
+            "child_order": [
+                "trs",
+                "limb",
+                "arm",
+                "leg",
+                "_component"
+            ]
+        },
+        "/rig_components/_component": {
+            "child_order": [
+                "init",
+                "build"
+            ],
+            "attrs": {
+                "compAnim": {
+                    "type": "str",
+                    "value": "'${compName}_anim'"
+                },
+                "compAnimParent": {
+                    "type": "raw",
+                    "value": "${anim}"
+                },
+                "compName": {
+                    "type": "raw",
+                    "value": "component"
+                },
+                "compNoXform": {
+                    "type": "str",
+                    "value": "'${compName}_noXform'"
+                },
+                "compParam": {
+                    "type": "str",
+                    "value": "'param_${compName}'"
+                },
+                "compRig": {
+                    "type": "str",
+                    "value": "'${compName}_rig'"
+                },
+                "compRigParent": {
+                    "type": "raw",
+                    "value": "${rig}"
+                },
+                "compXform": {
+                    "type": "str",
+                    "value": "'${compName}_xform'"
+                }
+            }
+        },
+        "/rig_components/_component/build": {
+            "child_order": [
+                "_control"
+            ]
+        },
+        "/rig_components/_component/build/_control": {
+            "enabled": false
+        },
+        "/rig_components/_component/init": {
+            "child_order": [
+                "rigGroups",
+                "extra"
+            ],
+            "code": [
+                "BD['${compName}'] = {}"
+            ]
+        },
+        "/rig_components/_component/init/extra": {},
+        "/rig_components/_component/init/rigGroups": {
+            "child_order": [
+                "anim"
+            ]
+        },
+        "/rig_components/_component/init/rigGroups/anim": {
+            "attrs": {
+                "snapTo": {
+                    "value": "${xformParent}"
+                },
+                "xformName": {
+                    "type": "raw",
+                    "value": "${compAnim}"
+                },
+                "xformParent": {
+                    "type": "raw",
+                    "value": "${compAnimParent}"
+                }
+            }
+        },
+        "/rig_components/arm": {
+            "instance": "../limb"
+        },
+        "/rig_components/leg": {
+            "instance": "/rig_components/limb"
+        },
+        "/rig_components/leg/build/fk": {
+            "attrs": {
+                "controls": {
+                    "value": "['upper_${type}_${compName}', 'lower_${type}_${compName}', 'ankle_${type}_${compName}']"
+                }
+            }
+        },
+        "/rig_components/leg/build/ik": {
+            "attrs": {
+                "ikControl": {
+                    "value": "'ankle_${type}_${compName}'"
+                }
+            }
+        },
+        "/rig_components/limb": {
+            "instance": "../_component",
+            "attrs": {
+                "bindJoints": {
+                    "type": "list",
+                    "value": "['upper_bind', 'lower_bind', 'end_bind', 'ball_bind', 'tip_bind']"
+                },
+                "compName": {
+                    "value": "limb"
+                }
+            }
+        },
+        "/rig_components/limb/build": {
+            "child_order": [
+                "_control",
+                "bind",
+                "driven",
+                "fk",
+                "ik",
+                "masterControl",
+                "stretch"
+            ]
+        },
+        "/rig_components/limb/build/_control": {
+            "attrs": {
+                "cccParent": {
+                    "type": "str",
+                    "value": "'master_${compName}'"
+                }
+            }
+        },
+        "/rig_components/limb/build/bind": {
+            "child_order": [
+                "joints"
+            ]
+        },
+        "/rig_components/limb/build/bind/joints": {
+            "attrs": {
+                "joints": {
+                    "type": "raw",
+                    "value": "BD['${compName}']['drivenJoints'] "
+                },
+                "scaleOffset": {
+                    "type": "raw",
+                    "value": "${compAnim}"
+                }
+            }
+        },
+        "/rig_components/limb/build/driven": {
+            "child_order": [
+                "joints",
+                "switch"
+            ],
+            "attrs": {
+                "joints": {
+                    "type": "list",
+                    "value": "[joint.replace('bind','') + '${type}' for joint in ${bindJoints} if not joint.endswith('_tip')]"
+                },
+                "switchAttr": {
+                    "type": "str",
+                    "value": "'ikMode'"
+                },
+                "switchValue": {
+                    "type": "int",
+                    "value": "1"
+                },
+                "type": {
+                    "type": "raw",
+                    "value": "driven"
+                }
+            }
+        },
+        "/rig_components/limb/build/driven/joints": {
+            "instance": "../../fk/joints",
+            "child_order": [
+                "duplicate"
+            ]
+        },
+        "/rig_components/limb/build/driven/joints/duplicate": {
+            "attrs": {
+                "jointsToDuplicate": {
+                    "type": "raw",
+                    "value": "${bindJoints}[0:4]"
+                }
+            }
+        },
+        "/rig_components/limb/build/driven/switch": {
+            "child_order": [
+                "blendColors"
+            ],
+            "attrs": {
+                "switchAttr": {
+                    "type": "str",
+                    "value": "'ikMode'"
+                },
+                "switchValue": {
+                    "type": "int",
+                    "value": "1"
+                }
+            }
+        },
+        "/rig_components/limb/build/driven/switch/blendColors": {
+            "attrs": {
+                "attrsA": {
+                    "value": "['translate', 'rotate', 'scale']"
+                },
+                "blendAttr": {
+                    "type": "raw",
+                    "value": "${compParam} + '.' + ${switchAttr}"
+                },
+                "defaultValue": {
+                    "value": "${switchValue}"
+                },
+                "driven": {
+                    "value": "${joints}"
+                },
+                "driversA": {
+                    "type": "raw",
+                    "value": "BD['${compName}']['ikJoints'] "
+                },
+                "driversB": {
+                    "type": "raw",
+                    "value": "BD['${compName}']['fkJoints'] "
+                }
+            }
+        },
+        "/rig_components/limb/build/fk": {
+            "child_order": [
+                "joints",
+                "controls",
+                "applyRotations"
+            ],
+            "attrs": {
+                "controls": {
+                    "type": "list",
+                    "value": "['upper_${type}_${compName}', 'lower_${type}_${compName}', 'wrist_${type}_${compName}']"
+                },
+                "joints": {
+                    "type": "list",
+                    "value": "[joint.replace('_bind','') + '_${type}' for joint in ${bindJoints}]"
+                },
+                "type": {
+                    "type": "raw",
+                    "value": "fk"
+                }
+            }
+        },
+        "/rig_components/limb/build/fk/applyRotations": {
+            "code": [
+                "bindRotates = BD['${compName}']['bindRotation']",
+                "fkControls = ${controls}",
+                "for control, rot in zip(fkControls, bindRotates):",
+                "    mc.setAttr(control + '.r', *rot, type = 'double3')"
+            ]
+        },
+        "/rig_components/limb/build/fk/controls": {
+            "child_order": [
+                "upper",
+                "lower",
+                "end"
+            ]
+        },
+        "/rig_components/limb/build/fk/controls/end": {
+            "instance": "../lower",
+            "attrs": {
+                "message": {
+                    "type": "str",
+                    "value": "'endFk'"
+                },
+                "num": {
+                    "type": "int",
+                    "value": "2"
+                }
+            }
+        },
+        "/rig_components/limb/build/fk/controls/lower": {
+            "instance": "../upper",
+            "attrs": {
+                "cccParent": {
+                    "type": "raw",
+                    "value": "${controls}[${num}-1]"
+                },
+                "message": {
+                    "type": "str",
+                    "value": "'lowerFk'"
+                },
+                "num": {
+                    "value": "1"
+                }
+            }
+        },
+        "/rig_components/limb/build/fk/controls/upper": {
+            "instance": "../../../_control",
+            "child_order": [
+                "connect"
+            ],
+            "enabled": true,
+            "attrs": {
+                "cccName": {
+                    "type": "raw",
+                    "value": "${controls}[${num}]"
+                },
+                "message": {
+                    "type": "str",
+                    "value": "'upperFk'"
+                },
+                "num": {
+                    "type": "int",
+                    "value": "0"
+                },
+                "snapTo": {
+                    "type": "raw",
+                    "value": "${joints}[${num}]"
+                }
+            }
+        },
+        "/rig_components/limb/build/fk/controls/upper/connect": {},
+        "/rig_components/limb/build/fk/joints": {
+            "child_order": [
+                "duplicate"
+            ]
+        },
+        "/rig_components/limb/build/fk/joints/duplicate": {
+            "attrs": {
+                "jointsToDuplicate": {
+                    "value": "${bindJoints}"
+                },
+                "key": {
+                    "type": "str",
+                    "value": "'${compName}'"
+                },
+                "newJoints": {
+                    "value": "${joints}"
+                },
+                "parent": {
+                    "type": "raw",
+                    "value": "${compXform}"
+                },
+                "value": {
+                    "value": "'${type}Joints'"
+                }
+            }
+        },
+        "/rig_components/limb/build/ik": {
+            "child_order": [
+                "joints",
+                "controls",
+                "ikHandle"
+            ],
+            "attrs": {
+                "ikControl": {
+                    "type": "str",
+                    "value": "'wrist_${type}_${compName}'"
+                },
+                "ikPoleVector": {
+                    "type": "str",
+                    "value": "'pole_${type}_${compName}'"
+                },
+                "joints": {
+                    "type": "list",
+                    "value": "[joint.replace('_bind','') + '_${type}' for joint in ${bindJoints}]"
+                },
+                "type": {
+                    "type": "raw",
+                    "value": "ik"
+                }
+            }
+        },
+        "/rig_components/limb/build/ik/controls": {
+            "child_order": [
+                "main",
+                "poleVector"
+            ]
+        },
+        "/rig_components/limb/build/ik/controls/main": {
+            "instance": "../../../_control",
+            "child_order": [
+                "connect"
+            ],
+            "enabled": true,
+            "attrs": {
+                "cccName": {
+                    "value": "${ikControl}"
+                },
+                "message": {
+                    "value": "'endIk'"
+                },
+                "position": {
+                    "type": "raw",
+                    "value": "mc.xform(${joints}[2], q=1, t=1, ws=1)"
+                },
+                "rotateOrder": {
+                    "type": "raw",
+                    "value": "transforms.getRotateOrder(${joints}[2])"
+                }
+            }
+        },
+        "/rig_components/limb/build/ik/controls/main/connect": {},
+        "/rig_components/limb/build/ik/controls/poleVector": {
+            "instance": "../../../_control",
+            "enabled": true,
+            "attrs": {
+                "cccName": {
+                    "type": "raw",
+                    "value": "${ikPoleVector}"
+                },
+                "message": {
+                    "value": "'poleVector'"
+                },
+                "position": {
+                    "type": "raw",
+                    "value": "ikT.findPoleVectorPosition(${joints}[0:3], preferredAngle = BD['${compName}']['ikPreferredAngle'])"
+                }
+            }
+        },
+        "/rig_components/limb/build/ik/ikHandle": {
+            "attrs": {
+                "handleName": {
+                    "value": "'${compName}_ikHandle'"
+                },
+                "ikHandleParent": {
+                    "value": "${ikControl}"
+                },
+                "ikJoints": {
+                    "type": "raw",
+                    "value": "${joints}[0:3]"
+                },
+                "poleVector": {
+                    "value": "${ikPoleVector}"
+                }
+            }
+        },
+        "/rig_components/limb/build/ik/joints": {
+            "instance": "../../fk/joints"
+        },
+        "/rig_components/limb/build/masterControl": {
+            "child_order": [
+                "connect"
+            ],
+            "attrs": {
+                "cccName": {
+                    "type": "str",
+                    "value": "'master_${compName}'"
+                },
+                "cccParent": {
+                    "value": "${compAnim}"
+                },
+                "hierarchy": {
+                    "type": "list",
+                    "value": "['offset', 'parent']"
+                },
+                "message": {
+                    "value": "'master'"
+                },
+                "rotateOrder": {
+                    "value": "mc.getAttr(${bindJoints}[0] + '.rotateOrder')"
+                },
+                "snapTo": {
+                    "value": "${bindJoints}[0]"
+                }
+            }
+        },
+        "/rig_components/limb/build/masterControl/connect": {
+            "code": [
+                "rigT.parentScaleConst(${cccName}, ${compXform}, mo = 0)"
+            ]
+        },
+        "/rig_components/limb/build/stretch": {
+            "child_order": [
+                "paramAttrs",
+                "fk",
+                "ik"
+            ]
+        },
+        "/rig_components/limb/build/stretch/fk": {
+            "child_order": [
+                "upper",
+                "lower"
+            ]
+        },
+        "/rig_components/limb/build/stretch/fk/lower": {
+            "instance": "../upper",
+            "attrs": {
+                "section": {
+                    "value": "lower"
+                }
+            }
+        },
+        "/rig_components/limb/build/stretch/fk/upper": {
+            "attrs": {
+                "multAttrs": {
+                    "type": "list",
+                    "value": "[${compParam} + '.' + attr for attr in ['limbLength', '${section}Length']]"
+                },
+                "multName": {
+                    "value": "'${section}_fk_stretch'"
+                },
+                "outputAttr": {
+                    "type": "raw",
+                    "value": "mc.listRelatives('${section}_fk_${compName}', type = 'transform')[0] + '.t' + transforms.getPrimaryAxis('${section}_fk_${compName}')"
+                },
+                "section": {
+                    "type": "raw",
+                    "value": "upper"
+                }
+            }
+        },
+        "/rig_components/limb/build/stretch/ik": {
+            "child_order": [
+                "stretch"
+            ]
+        },
+        "/rig_components/limb/build/stretch/ik/stretch": {
+            "attrs": {
+                "ikControl": {
+                    "type": "raw",
+                    "value": "mc.listConnections(${compParam} + '.endIk')[0]"
+                },
+                "ikJoints": {
+                    "type": "raw",
+                    "value": "BD['${compName}']['ikJoints'][0:3]"
+                },
+                "lengthAttrs": {
+                    "type": "list",
+                    "value": "[${lengthControl} + '.' + attr for attr in ['limbLength', 'upperLength', 'lowerLength']]"
+                },
+                "lengthControl": {
+                    "type": "raw",
+                    "value": "${compParam}"
+                },
+                "scaleParent": {
+                    "value": "${compXform}"
+                },
+                "stretchName": {
+                    "type": "str",
+                    "value": "'${compName}'"
+                }
+            }
+        },
+        "/rig_components/limb/build/stretch/paramAttrs": {
+            "child_order": [
+                "length",
+                "upperLength",
+                "lowerLength"
+            ]
+        },
+        "/rig_components/limb/build/stretch/paramAttrs/length": {
+            "attrs": {
+                "attrName": {
+                    "type": "str",
+                    "value": "'limbLength'"
+                },
+                "control": {
+                    "value": "${compParam}"
+                },
+                "defaultValue": {
+                    "value": "1"
+                },
+                "minValue": {
+                    "value": "0"
+                }
+            }
+        },
+        "/rig_components/limb/build/stretch/paramAttrs/lowerLength": {
+            "instance": "../length",
+            "attrs": {
+                "attrName": {
+                    "type": "str",
+                    "value": "'lowerLength'"
+                }
+            }
+        },
+        "/rig_components/limb/build/stretch/paramAttrs/upperLength": {
+            "instance": "../length",
+            "attrs": {
+                "attrName": {
+                    "type": "str",
+                    "value": "'upperLength'"
+                }
+            }
+        },
+        "/rig_components/limb/init/extra": {
+            "child_order": [
+                "transferToRotates",
+                "storeAndZero",
+                "getIkData"
+            ],
+            "attrs": {
+                "joints": {
+                    "type": "raw",
+                    "value": "${bindJoints}[0:3]"
+                }
+            }
+        },
+        "/rig_components/limb/init/extra/getIkData": {},
+        "/rig_components/limb/init/extra/storeAndZero": {},
+        "/rig_components/limb/init/extra/transferToRotates": {},
+        "/rig_components/limb/init/rigGroups/anim": {
+            "attrs": {
+                "snapTo": {
+                    "value": "${bindJoints}[0]"
+                }
+            }
+        },
+        "/rig_components/limb/init/rigGroups/xform": {
+            "attrs": {
+                "constrainTo": {
+                    "value": "''"
+                }
+            }
+        },
+        "/rig_components/trs": {
+            "child_order": [
+                "master",
+                "shot",
+                "aux"
+            ],
+            "attrs": {
+                "trsAux": {
+                    "type": "str",
+                    "value": "'trs_aux'"
+                },
+                "trsMaster": {
+                    "type": "str",
+                    "value": "'trs_master'"
+                },
+                "trsShot": {
+                    "type": "str",
+                    "value": "'trs_shot'"
+                }
+            }
+        },
+        "/rig_components/trs/aux": {
+            "instance": "../master",
+            "attrs": {
+                "xformName": {
+                    "value": "${trsAux}"
+                },
+                "xformParent": {
+                    "type": "raw",
+                    "value": "${trsShot}"
+                }
+            }
+        },
+        "/rig_components/trs/master": {
+            "attrs": {
+                "xformName": {
+                    "type": "raw",
+                    "value": "${trsMaster}"
+                }
+            }
+        },
+        "/rig_components/trs/shot": {
+            "instance": "../master",
+            "attrs": {
+                "xformName": {
+                    "value": "${trsShot}"
+                },
+                "xformParent": {
+                    "type": "raw",
+                    "value": "${trsMaster}"
+                }
+            }
+        }
+    }
+}
