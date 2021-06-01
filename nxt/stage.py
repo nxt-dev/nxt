@@ -357,9 +357,8 @@ class Stage:
                 if not layer_data:
                     continue
             except IOError as e:
-                logger.error(e)
-                logger.error("Failed to open reference layer in file: "
-                             "\"{}\"".format(real_path))
+                msg_pattern = "Failed to open {} referenced by {}"
+                logger.exception(msg_pattern.format(sub_layer_path, real_path))
                 try:
                     parent_layer.sub_layer_paths.remove(sub_layer_path)
                 except ValueError:
