@@ -3,7 +3,7 @@ import unittest
 
 # Internal
 from nxt.session import Session
-from nxt.test import get_test_graph
+from nxt.test import get_test_file_path
 from nxt import DATA_STATE
 
 class TestResolve(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestResolve(unittest.TestCase):
         """When an attr has "real" newline and is subsituted into code,
         resolve that into multiple code lines
         """
-        test_graph = get_test_graph("ResolveNewlines.nxt")
+        test_graph = get_test_file_path("ResolveNewlines.nxt")
         stage = Session().load_file(test_graph)
         comp_layer = stage.build_stage()
         node=comp_layer.lookup("/test_node")
