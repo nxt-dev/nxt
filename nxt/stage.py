@@ -2367,11 +2367,14 @@ class Stage:
         :rtype: str
         """
         code_lines = getattr(node, INTERNAL_ATTRS.COMPUTE, [])
-        if data_state == DATA_STATE.RESOLVED:
-            return [str(self.resolve(node, line, layer))
-                    for line in code_lines]
-        else:
+        if data_state != DATA_STATE.RESOLVED:
             return code_lines[:]
+        result_lines = []
+        for line in code_lines:
+            resolved = self.resolve(node, line, layer)
+            # un-escaped newlines in attr values resolve to more lines.
+            result_lines += resolved.split("\n")
+        return result_lines
 
     def set_node_code_lines(self, node, code_lines, comp_layer):
         node_path = get_node_path(node)

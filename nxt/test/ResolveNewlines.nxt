@@ -1,0 +1,28 @@
+{
+    "version": "1.17",
+    "alias": "ResolveNewlines",
+    "color": "#991c24",
+    "mute": false,
+    "solo": false,
+    "meta_data": {
+        "positions": {
+            "/test_node": [
+                -262.0,
+                -118.0
+            ]
+        }
+    },
+    "nodes": {
+        "/test_node": {
+            "attrs": {
+                "attr": {
+                    "type": "raw",
+                    "value": "foo\n"
+                }
+            },
+            "code": [
+                "${attr}"
+            ]
+        }
+    }
+}
