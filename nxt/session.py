@@ -76,25 +76,12 @@ class Session(object):
         :return: New graph object, if load succeeded. Otherwise None.
         :rtype: Graph
         """
-        e = None
         try:
             layer_data = nxt_io.load_file_data(filepath)
             new_stage = Stage(layer_data=layer_data)
-        except IOError as e:
+        except IOError:
             logger.exception('Failed to open: "{}"'.format(filepath))
-            new_stage = None
-
-        if not new_stage:
-            try:
-                msg = e.message
-            except UnboundLocalError:
-                msg = ''
-            new_stage = Stage(name='File Error')
-            d = {'comment': 'Failed to load the file {}\n'
-                            '{}'.format(filepath, msg)}
-            new_stage.add_node(name='ERR', data=d)
-            new_stage.top_layer.color = 'red'
-            new_stage.top_layer.alias = 'Failed_Open'
+            raise
         self._loaded_files[new_stage.uid] = new_stage
         return new_stage
 
