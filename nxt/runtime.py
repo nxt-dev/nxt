@@ -64,11 +64,7 @@ class Console(code.InteractiveConsole):
             exec(c, self.globals)
         except KeyboardInterrupt:
             raise
-        except SystemExit:
-            logger.warning("System Exit raised in {}, "
-                           "halting execution.".format(self.node_path),
-                           links=[self.node_path])
-        except Exception as err:
+        except (SystemExit, Exception) as err:
             lineno = get_traceback_lineno(err_depth=1)
             lineno -= 1
             try:
