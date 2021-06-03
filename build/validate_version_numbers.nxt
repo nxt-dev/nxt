@@ -97,31 +97,6 @@
     },
     "nodes": {
         "/": {
-            "child_order": [
-                "CheckCommits",
-                "ValidatePushed",
-                "CreateRelease",
-                "BeginPR",
-                "ParseGitReturn",
-                "ParseGitReturn2",
-                "GitCmd",
-                "GitCmd2",
-                "CheckoutRelease",
-                "JsonLoad2",
-                "BeginRelease",
-                "GitCurBranch2",
-                "CheckoutWorking",
-                "make_package",
-                "GenerateHotkeysMD",
-                "make_module_folder",
-                "UpdateReleasePR",
-                "GenerateChangelog",
-                "ParseVersionJSON",
-                "ValidateWorking",
-                "ParseVersions",
-                "ValidateVersion",
-                "init"
-            ],
             "attrs": {
                 "API": {
                     "type": "NoneType",
@@ -361,7 +336,7 @@
                 "for rel_cat, rel_dict in version_data.items():",
                 "    actual = rel_dict['actual']",
                 "    release = rel_dict['version']",
-                "    print release",
+                "    print(release)",
                 "    rel_type = rel_dict['rel_type']",
                 "    if rel_type is None:",
                 "        continue",
@@ -385,9 +360,7 @@
                 "    setattr(STAGE, rel_cat, version_info)",
                 "    print('{} version number {} is valid {}'.format(rel_cat, actual, rel_type))",
                 "if not passed:",
-                "    raise Exception('Invlaid version numbers detected! See log')",
-                "",
-                ""
+                "    raise Exception('Invlaid version numbers detected! See log')"
             ]
         },
         "/init": {

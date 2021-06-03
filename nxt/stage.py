@@ -357,9 +357,8 @@ class Stage:
                 if not layer_data:
                     continue
             except IOError as e:
-                logger.error(e)
-                logger.error("Failed to open reference layer in file: "
-                             "\"{}\"".format(real_path))
+                msg_pattern = "Failed to open {} referenced by {}"
+                logger.exception(msg_pattern.format(sub_layer_path, real_path))
                 try:
                     parent_layer.sub_layer_paths.remove(sub_layer_path)
                 except ValueError:
@@ -2367,11 +2366,14 @@ class Stage:
         :rtype: str
         """
         code_lines = getattr(node, INTERNAL_ATTRS.COMPUTE, [])
-        if data_state == DATA_STATE.RESOLVED:
-            return [str(self.resolve(node, line, layer))
-                    for line in code_lines]
-        else:
+        if data_state != DATA_STATE.RESOLVED:
             return code_lines[:]
+        result_lines = []
+        for line in code_lines:
+            resolved = self.resolve(node, line, layer)
+            # un-escaped newlines in attr values resolve to more lines.
+            result_lines += resolved.split("\n")
+        return result_lines
 
     def set_node_code_lines(self, node, code_lines, comp_layer):
         node_path = get_node_path(node)
