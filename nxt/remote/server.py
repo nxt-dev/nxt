@@ -124,10 +124,6 @@ class ServerFunctions(object):
                     '/.cache_file', cache_path]
         if parameters_file:
             cli_args += ['/.parameters_file', parameters_file]
-        if not context.args:
-            args = [context_exe, '-m'] + cli_args
-            if start_node:
-                args += ['/enter/call_graph._start', start_node]
         script = os.path.join(os.path.dirname(__file__), '..', 'cli.py')
         script = os.path.abspath(script)
         script = script.replace(os.sep, '/')
@@ -138,6 +134,8 @@ class ServerFunctions(object):
             args = [context_exe] + extra_args + [script, '--'] + cli_args
         else:
             args = [context_exe, script] + cli_args
+            if start_node:
+                args += ['/enter/call_graph._start', start_node]
         # HACK solution only until refined context system rolls out to relate
         # format strings to context names to include space for cli args.
         if 'UE4Editor' in context_exe:
