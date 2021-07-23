@@ -64,6 +64,8 @@ class Console(code.InteractiveConsole):
             exec(c, self.globals)
         except KeyboardInterrupt:
             raise
+        except (ExitNode, ExitGraph):
+            raise
         except (SystemExit, Exception) as err:
             lineno = get_traceback_lineno(err_depth=1)
             lineno -= 1
@@ -120,3 +122,13 @@ class InvalidNodeError(GraphError):
         super(Exception, self).__init__("Attempted to execute "
                                         "non-exsistant node! \n"
                                         "{}".format(node_path))
+
+
+class ExitNode(Exception):
+    def __init__(self, message=''):
+        super(ExitNode, self).__init__(message)
+
+
+class ExitGraph(Exception):
+    def __init__(self, message=''):
+        super(ExitGraph, self).__init__(message)

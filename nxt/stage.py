@@ -24,7 +24,7 @@ from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
                        get_node_local_attr_names)
 from .tokens import TOKENTYPE, plugin_tokens, Token
 from .runtime import (GraphError, GraphSyntaxError, InvalidNodeError,
-                      get_traceback_lineno)
+                      get_traceback_lineno, ExitNode, ExitGraph)
 
 logger = logging.getLogger(__name__)
 
@@ -3804,6 +3804,8 @@ class Stage:
             runtime_layer = layer
             if parameters:
                 self.set_runtime_parameters(parameters, runtime_layer)
+        exit_exception = None
+        exit_type = None
         for path in node_paths:
             curr_node = runtime_layer.lookup(path)
             if get_node_enabled(curr_node) is False:
@@ -3815,11 +3817,25 @@ class Stage:
             runtime_layer.cache_layer.set_node_enter_time(path)
             try:
                 run(runtime_layer, stage=self, rt_node=curr_node)
+            except ExitNode as exit_exception:
+                exit_type = 'EXIT NODE'
+            except ExitGraph as exit_exception:
+                exit_type = 'EXIT GRAPH'  # Exiting the whole graph, braking the loop
             finally:
                 runtime_layer.cache_layer.set_node_exit_time(path)
+
             t = str(round(runtime_layer.cache_layer.get_node_run_time(path)))
             msg = "Time to execute {}: {} second(s)."
             logger.execinfo(msg.format(path, t), links=[path])
+            if not exit_exception:
+                continue
+            logger.execinfo('\t<font color="yellow">{}</font>  {}: {}'.format(exit_type, path, exit_exception.message),
+                            links=[path])
+            if exit_type == 'EXIT GRAPH':
+                logger.warning('Exiting graph "{}" from {}'.format(runtime_layer.real_path, path), links=[path])
+                break
+            elif exit_type == 'EXIT NODE':
+                logger.debug('Early exited node: {}'.format(path), links=[path])
         return runtime_layer
 
     def execute_custom_code(self, code_string, node_path, layer):
@@ -3837,6 +3853,8 @@ class Stage:
         try:
             run(runtime_layer, stage=self, rt_node=rt_node,
                 custom_code=resolved_code)
+        except (ExitNode, ExitGraph) as e:
+            return e
         finally:
             runtime_layer.cache_layer.set_node_exit_time(node_path)
         exec_time = str(round((time.time() - exec_start)))
@@ -3948,7 +3966,10 @@ class Stage:
                            'w': w,
                            'types': types,
                            'self': layer_node,
-                           'execute': execute}
+                           'execute': execute,
+                           'ExitNode': ExitNode,
+                           'ExitGraph': ExitGraph
+                           }
         runtime_layer._console.globals = console_globals
         _code, lines = self.get_node_code(layer_node, runtime_layer)
         runtime_layer._console.node_path = nxt_path.WORLD
@@ -4046,6 +4067,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     console.running_lines = lines
     console.globals['self'] = frame_node
     runtime_layer.running = True
+    exit_exception = None
     try:
         console.runcode(_code)
     except GraphError:
@@ -4053,6 +4075,8 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
             clean_globals(lines, good_keys, console.globals)
         runtime_layer.running = False
         raise
+    except (ExitNode, ExitGraph) as exit_exception:
+        pass
     runtime_layer.running = False
     if not console.run_as_global:
         clean_globals(lines, good_keys, console.globals)
@@ -4063,6 +4087,8 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         # Push only changed values back to rt_node, which represents
         # what is inherited by children/instances
         setattr(rt_node, attr_name, post_run_val)
+    if exit_exception:
+        raise
     return console.globals
 
 

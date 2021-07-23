@@ -1,68 +1,128 @@
 {
-    "version": "1.15", 
-    "alias": "StageRuntimeTest2", 
-    "color": "#119B77", 
-    "references": [], 
+    "version": "1.17",
+    "alias": "StageRuntimeTest2",
+    "color": "#119B77",
+    "mute": false,
+    "solo": false,
     "meta_data": {
         "positions": {
-            "/NodeB": [
-                301.0294342427053, 
-                1.0
-            ], 
             "/NodeA": [
-                0, 
+                0,
                 0
+            ],
+            "/NodeB": [
+                300.0,
+                0.0
+            ],
+            "/Start": [
+                0.0,
+                160.0
             ]
         }
-    }, 
+    },
     "nodes": {
         "/NodeA": {
+            "enabled": true,
             "attrs": {
                 "attr0": {
-                    "type": "raw", 
+                    "type": "raw",
                     "value": "side"
-                }, 
+                },
                 "attr1": {
-                    "type": "int", 
+                    "type": "int",
                     "value": "5"
                 }
-            }, 
-            "enabled": true, 
+            },
             "code": [
-                "# printing values before they are changed", 
-                "print(\"${attr0}\")", 
-                "print(${attr1})", 
-                "print(self.attr0)", 
-                "print(self.attr1)  # notice this value is the input value!", 
-                "", 
-                "# changing value from 5 to 10", 
-                "self.attr1 = 10", 
-                "", 
-                "# printing after value change", 
-                "print(self.attr1)  # notice this value change is a result of runtime", 
-                "", 
-                "# caveat!  This is expected behavior - DO NOT modify at runtime!", 
-                "print(${attr1})", 
+                "# printing values before they are changed",
+                "print(\"${attr0}\")",
+                "print(${attr1})",
+                "print(self.attr0)",
+                "print(self.attr1)  # notice this value is the input value!",
+                "",
+                "# changing value from 5 to 10",
+                "self.attr1 = 10",
+                "",
+                "# printing after value change",
+                "print(self.attr1)  # notice this value change is a result of runtime",
+                "",
+                "# caveat!  This is expected behavior - DO NOT modify at runtime!",
+                "print(${attr1})",
                 ""
             ]
-        }, 
+        },
         "/NodeB": {
+            "execute_in": "/NodeA",
+            "enabled": true,
             "attrs": {
                 "attr2": {
-                    "type": "raw", 
+                    "type": "raw",
                     "value": "${/NodeA.attr1}"
                 }
-            }, 
-            "enabled": true, 
-            "execute_in": "/NodeA", 
+            },
             "code": [
-                "# just printing values for now", 
-                "print(${attr2})  # this is the correct answer currently! NodeA hasn't run yet!", 
-                "print(self.attr2)", 
-                "", 
-                "# also printing remote attrs for fun!", 
-                "print(\"${/NodeA.attr0}\")", 
+                "# just printing values for now",
+                "print(${attr2})  # this is the correct answer currently! NodeA hasn't run yet!",
+                "print(self.attr2)",
+                "",
+                "# also printing remote attrs for fun!",
+                "print(\"${/NodeA.attr0}\")",
                 "print(${/NodeA.attr1})  # this is the correct answer too!"
+            ]
+        },
+        "/Start": {
+            "child_order": [
+                "mid",
+                "never_run"
+            ],
+            "attrs": {
+                "i_ran": {
+                    "type": "bool",
+                    "value": "True"
+                }
+            },
+            "code": [
+                "print('Begin exit tests...')"
+            ]
+        },
+        "/Start/mid": {
+            "child_order": [
+                "low"
+            ],
+            "attrs": {
+                "i_exited": {
+                    "type": "bool",
+                    "value": "False"
+                }
+            },
+            "code": [
+                "self.i_exited = True",
+                "raise ExitNode('Early exit test')",
+                "self.i_exited = True"
+            ]
+        },
+        "/Start/mid/low": {
+            "attrs": {
+                "exited_graph": {
+                    "type": "bool",
+                    "value": "False"
+                }
+            },
+            "code": [
+                "self.exited_graph=True",
+                "raise ExitGraph('Stopping the graph as a test')",
+                "self.exited_graph=False"
+            ]
+        },
+        "/Start/never_run": {
+            "attrs": {
+                "i_ran": {
+                    "type": "bool",
+                    "value": "False"
+                }
+            },
+            "code": [
+                "self.i_ran = True"
             ]
         }
     }
