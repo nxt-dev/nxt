@@ -71,6 +71,7 @@
             ]
         },
         "/Start": {
+            "start_point": true,
             "child_order": [
                 "mid",
                 "never_run"

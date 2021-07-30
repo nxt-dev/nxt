@@ -62,9 +62,7 @@ class Console(code.InteractiveConsole):
     def runcode(self, c):
         try:  # Convert to tuple for python3
             exec(c, self.globals)
-        except KeyboardInterrupt:
-            raise
-        except (ExitNode, ExitGraph):
+        except (KeyboardInterrupt, ExitNode, ExitGraph):
             raise
         except (SystemExit, Exception) as err:
             lineno = get_traceback_lineno(err_depth=1)
@@ -125,10 +123,11 @@ class InvalidNodeError(GraphError):
 
 
 class ExitNode(Exception):
-    def __init__(self, message=''):
-        super(ExitNode, self).__init__(message)
+    def __init__(self, reason=''):
+        super(ExitNode, self).__init__(reason)
 
 
 class ExitGraph(Exception):
-    def __init__(self, message=''):
-        super(ExitGraph, self).__init__(message)
+    def __init__(self, reason=''):
+        self.runtime_layer = None
+        super(ExitGraph, self).__init__(reason)

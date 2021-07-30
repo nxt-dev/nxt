@@ -954,7 +954,6 @@ class StageInstance4(unittest.TestCase):
         self.assertEqual(expected, case3_co)
 
 
-
 class StageRuntimeResolveScenarios(unittest.TestCase):
 
     def test_run_with_no_change(self):
@@ -1063,13 +1062,16 @@ class StageRuntimeResolveScenarios(unittest.TestCase):
 
     def test_exit_exceptions(self):
         """Test the various gracefully exit exceptions"""
+        from nxt.runtime import ExitGraph
         print("Test ExitNode and ExitGraph exceptions")
         os.chdir(os.path.dirname(__file__))
         self.stage = Session().load_file(filepath="./StageRuntimeTest2.nxt")
         self.comp_layer = self.stage.build_stage()
 
         print("Starting execute...")
-        self.runtime_layer = self.stage.execute('/Start')
+        with self.assertRaises(ExitGraph) as exit_graph:
+            self.stage.execute('/Start')
+        self.runtime_layer = exit_graph.exception.runtime_layer
         # Look up the nodes on the cache layer
         self.start = self.runtime_layer.cache_layer.lookup('/Start')
         self.mid = self.runtime_layer.cache_layer.lookup('/Start/mid')

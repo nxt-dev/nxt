@@ -3817,25 +3817,18 @@ class Stage:
             runtime_layer.cache_layer.set_node_enter_time(path)
             try:
                 run(runtime_layer, stage=self, rt_node=curr_node)
-            except ExitNode as exit_exception:
-                exit_type = 'EXIT NODE'
-            except ExitGraph as exit_exception:
-                exit_type = 'EXIT GRAPH'  # Exiting the whole graph, braking the loop
+            except ExitNode as exit_node:
+                logger.debug('Exited Node {}: {}'.format(path, exit_node), links=[path])
+                continue
+            except ExitGraph as exit_graph:
+                exit_graph.runtime_layer = runtime_layer
+                logger.execinfo('Exited Graph {}: {}'.format(layer.real_path, exit_graph.message))
+                raise
             finally:
                 runtime_layer.cache_layer.set_node_exit_time(path)
-
-            t = str(round(runtime_layer.cache_layer.get_node_run_time(path)))
-            msg = "Time to execute {}: {} second(s)."
-            logger.execinfo(msg.format(path, t), links=[path])
-            if not exit_exception:
-                continue
-            logger.execinfo('\t<font color="yellow">{}</font>  {}: {}'.format(exit_type, path, exit_exception.message),
-                            links=[path])
-            if exit_type == 'EXIT GRAPH':
-                logger.warning('Exiting graph "{}" from {}'.format(runtime_layer.real_path, path), links=[path])
-                break
-            elif exit_type == 'EXIT NODE':
-                logger.debug('Early exited node: {}'.format(path), links=[path])
+                t = str(round(runtime_layer.cache_layer.get_node_run_time(path)))
+                msg = "Time to execute {}: {} second(s)."
+                logger.execinfo(msg.format(path, t), links=[path])
         return runtime_layer
 
     def execute_custom_code(self, code_string, node_path, layer):
