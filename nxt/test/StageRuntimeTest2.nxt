@@ -98,6 +98,7 @@
             },
             "code": [
                 "self.i_exited = True",
+                "STAGE.bad = True",
                 "raise ExitNode('Early exit test')",
                 "self.i_exited = True"
             ]
@@ -111,7 +112,9 @@
             },
             "code": [
                 "self.exited_graph=True",
+                "STAGE.bad = False",
                 "raise ExitGraph('Stopping the graph as a test')",
+                "STAGE.bad = True",
                 "self.exited_graph=False"
             ]
         },
@@ -123,7 +126,8 @@
                 }
             },
             "code": [
-                "self.i_ran = True"
+                "self.i_ran = True",
+                "STAGE.bad = True"
             ]
         }
     }

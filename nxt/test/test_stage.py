@@ -1087,6 +1087,20 @@ class StageRuntimeResolveScenarios(unittest.TestCase):
         print("Testing /Start/never_run never ran")
         self.assertEqual(None, self.never_run)
 
+    def test_sub_graph_exit(self):
+        """Test the various gracefully exit exceptions work in sub-graphs"""
+        from nxt.runtime import ExitGraph
+        print("Test ExitNode and ExitGraph exceptions")
+        os.chdir(os.path.dirname(__file__))
+        self.stage = Session().load_file(filepath="./test_sub_graph_exit.nxt")
+        self.comp_layer = self.stage.build_stage()
+
+        print("Starting execute...")
+        self.runtime_layer = self.stage.execute('/test_1')
+        cached_node = self.runtime_layer.cache_layer.lookup('/test_1')
+        print('Testing that graph exited and pushed its STAGE values up...')
+        self.assertFalse(getattr(cached_node, 'bad', True))
+
 
 class StageChildOrder(unittest.TestCase):
     """Unit test relies on the following save files:
