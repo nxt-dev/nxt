@@ -3822,7 +3822,7 @@ class Stage:
                 continue
             except ExitGraph as exit_graph:
                 exit_graph.runtime_layer = runtime_layer
-                logger.execinfo('Exited Graph {}: {}'.format(layer.real_path, exit_graph.message))
+                logger.execinfo('Exited Graph {}: {}'.format(layer.real_path, exit_graph))
                 raise
             finally:
                 runtime_layer.cache_layer.set_node_exit_time(path)
@@ -4068,7 +4068,8 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
             clean_globals(lines, good_keys, console.globals)
         runtime_layer.running = False
         raise
-    except (ExitNode, ExitGraph) as exit_exception:
+    except (ExitNode, ExitGraph) as e:
+        exit_exception = e
         pass
     runtime_layer.running = False
     if not console.run_as_global:
@@ -4081,7 +4082,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         # what is inherited by children/instances
         setattr(rt_node, attr_name, post_run_val)
     if exit_exception:
-        raise
+        raise exit_exception
     return console.globals
 
 
