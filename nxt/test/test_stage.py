@@ -954,7 +954,6 @@ class StageInstance4(unittest.TestCase):
         self.assertEqual(expected, case3_co)
 
 
-
 class StageRuntimeResolveScenarios(unittest.TestCase):
 
     def test_run_with_no_change(self):
@@ -982,7 +981,6 @@ class StageRuntimeResolveScenarios(unittest.TestCase):
         self.assertEqual(int(self.NodeA.attr1), self.rt_NodeA.attr1)
 
     def test_run_with_change_in_code_a(self):
-        """Will fail until runtime_patch is merged"""
         print("Test SetUp StageRuntimeResolveScenario2")
         os.chdir(os.path.dirname(__file__))
         self.stage = Session().load_file(filepath="./StageRuntimeTest2.nxt")
@@ -1061,6 +1059,47 @@ class StageRuntimeResolveScenarios(unittest.TestCase):
         os.chdir(os.path.dirname(__file__))
         # This graph has asserts, if it errors this test fails.
         Session().execute_graph("future_tokens_test.nxt")
+
+    def test_exit_exceptions(self):
+        """Test the various gracefully exit exceptions"""
+        from nxt.runtime import ExitGraph
+        print("Test ExitNode and ExitGraph exceptions")
+        os.chdir(os.path.dirname(__file__))
+        self.stage = Session().load_file(filepath="./StageRuntimeTest2.nxt")
+        self.comp_layer = self.stage.build_stage()
+
+        print("Starting execute...")
+        with self.assertRaises(ExitGraph) as exit_graph:
+            self.stage.execute('/Start')
+        self.runtime_layer = exit_graph.exception.runtime_layer
+        # Look up the nodes on the cache layer
+        self.start = self.runtime_layer.cache_layer.lookup('/Start')
+        self.mid = self.runtime_layer.cache_layer.lookup('/Start/mid')
+        self.low = self.runtime_layer.cache_layer.lookup('/Start/mid/low')
+        # Never run shouldn't be on the cache layer
+        self.never_run = self.runtime_layer.cache_layer.lookup('/Start/never_run')
+        print("Testing /Start ran as expected")
+        self.assertEqual(True, getattr(self.start, 'i_ran'))
+        print("Testing /Start/mid ran as expected")
+        self.assertEqual(True, getattr(self.mid, 'i_exited'))
+        print("Testing /Start/mid/low ran as expected")
+        self.assertEqual(True, getattr(self.low, 'exited_graph'))
+        print("Testing /Start/never_run never ran")
+        self.assertEqual(None, self.never_run)
+
+    def test_sub_graph_exit(self):
+        """Test the various gracefully exit exceptions work in sub-graphs"""
+        from nxt.runtime import ExitGraph
+        print("Test ExitNode and ExitGraph exceptions")
+        os.chdir(os.path.dirname(__file__))
+        self.stage = Session().load_file(filepath="./test_sub_graph_exit.nxt")
+        self.comp_layer = self.stage.build_stage()
+
+        print("Starting execute...")
+        self.runtime_layer = self.stage.execute('/test_1')
+        cached_node = self.runtime_layer.cache_layer.lookup('/test_1')
+        print('Testing that graph exited and pushed its STAGE values up...')
+        self.assertFalse(getattr(cached_node, 'bad', True))
 
 
 class StageChildOrder(unittest.TestCase):
