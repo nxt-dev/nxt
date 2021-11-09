@@ -114,7 +114,7 @@ def execute(args):
         # Read file for parameters
         param_path = parameter_list[0]
         if not os.path.isfile(param_path):
-            msg = "Parameters file {} does not exist".format(param_path)
+            msg = 'Single parameter passed, expected it to be valid parameters file. However, "{}" does not exist'.format(param_path)
             raise IOError(msg)
         with open(param_path, 'r') as fp:
             parameters = json.load(fp)

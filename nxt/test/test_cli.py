@@ -30,8 +30,7 @@ class CLI(unittest.TestCase):
 
     def read_test_path(self):
         with open(self.test_path, 'r') as fp:
-            contents = fp.read()
-        return contents
+            return fp.read()
 
     def test_basic_cli_exec(self):
         """Basic call proves test graph works as expected"""
