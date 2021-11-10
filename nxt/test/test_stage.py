@@ -1541,5 +1541,19 @@ class TestExecOrder2(unittest.TestCase):
         self.assertEqual(expected, found)
 
 
+class TestFutureImport(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.stage = Session().load_file(filepath="./StageRuntimeTest1.nxt")
+        cls.comp_layer = cls.stage.build_stage()
+
+    def test_child_cache(self):
+        print("Test that `from __future__ import` works without error")
+        layer = self.stage.execute_nodes(['/NodeC'], self.comp_layer)
+        node = layer.lookup('/')
+        passed = stage.get_node_attr(node, 'passed', False)
+        self.assertTrue(passed)
+
+
 if __name__ == '__main__':
     unittest.main()
