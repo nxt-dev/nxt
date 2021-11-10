@@ -2336,7 +2336,7 @@ class Stage:
                                                         data_state=resolved)
             # Ensures the compute complies and executes with correct line
             # numbers even if the compute is/startswith huge comment.
-            line_zero = ['self = self']
+            line_zero = ['# Blank Line']
             func_lines = '\n'.join(line_zero + code_lines)
         path = layer.get_node_path(node)
         try:
