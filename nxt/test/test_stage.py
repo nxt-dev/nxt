@@ -33,7 +33,7 @@ class StageGeneral(unittest.TestCase):
         :return: None
         """
         self.expected_data = r"""{
-    "version": "1.17",
+    "version": "1.18",
     "alias": "StageLoadTest",
     "color": "#22728f",
     "mute": false,
