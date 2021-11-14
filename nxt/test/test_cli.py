@@ -20,7 +20,8 @@ class CLI(unittest.TestCase):
     def setUp(self):
         self.test_path = get_test_file_path('delete_me')
         # Test graph writes a file to the location of this env var.
-        self.test_env = {'_TEST_WRITE_PATH': self.test_path}
+        self.test_env = os.environ.copy()
+        self.test_env.update({'_TEST_WRITE_PATH': self.test_path})
 
     def tearDown(self):
         try:
