@@ -1,7 +1,8 @@
 import setuptools
 import json
+import io
 
-with open("README.md", "r", encoding="utf-8") as fh:
+with io.open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 desc = ("A general purpose code compositor designed for rigging, "
