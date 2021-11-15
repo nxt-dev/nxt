@@ -137,6 +137,7 @@ class SpecLayer(object):
         self.color = layer_data.get(SAVE_KEY.COLOR, None)
         self.lock = layer_data.get(SAVE_KEY.LOCK, False)
         self.locks = meta_data.get(META_DATA_KEY.LOCKS, {})
+        self._input_metadata = meta_data
         self.spec_list = []
         self._nodes_path_as_key = {}
         self._nodes_node_as_key = {}
@@ -838,7 +839,7 @@ class SpecLayer(object):
         aliases = OrderedDict(sorted(self.aliases.items(), key=lambda x: x[0]))
         colors = OrderedDict(sorted(self.colors.items(), key=lambda x: x[0]))
         locks = OrderedDict(sorted(self.locks.items(), key=lambda x: x[0]))
-        meta_data = OrderedDict()
+        meta_data = OrderedDict(self._input_metadata)
         if aliases:
             meta_data[META_DATA_KEY.ALIASES] = aliases
         if colors:
