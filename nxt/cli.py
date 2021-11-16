@@ -2,9 +2,9 @@
 import argparse
 import sys
 import os
+import json
 import logging
 import time
-import unittest
 
 # Internal
 from nxt.session import Session
@@ -110,19 +110,29 @@ def execute(args):
         start = args.start
 
     param_arg_count = len(parameter_list)
-    if param_arg_count % 2 != 0:
-        raise Exception('Invalid parameters supplied, must be in pattern '
-                        '-/node.attr value')
-    parameters = {}
-    i = 0
-    for _ in range(int(param_arg_count / 2)):
-        key = parameter_list[i]
-        if not key.startswith('/'):
-            raise Exception('Invalid attr path key {}, must be '
-                            'formatted as /node.attr'.format(key))
-        val = parameter_list[i + 1]
-        parameters[key] = val
-        i += 2
+    if param_arg_count == 1:
+        # Read file for parameters
+        param_path = parameter_list[0]
+        if not os.path.isfile(param_path):
+            msg = 'Single parameter passed, expected it to be valid parameters file. However, "{}" does not exist'.format(param_path)
+            raise IOError(msg)
+        with open(param_path, 'r') as fp:
+            parameters = json.load(fp)
+    elif param_arg_count % 2 != 0:
+        raise Exception('Invalid parameters supplied, must be 1 file path or '
+                        'pattern: "/node.attr value"')
+    else:
+        # Parse cli formatted input
+        parameters = {}
+        i = 0
+        for _ in range(int(param_arg_count / 2)):
+            key = parameter_list[i]
+            if not key.startswith('/'):
+                raise Exception('Invalid attr path key {}, must be '
+                                'formatted as /node.attr'.format(key))
+            val = parameter_list[i + 1]
+            parameters[key] = val
+            i += 2
     Session().execute_graph(args.path[0], start, parameters, args.context)
     logger.execinfo('Execution finished!')
 
@@ -182,18 +192,13 @@ def main():
     convert_parser.add_argument('-r', '--replace', help='replace file with '
                                                         'converted.')
 
-    parameters_help = '''Incompatible with -gui! Graph parameters can be 
-    overloaded before the graph starts running. To overload (set) a node's attr 
-    value provide the full path to the attr and the value, separated by a space:
+    parameters_help = '''Incompatible with -gui! Specify node attributes to
+    overload before running the graph. Specify via several in-line arguments,
+    or a single path to json file in the following format.
         /node.attr 5
-    If your value must contain a space wrap it in double quotes (" not '').
-    If your value must contain any number of double quote character (") you 
-    must escape them:
-        /node.attr "\"Hello World!\""
-        /node.attr "\"\"\"Hello World!\"\"\""
-        /node.attr \"Hello\"
-    TLDR; Escape all your literal double quotes, try not to use them, if you 
-    have to, use the Python API.
+        /node.third_attr "\\"\\"\\"Hello World!\\"\\"\\""
+    Escape literal double quotes, try not to use them, if you
+    have to, use the Python or file API.
     '''
     exec_parser.add_argument('-p', '--parameters', nargs="*",
                              help=parameters_help, default=())

@@ -1,0 +1,33 @@
+{
+    "version": "1.17",
+    "alias": "test_sub_graph_exit",
+    "color": "#991c24",
+    "mute": false,
+    "solo": false,
+    "references": [
+        "$NXT_BUILTINS/sub_graphs.nxt"
+    ],
+    "meta_data": {
+        "positions": {
+            "/test_1": [
+                300.0,
+                -140.0
+            ]
+        }
+    },
+    "nodes": {
+        "/test_1": {
+            "start_point": true,
+            "instance": "/_sub_graph",
+            "attrs": {
+                "_graph_path": {
+                    "type": "raw",
+                    "value": "${file::StageRuntimeTest2.nxt}"
+                },
+                "_start": {
+                    "value": "/Start"
+                }
+            }
+        }
+    }
+}

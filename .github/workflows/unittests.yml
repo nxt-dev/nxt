@@ -1,0 +1,79 @@
+name: Unittests
+
+on:
+  workflow_dispatch:
+    branches-ignore: [release]
+  workflow_call:
+    inputs:
+      QT_DEPENDENCIES:
+        description: 'Set to true to install Qt dependencies (Linux)'
+        required: false
+        default: 'false'
+        type: string
+  pull_request:
+    branches-ignore: [release]
+  push:
+    branches-ignore: [release]
+
+jobs:
+  test-python:
+    env:
+      QT_DEPENDENCIES: ${{ inputs.QT_DEPENDENCIES }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11']
+      fail-fast: true
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Determine nxt-core branch to use
+      run: |
+        if [ "${{ github.ref_name }}" = "release" ]; then
+          echo "NXT_CORE_BRANCH=release" >> $GITHUB_ENV
+        else
+          echo "NXT_CORE_BRANCH=dev" >> $GITHUB_ENV
+        fi
+      shell: bash
+
+    - name: Install Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux' && env.QT_DEPENDENCIES == 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxkbcommon-x11-0 \
+          libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+          libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 \
+          libxcb-randr0 libxcb-xinerama0 libxcb-util1 \
+          libegl1 \
+          qtbase5-dev qtbase5-dev-tools \
+          libqt5gui5 libqt5widgets5 libqt5core5a \
+          xvfb
+
+    - name: Ensure PIP
+      run: python -m ensurepip --upgrade
+
+    - name: Install nxt-core
+      if: github.repository != 'nxt-dev/nxt'
+      run: |
+        pip install git+https://github.com/nxt-dev/nxt.git@${{ env.NXT_CORE_BRANCH }}
+
+    - name: Install this package
+      run: pip install .
+
+    - name: Run tests with xvfb (Ubuntu + Qt)
+      if: runner.os == 'Linux' && env.QT_DEPENDENCIES == 'true'
+      run: |
+        xvfb-run -s "-screen 0 1024x768x24" python -m nxt.cli test
+
+    - name: Run Unittests from CLI
+      if: env.QT_DEPENDENCIES != 'true'
+      run: python -m nxt.cli test
