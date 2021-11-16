@@ -42,6 +42,7 @@ class SAVE_KEY(object):
     REAL_PATH = 'real_path'
     ATTRS = 'attrs'
     NAME = 'name'
+    LOCK = 'lock'
 
 
 class META_DATA_KEY(object):
@@ -49,6 +50,7 @@ class META_DATA_KEY(object):
     COLLAPSE = 'collapse'
     COLORS = 'colors'
     ALIASES = 'aliases'
+    LOCKS = 'locks'
 
 
 class LAYERS(object):
@@ -102,6 +104,7 @@ class SpecLayer(object):
         """
         if layer_data is None:
             layer_data = {}
+        self._node_table = []
         self._cached_children = {}
         self._cached_implied_children = {}
         self._name = UNTITLED
@@ -126,11 +129,15 @@ class SpecLayer(object):
             self.sub_layers += [{SAVE_KEY.FILEPATH: layer_path}]
         self.parent_layer = layer_data.get('parent_layer', None)
         meta_data = layer_data.get(SAVE_KEY.META_DATA, {})
+        # Fixme: Shouldn't this use the same method as solo/mute/lock?
         self.positions = meta_data.get(META_DATA_KEY.POSITIONS, {})
         self.collapse = meta_data.get(META_DATA_KEY.COLLAPSE, {})
         self.aliases = meta_data.get(META_DATA_KEY.ALIASES, {})
         self.colors = meta_data.get(META_DATA_KEY.COLORS, {})
         self.color = layer_data.get(SAVE_KEY.COLOR, None)
+        self.lock = layer_data.get(SAVE_KEY.LOCK, False)
+        self.locks = meta_data.get(META_DATA_KEY.LOCKS, {})
+        self._input_metadata = meta_data
         self.spec_list = []
         self._nodes_path_as_key = {}
         self._nodes_node_as_key = {}
@@ -676,9 +683,36 @@ class SpecLayer(object):
             refs += [ref[SAVE_KEY.FILEPATH]]
         return refs
 
+    def _get_meta_attr(self, meta_attr, over_dict_attr=None, local=False,
+                       fallback_to_local=True):
+        """Private method for getting meta attr opinions, comped or local,
+        from the layer class.
+        :param meta_attr: Class attr to get the opinion of (ie color or alias)
+        :param over_dict_attr: Class attr name which corresponds to a dict of
+        overrides for the given meta_attr on lower layers
+        :param local: If Ture the local, non-comped, opinion is returned
+        :param fallback_to_local: If True and there is no override the local
+        opinion is returned.
+        :raises: ValueError
+        :return: opinion of meta_attr
+        """
+        val = getattr(self, meta_attr, None)
+        if not local:
+            both_or_none = (over_dict_attr, not local)
+            if any(both_or_none) and not all(both_or_none):
+                raise ValueError('Must provide an over_dict_attr if local is '
+                                 'False!')
+            overs = get_comped_layer_overs(self, over_dict_attr)
+            if fallback_to_local:
+                fallback = val
+            else:
+                fallback = None
+            val = overs.get(self.filepath, fallback)
+        return val
+
     def get_alias(self, local=False, fallback_to_local=True):
         """Get the layer's alias (nice name). By default the local alias is
-        retuned, if local is False the parent layer's opinion of the alias is
+        returned, if local is False the parent layer's opinion of the alias is
         returned.
         :param local: If True the local opinion is returned, if False the
         strongest override opinion is returned.
@@ -688,15 +722,9 @@ class SpecLayer(object):
         override opinion is found None is returned.
         :return: string of layer alias or None
         """
-        alias = getattr(self, SAVE_KEY.ALIAS, None)
-        if not local:
-            aliases = get_comped_layer_overs(self, META_DATA_KEY.ALIASES)
-            if fallback_to_local:
-                fallback = alias
-            else:
-                fallback = None
-            alias = aliases.get(self.filepath, fallback)
-        return alias
+        return self._get_meta_attr(SAVE_KEY.ALIAS, META_DATA_KEY.ALIASES,
+                                   local=local,
+                                   fallback_to_local=fallback_to_local)
 
     def set_alias(self, alias):
         self.alias = alias
@@ -725,15 +753,9 @@ class SpecLayer(object):
         override opinion is found None is returned.
         :return: string of layer alias
         """
-        color = getattr(self, SAVE_KEY.COLOR, None)
-        if not local:
-            colors = get_comped_layer_overs(self, META_DATA_KEY.COLORS)
-            if fallback_to_local:
-                fallback = color
-            else:
-                fallback = None
-            color = colors.get(self.filepath, fallback)
-        return color
+        return self._get_meta_attr(SAVE_KEY.COLOR, META_DATA_KEY.COLORS,
+                                   local=local,
+                                   fallback_to_local=fallback_to_local)
 
     def set_color_over(self, color):
         """Set a color override on the root parent of a layer.
@@ -748,6 +770,40 @@ class SpecLayer(object):
                 root.colors.pop(layer_path)
         else:
             root.colors[layer_path] = color
+
+    def get_locked(self, local=False, fallback_to_local=True):
+        """Get the locked state of the layer. By
+        default the local opinion is returned, if local is False the parent
+        layer's opinion of the alias is returned.
+        :param local: If True the local opinion is returned, if False the
+        strongest override opinion is returned.
+        :type local: bool
+        :param fallback_to_local: if True and local is False and there is no
+        override opinion the local alias is returned. If false and no
+        override opinion is found None is returned.
+        :return: bool of layer's lock state
+        """
+        locked = self._get_meta_attr(SAVE_KEY.LOCK, META_DATA_KEY.LOCKS,
+                                     local=local,
+                                     fallback_to_local=fallback_to_local)
+        return locked or False
+
+    def set_locked(self, lock):
+        self.lock = lock
+
+    def set_locked_over(self, lock):
+        """Set a lock override on the root parent of a layer.
+        :param lock: bool
+        """
+        layer_path = self.filepath
+        root = get_root_parent(self)
+        if not root:
+            logger.error('Can not set colors override on top layer!')
+        if lock is None:
+            if layer_path in list(root.colors.keys()):
+                root.locks.pop(layer_path)
+        else:
+            root.locks[layer_path] = lock
 
     def save(self, filepath=None):
         """Save this layer, optionally to new, given filepath.
@@ -782,11 +838,14 @@ class SpecLayer(object):
                                        key=lambda x: x[0]))
         aliases = OrderedDict(sorted(self.aliases.items(), key=lambda x: x[0]))
         colors = OrderedDict(sorted(self.colors.items(), key=lambda x: x[0]))
-        meta_data = OrderedDict()
+        locks = OrderedDict(sorted(self.locks.items(), key=lambda x: x[0]))
+        meta_data = OrderedDict(self._input_metadata)
         if aliases:
             meta_data[META_DATA_KEY.ALIASES] = aliases
         if colors:
             meta_data[META_DATA_KEY.COLORS] = colors
+        if locks:
+            meta_data[META_DATA_KEY.LOCKS] = locks
         if positions:
             meta_data[META_DATA_KEY.POSITIONS] = positions
         if collapsed:

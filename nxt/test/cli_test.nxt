@@ -1,0 +1,32 @@
+{
+    "version": "1.17",
+    "alias": "cli_test",
+    "color": "#991c24",
+    "mute": false,
+    "solo": false,
+    "meta_data": {
+        "positions": {
+            "/cli_test": [
+                -189.0,
+                -10.0
+            ]
+        }
+    },
+    "nodes": {
+        "/cli_test": {
+            "start_point": true,
+            "comment": "Write a file containing attribute value for easy testing.",
+            "attrs": {
+                "my_attr": {
+                    "type": "raw",
+                    "value": "default"
+                }
+            },
+            "code": [
+                "import os",
+                "with open(os.environ[\"_TEST_WRITE_PATH\"], \"w+\") as fp:",
+                "    fp.write(\"${my_attr}\")"
+            ]
+        }
+    }
+}

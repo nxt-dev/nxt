@@ -1,5 +1,6 @@
 *.DS_STORE
 *.pyc
+*egg-info/
 *.iml
 *.name
 *.xml
