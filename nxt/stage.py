@@ -2216,13 +2216,11 @@ class Stage:
             return unresolved
         resolved = self.resolve(node, unresolved, layer)
         typ = determine_nxt_type(resolved)
-        if typ not in ('NoneType', 'raw', 'str'):
-            code_str = "{type_name}({value})".format(type_name=typ,
-                                                     value=resolved)
-            if not _globals:
-                _globals = {}
+        if typ in ('raw', 'str'):
+            real = resolved
+        else:
             try:
-                real = eval(code_str, _globals)
+                real = eval(resolved, _globals or {})
             except SyntaxError as err:
                 node_path = layer.get_node_path(node)
                 attr_path = nxt_path.make_attr_path(node_path, attr)
@@ -2246,10 +2244,6 @@ class Stage:
                 _, _, tb = sys.exc_info()
                 raise GraphError(err, tb, layer.real_path, attr_path, lineno,
                                  bad_line, err_depth=1)
-        elif typ in ('raw', 'str'):
-            real = resolved
-        else:
-            real = None
         return real
 
     def get_node_attr_external_sources(self, node, attr_name, layer):
