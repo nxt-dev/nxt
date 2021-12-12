@@ -1104,6 +1104,18 @@ class StageRuntimeResolveScenarios(unittest.TestCase):
         print('Testing that graph exited and pushed its STAGE values up...')
         self.assertFalse(getattr(cached_node, 'bad', True))
 
+    def test_python_sets(self):
+        self.stage = Session().load_file(filepath="./StageRuntimeTest2.nxt")
+        self.comp_layer = self.stage.build_stage()
+        self.runtime_layer = self.stage.execute('/set_test0', self.comp_layer)
+        expected = set(range(10))
+        actual = self.stage.get_attr_as_real_data_type(self.runtime_layer.lookup('/set_test0'), 'a', self.runtime_layer)
+        print('Test start node set is correct')
+        self.assertSetEqual(expected, actual)
+        actual = self.stage.get_attr_as_real_data_type(self.runtime_layer.lookup('/set_test1'), 'b', self.runtime_layer)
+        print('Test end node set is correct')
+        self.assertSetEqual(expected, actual)
+
 
 class StageChildOrder(unittest.TestCase):
     """Unit test relies on the following save files:

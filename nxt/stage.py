@@ -2216,13 +2216,11 @@ class Stage:
             return unresolved
         resolved = self.resolve(node, unresolved, layer)
         typ = determine_nxt_type(resolved)
-        if typ not in ('NoneType', 'raw', 'str'):
-            code_str = "{type_name}({value})".format(type_name=typ,
-                                                     value=resolved)
-            if not _globals:
-                _globals = {}
+        if typ in ('raw', 'str'):
+            real = resolved
+        else:
             try:
-                real = eval(code_str, _globals)
+                real = eval(resolved, _globals or {})
             except SyntaxError as err:
                 node_path = layer.get_node_path(node)
                 attr_path = nxt_path.make_attr_path(node_path, attr)
@@ -2246,10 +2244,6 @@ class Stage:
                 _, _, tb = sys.exc_info()
                 raise GraphError(err, tb, layer.real_path, attr_path, lineno,
                                  bad_line, err_depth=1)
-        elif typ in ('raw', 'str'):
-            real = resolved
-        else:
-            real = None
         return real
 
     def get_node_attr_external_sources(self, node, attr_name, layer):
@@ -4036,19 +4030,14 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
             continue
         if attr.endswith(META_ATTRS._suffix):
             continue
-        nxt_type = determine_nxt_type(getattr(rt_node, attr))
         setattr(rt_node, attr + META_ATTRS.SOURCE,
                 (runtime_layer.real_path, rt_path))
         real = stage.get_attr_as_real_data_type(rt_node, attr, runtime_layer,
                                                 _globals=graph_globals)
-        if nxt_type in ['list', 'dict']:
-            try:
-                pre_run_cache[attr] = copy.deepcopy(real)
-                setattr(frame_node, attr, copy.deepcopy(real))
-            except RuntimeError:
-                pre_run_cache[attr] = None
-                setattr(frame_node, attr, real)
-        else:
+        try:
+            pre_run_cache[attr] = copy.deepcopy(real)
+            setattr(frame_node, attr, copy.deepcopy(real))
+        except RuntimeError:
             pre_run_cache[attr] = real
             setattr(frame_node, attr, real)
     # Cache the node before exec so we can see what it tried to run if it fails
@@ -4107,27 +4096,10 @@ def clean_globals(code_lines, good_keys, global_dict):
 
 
 def determine_nxt_type(value):
-    vs = str(value)
-    if len(vs) > 1 and (vs.startswith('"') and vs.endswith('"')) or (
-            vs.startswith("'") and vs.endswith("'")):
-        type_name = 'str'
-    elif vs.startswith('${') and vs.endswith(
-            '}'):  # In the event this is just an attr ref
+    try:
+        type_name = type(literal_eval(value)).__name__
+    except (ValueError, NameError, SyntaxError):
         type_name = 'raw'
-    elif vs.startswith('[') and vs.endswith(']'):
-        type_name = 'list'
-    elif (vs.startswith('(') and vs.endswith(',)') or
-            vs.startswith('(') and vs.endswith(')') and vs.count(',')):
-        type_name = 'tuple'
-    elif vs.startswith('{') and vs.endswith('}'):
-        type_name = 'dict'
-    elif value is None:
-        type_name = 'NoneType'
-    else:
-        try:
-            type_name = type(literal_eval(value)).__name__
-        except (ValueError, NameError, SyntaxError):
-            type_name = 'raw'
     return type_name
 
 
