@@ -17,6 +17,14 @@
             "/Start": [
                 0.0,
                 160.0
+            ],
+            "/set_test0": [
+                100.0,
+                420.0
+            ],
+            "/set_test1": [
+                420.0,
+                420.0
             ]
         }
     },
@@ -128,6 +136,30 @@
             "code": [
                 "self.i_ran = True",
                 "STAGE.bad = True"
+            ]
+        },
+        "/set_test0": {
+            "start_point": true,
+            "attrs": {
+                "a": {}
+            },
+            "code": [
+                "a = set()",
+                "for x in range(10):",
+                "    a.add(x)",
+                "self.a = a"
+            ]
+        },
+        "/set_test1": {
+            "execute_in": "/set_test0",
+            "attrs": {
+                "b": {
+                    "type": "raw",
+                    "value": "${/set_test0.a}"
+                }
+            },
+            "code": [
+                "self.b = ${b}"
             ]
         }
     }
