@@ -3037,7 +3037,7 @@ class Stage:
                 # Can be empty string to overload a lower layer
                 ex_inst_path = getattr(target,
                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
-                if ex_inst_path is not '':
+                if ex_inst_path != '':
                     setattr(target, INTERNAL_ATTRS.INSTANCE_PATH, inst_child_src_path)
             else:
                 to_do += [(target_ns, inst_child_src_path, tgt_path)]
@@ -3156,7 +3156,7 @@ class Stage:
                 if no_parent and comp_node not in roots:
                     roots += [comp_node]
                     root_count += 1
-                if arc_idx is 0:
+                if arc_idx == 0:
                     total_count += 1
                 del base, node_path, comp_node
             arc_idx += 1
