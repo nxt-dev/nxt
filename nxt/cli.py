@@ -133,7 +133,8 @@ def execute(args):
             val = parameter_list[i + 1]
             parameters[key] = val
             i += 2
-    Session().execute_graph(args.path[0], start, parameters, args.context)
+    context = getattr(args, 'context', None)
+    Session().execute_graph(args.path[0], start, parameters, context)
     logger.execinfo('Execution finished!')
 
 
@@ -242,6 +243,9 @@ def main():
         if os.environ.get(nxt_log.VERBOSE_ENV_VAR) is None:
             os.environ[nxt_log.VERBOSE_ENV_VAR] = str(args.verbose)
         nxt_log.set_verbosity(args.verbose)
+    if not hasattr(args, 'which'):
+        parser.parse_args(['-h'])
+        return
     if args.which == 'legacy':
         if args.gui:
             logger.warning('The flag -gui will be depreciated at 2.0, please '
