@@ -3137,6 +3137,14 @@ class Stage:
                                      links=[node_path])
                         logger.debug('requested {} {}'.format(*t))
                     continue
+                elif arc is CompArc.PARENT:  # Parent node exists
+                    # Validate that this node's parent knows about it. Proxy
+                    # nodes don't know about their "real" children until here.
+                    cached = comp_layer.get_cached_child_paths(base_path) or []
+                    if node_path not in cached:
+                        comp_layer.add_child_to_child_cache(base_path,
+                                                            node_path,
+                                                            comp_node)
                 for attr in overload_attrs:
                     _, has_opinion = get_opinion(comp_node, attr)
                     attr_value, _ = get_opinion(base, attr)
