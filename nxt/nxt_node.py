@@ -62,7 +62,8 @@ class INTERNAL_ATTRS(object):
     # Dict mapping internal attr to a partial object that generates a default
     # for the given attr
     DEFAULTS = {COMPUTE: partial(list, ()), PARENT_PATH: nxt_path.WORLD}
-    REQUIRES_RECOMP = tuple(set(ALL) - {CHILD_ORDER, INSTANCE_PATH, COMPUTE})
+    REQUIRES_RECOMP = tuple(set(ALL) - {CHILD_ORDER, INSTANCE_PATH, COMPUTE,
+                                        ENABLED})
 
 
     @classmethod

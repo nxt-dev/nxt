@@ -1472,6 +1472,13 @@ class Stage:
         elif attr == INTERNAL_ATTRS.INSTANCE_PATH:
             # TODO: Targeted re-comp of instance here
             return dirties
+        elif attr == INTERNAL_ATTRS.ENABLED:
+            try:
+                return self.set_node_enabled(node, value, comp_layer)
+            except NameError:
+                logger.warning('No value passed for: '
+                               '{}'.format(INTERNAL_ATTRS.ENABLED))
+                return []
         return attr
 
     def set_node_instance_path(self, node, instance_path, target_layer,
@@ -3870,17 +3877,41 @@ class Stage:
         setattr(node, INTERNAL_ATTRS.EXECUTE_IN + META_ATTRS.SOURCE,
                 (layer.real_path, node_path))
 
-    def set_node_enabled(self, node, state):
-        """Sets the enabled state of the given node.
-        :param node: Node object
-        :param state: bool
-        :return: bool of previous state
+    @staticmethod
+    def set_node_enabled(spec_node, state, comp_layer):
+        """Sets the enabled state of the given node. And updates the comp
+        to accurately reflect the change without building a new comp layer.
+        :param spec_node: Spec Node object
+        :type spec_node: SpecNode
+        :param state: Enabled state
+        :type state: bool
+        :param comp_layer: Current comp layer, should contain the spec node
+        :type comp_layer: CompLayer
+        :return: List of dirty nodes, aka nodes that were updated.
         """
-        old_state = get_node_enabled(node)
-        if node:
-            node_spec = self.get_node_spec(node)
-            setattr(node_spec, INTERNAL_ATTRS.ENABLED, state)
-            return old_state
+        node_path = get_node_path(spec_node)
+        comp_node = comp_layer.lookup(node_path)
+        dirties = []
+        if not comp_node:
+            return dirties
+        update_it = True
+        for n in comp_node.__mro__[1:]:
+            # Ignore parents, self, and abstract base classes
+            if n in (spec_node, comp_node, object, SpecNode):
+                continue
+            p = get_node_path(n)
+            if p in node_path:
+                continue
+            influencer_opinion = getattr(n, INTERNAL_ATTRS.ENABLED, state)
+            if influencer_opinion != state:
+                update_it = False
+        if update_it:
+            setattr(comp_node, INTERNAL_ATTRS.ENABLED, state)
+            for dnp in comp_layer.get_node_dirties(node_path):
+                dirties += [dnp]
+                dirty_node = comp_layer.lookup(dnp)
+                setattr(dirty_node, INTERNAL_ATTRS.ENABLED, state)
+        return dirties
 
     @staticmethod
     def get_layer_start_nodes(layer):
