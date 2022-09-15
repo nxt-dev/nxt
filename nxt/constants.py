@@ -35,7 +35,7 @@ SITE_DIR_ENV_VAR = 'NXT_SITE_DIR'
 if USER_DIR_ENV_VAR in os.environ:
     USER_DIR = os.environ.get(USER_DIR_ENV_VAR)
 else:
-    USER_DIR = os.path.expanduser(os.path.join('~', 'nxt'))
+    USER_DIR = os.path.expandvars(os.path.join('$USERPROFILE/nxt'))
 
 SITE_DIR = USER_DIR
 if SITE_DIR_ENV_VAR in os.environ:
