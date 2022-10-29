@@ -18,7 +18,7 @@ before_install:
 install:
   - cd ..
   - pip install ./nxt
-  - pip install importlib-metadata==4.12
+  - pip install importlib-metadata
   - pip install twine
 
 script:
