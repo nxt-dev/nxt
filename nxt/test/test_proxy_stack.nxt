@@ -1,0 +1,67 @@
+{
+    "version": "1.17",
+    "alias": "proxystack",
+    "color": "#c91781",
+    "meta_data": {
+        "positions": {
+            "/first_top": [
+                0.0,
+                0.0
+            ],
+            "/instance2": [
+                320.0,
+                0.0
+            ]
+        }
+    },
+    "nodes": {
+        "/first_top": {
+            "start_point": true,
+            "child_order": [
+                "first_child"
+            ],
+            "code": [
+                "print('A')"
+            ]
+        },
+        "/first_top/first_child": {
+            "child_order": [
+                "top_gran",
+                "middle_gran",
+                "bot_gran"
+            ],
+            "code": [
+                "print('B')"
+            ]
+        },
+        "/first_top/first_child/bot_gran": {
+            "code": [
+                "print('E')"
+            ]
+        },
+        "/first_top/first_child/middle_gran": {
+            "code": [
+                "print('D')"
+            ]
+        },
+        "/first_top/first_child/top_gran": {
+            "code": [
+                "print('C')"
+            ]
+        },
+        "/instance2": {
+            "instance": "/first_top",
+            "execute_in": "/first_top"
+        },
+        "/instance2/first_child/bot_gran/bot_great_gran": {
+            "code": [
+                "print(\"-> E\")"
+            ]
+        },
+        "/instance2/first_child/top_gran/top_great_gran": {
+            "code": [
+                "print(\"-> C\")"
+            ]
+        }
+    }
+}

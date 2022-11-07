@@ -408,6 +408,18 @@ class SpecLayer(object):
             logger.error('Invalid return type provided')
             return None
 
+    def get_cached_child_paths(self, parent_path):
+        """Get the cached child paths for the given parent path. If no cache
+        exists, None is returned.
+
+        :param parent_path: Path to node that has children
+        :type parent_path: str
+        :return: List of node paths or None
+        :rtype: list | None
+        """
+        return self._cached_children.get(parent_path,
+                                         {}).get(LayerReturnTypes.Path)
+
     def descendants(self, node_path=nxt_path.WORLD,
                     return_type=LayerReturnTypes.Path, ordered=False,
                     include_implied=False):

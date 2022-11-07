@@ -1304,6 +1304,35 @@ class StageChildOrder(unittest.TestCase):
         self.assertEqual(expected, result)
 
 
+class StageChildProxyOrder(unittest.TestCase):
+    """Unit test relies on the following save files:
+    ./test_proxy_stack.nxt
+    """
+
+    def setUp(self):
+        """Opens ./StageChildOrderTest_TopLayer.nxt which has the sub-layer
+        ./StageChildOrderTest.nxt"""
+        os.chdir(os.path.dirname(__file__))
+        self.stage = Session().load_file(filepath="./test_proxy_stack.nxt")
+        self.tgt_layer = self.stage._sub_layers[0]
+        self.comp_layer = self.stage.build_stage()
+        self.parent_path = '/instance2/first_child/bot_gran'
+        self.parent_node = self.comp_layer.lookup(self.parent_path)
+
+    def test_get_child_order(self):
+        """Test getting a node's child order via a get attr and the stages
+        method"""
+        expected_child_order = ['/instance2/first_child/bot_gran/bot_great_gran']
+        print("Testing get child order on a proxy node with a real child."
+              "Expected child order: {}".format(expected_child_order))
+        actual_child_order = getattr(self.parent_node,
+                                     INTERNAL_ATTRS.CHILD_ORDER)
+        self.assertEqual([], actual_child_order)
+        self.assertEqual(expected_child_order,
+                         self.comp_layer.children(self.parent_path,
+                                                  return_type=self.comp_layer.RETURNS.Path))
+
+
 class StageAddNode(unittest.TestCase):
     def test_basic_name_collision(self):
         """Verify when adding nodes without specific names to a layer they

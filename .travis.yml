@@ -4,7 +4,7 @@ branches:
   - release
   - dev
 python:
-  - "3.7"
+  - "3.9"
 
 before_install:
   - |
@@ -18,7 +18,7 @@ before_install:
 install:
   - cd ..
   - pip install ./nxt
-  - pip install importlib-metadata==3.4
+  - pip install importlib-metadata
   - pip install twine
 
 script:
