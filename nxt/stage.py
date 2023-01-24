@@ -448,7 +448,7 @@ class Stage:
                 name = name + '1'
         else:
             name = 'node'
-        if not layer_only and isinstance(layer, SpecLayer):
+        if not layer_only and not isinstance(layer, CompLayer):
             layer = self.build_stage(from_idx=0)
         test_path = nxt_path.join_node_paths(parent_path, name)
         if not layer.lookup(test_path):
@@ -1278,7 +1278,7 @@ class Stage:
                     setattr(node, new_meta_attr_name, getattr(node, meta_attr))
                     delattr(node, meta_attr)
 
-    def set_node_name(self, node, name, layer, force=False):
+    def set_node_name(self, node, name, layer, force=False, comp_layer=None):
         """Set's the name of a node. This by definition changes the path to
         the node. Default behavior is to prevent clashing node names when
         stage is built to given `layer`. If `force` is true, will accept
@@ -1294,6 +1294,8 @@ class Stage:
         :type layer: Layer, optional
         :param force: If True, allows clashing node names, defaults to False.
         :type force: bool, optional
+        :param comp_layer: The current CompLayer if you have one
+        :type comp_layer: CompLayer
         """
         # validate the new name
         # RIP retaliative_old_node_path 2019-2020
@@ -1316,7 +1318,9 @@ class Stage:
                 children += [child_node]
 
         if not force:
-            name = self.get_unique_node_name(name=name, layer=layer,
+            # Get the comp layer as the scope where possible to avoid re-comp
+            scoped_layer = comp_layer or layer
+            name = self.get_unique_node_name(name=name, layer=scoped_layer,
                                              parent_path=parent_path)
         old_name = getattr(node, INTERNAL_ATTRS.NAME)
         setattr(node, INTERNAL_ATTRS.NAME, name)
@@ -1413,7 +1417,8 @@ class Stage:
                 force = values['force']
             else:
                 force = False
-            return self.set_node_name(node, new_name, layer, force=force)
+            return self.set_node_name(node, new_name, layer, force=force,
+                                      comp_layer=comp_layer)
         tracked = (attr not in INTERNAL_ATTRS.PROTECTED or
                    attr in INTERNAL_ATTRS.TRACKED)
         for sub_attr, value in values.items():
