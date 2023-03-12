@@ -83,7 +83,7 @@ class CompArc(object):
         # instant path and finally if all that fails we check if the node to
         # check is in the instance trace. We check in this order to cut down
         # on speed cost as much as possible.
-        if parent_path is check_path and nxt_path.is_ancestor(comp_path,
+        if parent_path == check_path and nxt_path.is_ancestor(comp_path,
                                                               check_path):
             return CompArc.PARENT
         if (inst_path is check_path or
@@ -3907,7 +3907,9 @@ class Stage:
             p = get_node_path(n)
             if p in node_path:
                 continue
-            influencer_opinion = getattr(n, INTERNAL_ATTRS.ENABLED, state)
+            influencer_opinion = getattr(n, INTERNAL_ATTRS.ENABLED)
+            if influencer_opinion is None:
+                influencer_opinion = state
             if influencer_opinion != state:
                 update_it = False
         if update_it:
