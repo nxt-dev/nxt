@@ -15,10 +15,11 @@ from . import nxt_io
 from . import nxt_path
 from . import tokens
 from . import DATA_STATE, UNTITLED
-from .nxt_node import (SpecNode, CompNode, get_node_attr, get_node_as_dict,
-                      has_opinion, get_opinion, has_stronger_opinion,
-                      get_node_path, get_node_enabled, list_merger,
-                      create_spec_node, META_ATTRS, INTERNAL_ATTRS)
+from .nxt_node import (Node, SpecNode, CompNode, get_node_attr,
+                       get_node_as_dict, has_opinion, get_opinion,
+                       has_stronger_opinion, get_node_path,
+                       get_node_enabled, list_merger, create_spec_node,
+                       META_ATTRS, INTERNAL_ATTRS)
 from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
                        sort_multidimensional_list, get_active_layers,
                        get_node_local_attr_names)
@@ -3902,7 +3903,7 @@ class Stage:
         update_it = True
         for n in comp_node.__mro__[1:]:
             # Ignore parents, self, and abstract base classes
-            if n in (spec_node, comp_node, object, SpecNode):
+            if n in (spec_node, comp_node, object, SpecNode, Node):
                 continue
             p = get_node_path(n)
             if p in node_path:
