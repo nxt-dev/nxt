@@ -4,7 +4,67 @@
     "color": "#6e33bb",
     "mute": false,
     "solo": false,
+    "meta_data": {
+        "positions": {
+            "/_maya_standalone_graph": [
+                -222.0,
+                61.0
+            ],
+            "/_sub_graph": [
+                -224.0,
+                -74.0
+            ]
+        }
+    },
     "nodes": {
+        "/": {
+            "code": [
+                "import platform",
+                "import shutil",
+                "import os",
+                "import subprocess",
+                "import glob"
+            ]
+        },
+        "/_maya_standalone_graph": {
+            "comment": "This node is meant to run an nxt graph in Maya standalone. ",
+            "attrs": {
+                "MAYA_LOCATION": {
+                    "comment": "Location for you maya",
+                    "type": "raw",
+                    "value": "${file::C:/Program Files/Autodesk/Maya${maya_version}}"
+                },
+                "graph_path": {
+                    "comment": "The path to your nxt graph you want to run with Maya standalone",
+                    "type": "str",
+                    "value": "\"\""
+                },
+                "maya_run_command": {
+                    "comment": "The path to the cli python file. This usually is something setup to run from a shell.",
+                    "type": "raw",
+                    "value": "os.path.join(constants.EDITOR_DIR, \"integration/maya/run_maya_graph.py\")"
+                },
+                "maya_version": {
+                    "comment": "Which version of Maya you're using this for. This helps construct MAYA_LOCATION path",
+                    "type": "int",
+                    "value": "2023"
+                },
+                "mayapy_exe": {
+                    "comment": "Path to you mayapy.exe",
+                    "type": "list",
+                    "value": "[\"${MAYA_LOCATION}/bin/mayapy.exe\"]"
+                },
+                "parameters": {
+                    "comment": "parameters are arguments you can pass to the graph. eg(\"{'/.name1': 'test', '/.name2': 'test_2''}\")",
+                    "type": "dict",
+                    "value": "{}"
+                }
+            },
+            "code": [
+                "import nxt_editor.constants as constants",
+                "subprocess.Popen(${mayapy_exe} + [${maya_run_command}] + [\"-g\", ${graph_path}, \"-p\", \"${parameters}\"])"
+            ]
+        },
         "/_sub_graph": {
             "attrs": {
                 "_cache_file": {},
