@@ -13,6 +13,10 @@
             "/_sub_graph": [
                 -224.0,
                 -74.0
+            ],
+            "/node": [
+                -211.77419148282223,
+                171.75387183252514
             ]
         }
     },
@@ -27,6 +31,7 @@
             ]
         },
         "/_maya_standalone_graph": {
+            "instance": "",
             "comment": "This node is meant to run an nxt graph in Maya standalone. ",
             "attrs": {
                 "MAYA_LOCATION": {
@@ -58,11 +63,21 @@
                     "comment": "parameters are arguments you can pass to the graph. eg(\"{'/.name1': 'test', '/.name2': 'test_2''}\")",
                     "type": "dict",
                     "value": "{}"
+                },
+                "use_shell": {
+                    "type": "bool",
+                    "value": "False"
+                },
+                "wait": {
+                    "type": "bool",
+                    "value": "False"
                 }
             },
             "code": [
                 "import nxt_editor.constants as constants",
-                "subprocess.Popen(${mayapy_exe} + [${maya_run_command}] + [\"-g\", ${graph_path}, \"-p\", \"${parameters}\"])"
+                "process = subprocess.Popen(${mayapy_exe} + [${maya_run_command}] + [\"-g\", ${graph_path}, \"-p\", \"${parameters}\"], shell=${use_shell})",
+                "if ${wait}:",
+                "    process.wait()"
             ]
         },
         "/_sub_graph": {
