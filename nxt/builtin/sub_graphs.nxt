@@ -7,12 +7,12 @@
     "meta_data": {
         "positions": {
             "/_maya_standalone_graph": [
-                -222.0,
-                61.0
+                -240.0,
+                60.0
             ],
             "/_sub_graph": [
-                -224.0,
-                -74.0
+                -240.0,
+                -60.0
             ],
             "/node": [
                 -211.77419148282223,
@@ -63,6 +63,10 @@
                     "comment": "parameters are arguments you can pass to the graph. eg(\"{'/.name1': 'test', '/.name2': 'test_2''}\")",
                     "type": "dict",
                     "value": "{}"
+                },
+                "start_node": {
+                    "type": "NoneType",
+                    "value": "None"
                 },
                 "use_shell": {
                     "type": "bool",
