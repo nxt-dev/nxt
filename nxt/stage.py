@@ -3787,6 +3787,11 @@ class Stage:
             if not start_nodes:
                 raise ValueError("No start specified and no start nodes.")
             start_path = start_nodes[0]
+        if parameters:
+            for k in parameters:
+                if "._enabled" in k:
+                    layer._nodes_path_as_key[f"{k.split('.')[0]}"]._enabled = parameters[k]
+
         exec_order = layer.get_exec_order(start_path)
         return self.execute_nodes(exec_order, layer, parameters)
 
