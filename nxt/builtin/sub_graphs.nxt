@@ -90,6 +90,10 @@
                 "_graph_path": {
                     "type": "NoneType"
                 },
+                "_parameters": {
+                    "type": "dict",
+                    "value": "{}"
+                },
                 "_start": {
                     "type": "NoneType",
                     "value": "None"
@@ -105,7 +109,7 @@
                 "    sub_stage = Stage.load_from_filepath(self._graph_path)",
                 "    ",
                 "    # Assemble parameters dictionary",
-                "    params = {}",
+                "    params = ${_parameters}",
                 "    for attr_name, attr_val in vars(self).items():",
                 "        if attr_name in nxt_node.INTERNAL_ATTRS.PROTECTED:",
                 "            continue",
