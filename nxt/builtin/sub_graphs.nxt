@@ -65,14 +65,17 @@
                     "value": "{}"
                 },
                 "start_node": {
+                    "comment": "The node you wish to run strat running from in the nxt graph",
                     "type": "NoneType",
                     "value": "None"
                 },
                 "use_shell": {
+                    "comment": "Whether to use a shell or not. Recommend not using this as it pops up a sehll regardless. Read the subprocess python docs for more info",
                     "type": "bool",
                     "value": "False"
                 },
                 "wait": {
+                    "comment": "Whether or not to wait for the sub-process to finish before continuing",
                     "type": "bool",
                     "value": "False"
                 }
