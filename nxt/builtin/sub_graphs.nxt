@@ -37,7 +37,7 @@
                 "_MAYA_LOCATION": {
                     "comment": "Location for you maya",
                     "type": "raw",
-                    "value": "${file::C:/Program Files/Autodesk/Maya${maya_version}}"
+                    "value": "${file::C:/Program Files/Autodesk/Maya${_maya_version}}"
                 },
                 "_graph_path": {
                     "comment": "The path to your nxt graph you want to run with Maya standalone",
@@ -57,7 +57,7 @@
                 "_mayapy_exe": {
                     "comment": "Path to you mayapy.exe",
                     "type": "list",
-                    "value": "[\"${MAYA_LOCATION}/bin/mayapy.exe\"]"
+                    "value": "[\"${_MAYA_LOCATION}/bin/mayapy.exe\"]"
                 },
                 "_parameters": {
                     "comment": "parameters are arguments you can pass to the graph. eg(\"{'/.name1': 'test', '/.name2': 'test_2''}\")",
