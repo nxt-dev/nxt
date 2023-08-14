@@ -27,7 +27,8 @@
                 "import shutil",
                 "import os",
                 "import subprocess",
-                "import glob"
+                "import glob",
+                "import json"
             ]
         },
         "/_maya_standalone_graph": {
@@ -82,7 +83,18 @@
             },
             "code": [
                 "import nxt_editor.constants as constants",
-                "process = subprocess.Popen(${_mayapy_exe} + [${_maya_run_command}] + [\"-g\", ${_graph_path}, \"-p\", \"${_parameters}\"], shell=${_use_shell})",
+                "# declare the parameters variable based on the attribute",
+                "parameters = ${_parameters}",
+                "# if the parameters are a dict we will dump it into json",
+                "# otherwise we will pass it directly to the subprocess",
+                "if isinstance(parameters, dict):",
+                "    parameters = json.dumps(parameters)",
+                "",
+                "# run the subprocess",
+                "process = subprocess.Popen(${_mayapy_exe} + [${_maya_run_command}] + [\"-g\", ${_graph_path}, \"-p\", parameters], shell=${_use_shell})",
+                "",
+                "# if _wait is set to True, this node will not continue the build  ",
+                "# until the subprocess is complete",
                 "if ${_wait}:",
                 "    process.wait()"
             ]
