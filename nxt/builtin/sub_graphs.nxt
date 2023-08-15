@@ -70,6 +70,10 @@
                     "type": "NoneType",
                     "value": "None"
                 },
+                "_use_shell": {
+                    "type": "bool",
+                    "value": "False"
+                },
                 "_wait": {
                     "comment": "Whether or not to wait for the sub-process to finish before continuing",
                     "type": "bool",
