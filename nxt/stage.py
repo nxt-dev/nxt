@@ -1868,6 +1868,7 @@ class Stage:
                 cleaned = token_content[len(token_type.prefix):]
             else:
                 cleaned = token_content
+            cleaned = self.resolve(node, cleaned, layer, **kwargs)
             if isinstance(token_type, Token) and callable(token_type.resolve):
                 rep = token_type.resolve(self, node, cleaned, layer, **kwargs)
             elif token_type == TOKENTYPE.FILE:
