@@ -4,6 +4,14 @@
     "color": "#6e33bb",
     "mute": false,
     "solo": false,
+    "meta_data": {
+        "positions": {
+            "/_maya_standalone_graph": [
+                0.0,
+                40.0
+            ]
+        }
+    },
     "nodes": {
         "/": {
             "code": [

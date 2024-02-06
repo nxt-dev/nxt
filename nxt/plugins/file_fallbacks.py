@@ -19,7 +19,7 @@ FILEPATH_PREFIX = TOKENTYPE.FILE.prefix
 FILE_LIST_PREFIX = 'filelist::'
 
 NXT_FILE_ROOTS = 'NXT_FILE_ROOTS'
-ROOT_PATH_SEP = ';'
+ROOT_PATH_SEP = os.pathsep
 
 INVALID_PATH = '<invalid>'
 
