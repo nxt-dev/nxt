@@ -15,26 +15,49 @@ from . import nxt_io
 from . import nxt_path
 from . import tokens
 from . import DATA_STATE, UNTITLED
-from .nxt_node import (Node, SpecNode, CompNode, get_node_attr,
-                       get_node_as_dict, has_opinion, get_opinion,
-                       has_stronger_opinion, get_node_path,
-                       get_node_enabled, list_merger, create_spec_node,
-                       META_ATTRS, INTERNAL_ATTRS)
-from .nxt_layer import (SpecLayer, CompLayer, SAVE_KEY, META_DATA_KEY,
-                       sort_multidimensional_list, get_active_layers,
-                       get_node_local_attr_names)
+from .nxt_node import (
+    Node,
+    SpecNode,
+    CompNode,
+    get_node_attr,
+    get_node_as_dict,
+    has_opinion,
+    get_opinion,
+    has_stronger_opinion,
+    get_node_path,
+    get_node_enabled,
+    list_merger,
+    create_spec_node,
+    META_ATTRS,
+    INTERNAL_ATTRS,
+)
+from .nxt_layer import (
+    SpecLayer,
+    CompLayer,
+    SAVE_KEY,
+    META_DATA_KEY,
+    sort_multidimensional_list,
+    get_active_layers,
+    get_node_local_attr_names,
+)
 from .tokens import TOKENTYPE, plugin_tokens, Token
-from .runtime import (GraphError, GraphSyntaxError, InvalidNodeError,
-                      get_traceback_lineno, ExitNode, ExitGraph)
+from .runtime import (
+    GraphError,
+    GraphSyntaxError,
+    InvalidNodeError,
+    get_traceback_lineno,
+    ExitNode,
+    ExitGraph,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class CompArc(object):
     # Constants
-    REFERENCE = 'reference'
-    PARENT = 'parent'
-    INSTANCE = 'instance'
+    REFERENCE = "reference"
+    PARENT = "parent"
+    INSTANCE = "instance"
     ALL_ARCS = (REFERENCE, PARENT, INSTANCE)
     # Comp arc(s) that happen before any hierarchy discovery
     PRE_PROXY_ARCS = [REFERENCE]
@@ -42,19 +65,27 @@ class CompArc(object):
     # nodes are created
     POST_PROXY_ARCS = [PARENT, INSTANCE]
     # Mapping of comp arcs to tuples of attrs that should be brut force comped
-    INHERITANCE_MAP = {REFERENCE: (INTERNAL_ATTRS.START_POINT,
-                                   INTERNAL_ATTRS.ENABLED,
-                                   INTERNAL_ATTRS.EXECUTE_IN,
-                                   INTERNAL_ATTRS.INSTANCE_PATH,
-                                   INTERNAL_ATTRS.COMMENT,
-                                   INTERNAL_ATTRS.COMPUTE),
-                       INSTANCE: (INTERNAL_ATTRS.ENABLED,
-                                  INTERNAL_ATTRS.COMMENT,
-                                  INTERNAL_ATTRS.COMPUTE),
-                       PARENT: ()}
+    INHERITANCE_MAP = {
+        REFERENCE: (
+            INTERNAL_ATTRS.START_POINT,
+            INTERNAL_ATTRS.ENABLED,
+            INTERNAL_ATTRS.EXECUTE_IN,
+            INTERNAL_ATTRS.INSTANCE_PATH,
+            INTERNAL_ATTRS.COMMENT,
+            INTERNAL_ATTRS.COMPUTE,
+        ),
+        INSTANCE: (
+            INTERNAL_ATTRS.ENABLED,
+            INTERNAL_ATTRS.COMMENT,
+            INTERNAL_ATTRS.COMPUTE,
+        ),
+        PARENT: (),
+    }
     # Mapping of arc to the internal attr that controls it
-    ATTR_NAMES = {INSTANCE: INTERNAL_ATTRS.INSTANCE_PATH,
-                  PARENT: INTERNAL_ATTRS.PARENT_PATH}
+    ATTR_NAMES = {
+        INSTANCE: INTERNAL_ATTRS.INSTANCE_PATH,
+        PARENT: INTERNAL_ATTRS.PARENT_PATH,
+    }
 
     @staticmethod
     def get_arc(comp_node, node_to_check, comp_layer):
@@ -65,12 +96,11 @@ class CompArc(object):
         :return: CompArc or None
         """
         parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
-        inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH) or ''
-        comp_path = nxt_path.join_node_paths(parent_path,
-                                             getattr(comp_node,
-                                                     INTERNAL_ATTRS.NAME))
-        check_parent_path = getattr(node_to_check,
-                                    INTERNAL_ATTRS.PARENT_PATH) or '/'
+        inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH) or ""
+        comp_path = nxt_path.join_node_paths(
+            parent_path, getattr(comp_node, INTERNAL_ATTRS.NAME)
+        )
+        check_parent_path = getattr(node_to_check, INTERNAL_ATTRS.PARENT_PATH) or "/"
         check_name = getattr(node_to_check, INTERNAL_ATTRS.NAME)
         if check_name == nxt_path.WORLD:
             check_path = nxt_path.WORLD
@@ -84,13 +114,13 @@ class CompArc(object):
         # instant path and finally if all that fails we check if the node to
         # check is in the instance trace. We check in this order to cut down
         # on speed cost as much as possible.
-        if parent_path == check_path and nxt_path.is_ancestor(comp_path,
-                                                              check_path):
+        if parent_path == check_path and nxt_path.is_ancestor(comp_path, check_path):
             return CompArc.PARENT
-        if (inst_path is check_path or
-                nxt_path.is_ancestor(check_path, inst_path) or
-                node_to_check in Stage.get_instance_sources(comp_node, [],
-                                                            comp_layer)):
+        if (
+            inst_path is check_path
+            or nxt_path.is_ancestor(check_path, inst_path)
+            or node_to_check in Stage.get_instance_sources(comp_node, [], comp_layer)
+        ):
             return CompArc.INSTANCE
 
         return None
@@ -119,9 +149,9 @@ class CompArc(object):
         return comp_arcs
 
     class Modes(object):
-        REPLACE = 'REPLACE'
-        ADD = 'ADD'
-        REMOVE = 'REMOVE'
+        REPLACE = "REPLACE"
+        ADD = "ADD"
+        REMOVE = "REMOVE"
 
 
 class Stage:
@@ -141,14 +171,14 @@ class Stage:
         self.uid = nxt_uuid(f=True)
         self._sub_layers = []
         self._active_sub_layers = []
-        self._filepath = layer_data.get('_filepath', 'untitled.nxt')
+        self._filepath = layer_data.get("_filepath", "untitled.nxt")
         self.cached = None
         self.execute_order = None
         self.current_node = None
         if layer_data:
             self.load_from_file(layer_data)
         else:
-            self.new_layer(0, {'name': name})
+            self.new_layer(0, {"name": name})
 
     @property
     def next_node(self):
@@ -208,8 +238,10 @@ class Stage:
 
     def new_sublayer(self, layer_data=None, idx=0):
         new_sublayer = self.new_layer(idx, layer_data=layer_data)
-        sub_layer_data = {SAVE_KEY.FILEPATH: new_sublayer.filepath,
-                          'layer': new_sublayer}
+        sub_layer_data = {
+            SAVE_KEY.FILEPATH: new_sublayer.filepath,
+            "layer": new_sublayer,
+        }
         # This if/else should get defactored out. It handles fixing the meta
         # data used by the layer manager to display nested layers.
         # I plan to move this into its own function when I add the ability to
@@ -224,44 +256,46 @@ class Stage:
             inserted = False
             for sl_dict in parent_layer.sub_layers:
                 if sl_dict[SAVE_KEY.FILEPATH] == new_sublayer.filepath:
-                    sl_dict['layer'] = new_sublayer
+                    sl_dict["layer"] = new_sublayer
                     inserted = True
                     break
             if not inserted:
                 parent_layer.sub_layers.insert(0, sub_layer_data)
         else:
-            for lower_layer in self._sub_layers[idx + 1:]:
+            for lower_layer in self._sub_layers[idx + 1 :]:
                 lower_file_path = lower_layer.filepath
                 skip = False
-                for higher_layer in reversed(self._sub_layers[:idx - 1]):
+                for higher_layer in reversed(self._sub_layers[: idx - 1]):
                     if lower_file_path in higher_layer.sub_layer_paths:
                         skip = True
                         break
                 if skip:
                     continue
                 lower_real_path = lower_layer.real_path
-                lower_sub_layer_data = {SAVE_KEY.FILEPATH: lower_real_path,
-                                        'layer': lower_layer}
+                lower_sub_layer_data = {
+                    SAVE_KEY.FILEPATH: lower_real_path,
+                    "layer": lower_layer,
+                }
                 if lower_layer.filepath not in new_sublayer.sub_layer_paths:
                     new_sublayer.sub_layer_paths.append(lower_layer.filepath)
                 inserted = False
                 for sl_dict in new_sublayer.sub_layers:
                     if sl_dict[SAVE_KEY.FILEPATH] == lower_layer.filepath:
-                        sl_dict['layer'] = lower_layer
+                        sl_dict["layer"] = lower_layer
                         inserted = True
                         break
                 if not inserted:
-                    lower_sub_layer_data['layer'].parent_layer = new_sublayer
+                    lower_sub_layer_data["layer"].parent_layer = new_sublayer
                     new_sublayer.sub_layers.append(lower_sub_layer_data)
         # Recursively load sub layers from the new layer
         for ref in new_sublayer.sub_layers:
-            if ref.get('layer'):
+            if ref.get("layer"):
                 continue
             file_path = ref[SAVE_KEY.FILEPATH]
             d = os.path.dirname(layer_data[SAVE_KEY.REAL_PATH])
             real_file_path = nxt_path.full_file_expand(file_path, d)
             deep_sub_layer_data = nxt_io.load_file_data(real_file_path)
-            deep_sub_layer_data['parent_layer'] = new_sublayer
+            deep_sub_layer_data["parent_layer"] = new_sublayer
             deep_sub_layer_data[SAVE_KEY.FILEPATH] = file_path
             deep_sub_layer_data[SAVE_KEY.REAL_PATH] = real_file_path
             self.new_sublayer(deep_sub_layer_data, idx=idx + 1)
@@ -278,7 +312,7 @@ class Stage:
         layer_data = layer.sub_layers
         for remove_sub_data in layer_data:
             layer_data.remove(remove_sub_data)
-            ref_layer = remove_sub_data.get('layer')
+            ref_layer = remove_sub_data.get("layer")
             if not ref_layer:
                 continue
             self.remove_sublayer(ref_layer)
@@ -288,10 +322,9 @@ class Stage:
             if file_path in sub_layer.sub_layer_paths:
                 sub_layer.sub_layer_paths.remove(file_path)
             sub_layer_data = sub_layer.sub_layers
-            rm_d = [d for d in sub_layer_data
-                    if d[SAVE_KEY.FILEPATH] == file_path]
+            rm_d = [d for d in sub_layer_data if d[SAVE_KEY.FILEPATH] == file_path]
             for rd in rm_d:
-                ref_layer = rd['layer']
+                ref_layer = rd["layer"]
                 if ref_layer is layer:
                     sub_layer_data.remove(rd)
         if layer in self._sub_layers:
@@ -319,10 +352,12 @@ class Stage:
         checking_layer = parent_layer
         while checking_layer is not None:
             if checking_layer.real_path == real_path:
-                logger.error("Layer reference cycle detected! Layer `{}` "
-                             "detected referencing "
-                             "its ancestor "
-                             "`{}`.".format(parent_layer.real_path, real_path))
+                logger.error(
+                    "Layer reference cycle detected! Layer `{}` "
+                    "detected referencing "
+                    "its ancestor "
+                    "`{}`.".format(parent_layer.real_path, real_path)
+                )
                 return True
             checking_layer = checking_layer.parent_layer
         return False
@@ -343,9 +378,9 @@ class Stage:
         """
         if not layer_data:
             raise Exception("No layer data provided!")
-        real_path = layer_data['real_path']
-        layer_data['parent_layer'] = parent_layer
-        logger.info('Opening file: ' + real_path)
+        real_path = layer_data["real_path"]
+        layer_data["parent_layer"] = parent_layer
+        logger.info("Opening file: " + real_path)
         parent_layer = self.new_layer(len(self._sub_layers), layer_data)
         if not parent_layer:
             return
@@ -413,12 +448,11 @@ class Stage:
         Replaces illegal characters with underscore.
         """
         if name[0].isdigit():
-            name = '_' + name
-        pattern = re.compile(r'\W')
-        return re.sub(pattern, '_', name)
+            name = "_" + name
+        pattern = re.compile(r"\W")
+        return re.sub(pattern, "_", name)
 
-    def get_unique_node_name(self, name, layer, parent_path=None,
-                             layer_only=False):
+    def get_unique_node_name(self, name, layer, parent_path=None, layer_only=False):
         """Get an unused node name. If given a name preference, the resulting
         name will increment an integer if needed to create a unique name. If
         layer only is False and the layer provided is not a comp layer a
@@ -444,11 +478,11 @@ class Stage:
         if name is not None:
             name = self.legalize_name(name)
             # cannot be in the illegal node name list below
-            illegal_node_names = ['__name__']
+            illegal_node_names = ["__name__"]
             if name in illegal_node_names:
-                name = name + '1'
+                name = name + "1"
         else:
-            name = 'node'
+            name = "node"
         if not layer_only and not isinstance(layer, CompLayer):
             layer = self.build_stage(from_idx=0)
         test_path = nxt_path.join_node_paths(parent_path, name)
@@ -483,7 +517,7 @@ class Stage:
         if attr_name is not None:
             attr_name = self.legalize_name(attr_name)
         else:
-            attr_name = 'attr'
+            attr_name = "attr"
 
         # handle attr_name collisions with other attributes on the given node
         # by appending a digit
@@ -492,8 +526,8 @@ class Stage:
             layers = self._sub_layers[s:e]
         else:
             layers = [layer]
-        base_name = attr_name.rstrip('0123456789')
-        trailing_digits = attr_name[len(base_name):]
+        base_name = attr_name.rstrip("0123456789")
+        trailing_digits = attr_name[len(base_name) :]
         if trailing_digits:
             num_suffix = int(trailing_digits)
         else:
@@ -509,8 +543,9 @@ class Stage:
 
         return test_name
 
-    def add_node_hierarchy(self, node_hierarchy, parent=None, layer=None,
-                           comp_layer=None):
+    def add_node_hierarchy(
+        self, node_hierarchy, parent=None, layer=None, comp_layer=None
+    ):
         layer = layer or self.top_layer
         node_hierarchy_names = node_hierarchy
         created_node_table = []
@@ -518,7 +553,7 @@ class Stage:
         # Create nodes
         i = 0
         for node_name in node_hierarchy_names:
-            node_ns = node_hierarchy[:i + 1]
+            node_ns = node_hierarchy[: i + 1]
             node_path = nxt_path.node_namespace_to_str_path(node_ns)
             node = layer.lookup(node_path)
             if node:
@@ -526,11 +561,13 @@ class Stage:
                 parent = node
                 dirty_nodes += [node_path]
             else:
-                nodes, _dirty_nodes = self.add_node(name=node_name,
-                                                    parent=parent,
-                                                    layer=layer,
-                                                    comp_layer=comp_layer,
-                                                    fix_names=False)
+                nodes, _dirty_nodes = self.add_node(
+                    name=node_name,
+                    parent=parent,
+                    layer=layer,
+                    comp_layer=comp_layer,
+                    fix_names=False,
+                )
                 parent = nodes[0]
                 # We know the nodes list will only have 1 node in it because
                 # we didn't send a data dict with children
@@ -541,8 +578,9 @@ class Stage:
         return created_node_table, dirty_nodes
 
     @staticmethod
-    def add_node_to_comp_layer(path, comp_node, comp_layer, ns=None,
-                               add_to_child_order=True):
+    def add_node_to_comp_layer(
+        path, comp_node, comp_layer, ns=None, add_to_child_order=True
+    ):
         """Simply deals with adding a comp node to the comp layer. This
         method does not deal with adjusting the node's base classes tuple.
         Note: this method does not extend the dirty map.
@@ -575,8 +613,15 @@ class Stage:
                 setattr(parent_node, INTERNAL_ATTRS.CHILD_ORDER, new_co)
         return comp_node
 
-    def add_node(self, name='node', data=None, parent=None, layer=None,
-                 fix_names=True, comp_layer=None):
+    def add_node(
+        self,
+        name="node",
+        data=None,
+        parent=None,
+        layer=None,
+        fix_names=True,
+        comp_layer=None,
+    ):
         """Add a new node to this graph. If nothing is specified,
         an empty node is created. If no layer index is given the stage top
         layer is used. The preferred name will be changed if it
@@ -605,12 +650,13 @@ class Stage:
             try:
                 layer = self._sub_layers[layer]
             except IndexError:
-                logger.error("Invalid layer idx {}, "
-                             "using top layer.".format(layer))
+                logger.error("Invalid layer idx {}, " "using top layer.".format(layer))
                 layer = self.top_layer
         elif isinstance(layer, CompLayer):
-            logger.error("Comp layers are not a valid layer arg type, "
-                         "defaulting to top layer.")
+            logger.error(
+                "Comp layers are not a valid layer arg type, "
+                "defaulting to top layer."
+            )
             layer = self.top_layer
         # Validate comp layer
         is_comp_layer = False
@@ -631,18 +677,19 @@ class Stage:
                 parent = self.get_node_spec(parent)
                 parent_name = getattr(parent, INTERNAL_ATTRS.NAME)
                 parent_p_path = getattr(parent, INTERNAL_ATTRS.PARENT_PATH)
-                parent_path = nxt_path.join_node_paths(parent_p_path,
-                                                       parent_name)
+                parent_path = nxt_path.join_node_paths(parent_p_path, parent_name)
         else:
             parent_path = parent
         # create node
         if fix_names:
-            name = self.get_unique_node_name(name=name,
-                                             layer=comp_layer or layer,
-                                             parent_path=parent_path,
-                                             layer_only=bool(comp_layer))
+            name = self.get_unique_node_name(
+                name=name,
+                layer=comp_layer or layer,
+                parent_path=parent_path,
+                layer_only=bool(comp_layer),
+            )
         data = data or {}
-        data['name'] = name
+        data["name"] = name
         if do_targeted_comp:
             key = INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.CHILD_ORDER)
             child_order = data.get(key)
@@ -664,17 +711,18 @@ class Stage:
         logger.info("Added node: " + new_path, links=[new_path])
         if not do_targeted_comp:
             return_nodes = new_nodes
-            dirty_children = [get_node_path(n) for n in
-                              layer.children(node_path)]
+            dirty_children = [get_node_path(n) for n in layer.children(node_path)]
             new_children = []
-            for child_data in data.get('children', []):
+            for child_data in data.get("children", []):
                 # Children will get the same fix names arg value as the parent
-                child_name = child_data.get('name')
-                _new_nodes, child_dirties = self.add_node(name=child_name,
-                                                          data=child_data,
-                                                          parent=new_node,
-                                                          layer=layer,
-                                                          fix_names=fix_names)
+                child_name = child_data.get("name")
+                _new_nodes, child_dirties = self.add_node(
+                    name=child_name,
+                    data=child_data,
+                    parent=new_node,
+                    layer=layer,
+                    fix_names=fix_names,
+                )
                 new_children += _new_nodes
                 dirty_children += child_dirties
             return_nodes += new_children
@@ -682,38 +730,47 @@ class Stage:
             return return_nodes, [new_path] + dirty_children
         comp_layer.clear_node_child_cache(node_path)
         return_nodes = new_nodes
-        comp_node = self.targeted_comp_pre_proxies(spec_node=new_node,
-                                                   new_node_path=node_path,
-                                                   comp_layer=comp_layer,
-                                                   target_layer=layer)
-        proxy_map = self.targeted_comp_proxies(comp_node=comp_node,
-                                               node_path=new_path,
-                                               comp_layer=comp_layer)
-        dirty_nodes = self.targeted_comp_post_proxies(proxy_map=proxy_map,
-                                                      comp_layer=comp_layer)
+        comp_node = self.targeted_comp_pre_proxies(
+            spec_node=new_node,
+            new_node_path=node_path,
+            comp_layer=comp_layer,
+            target_layer=layer,
+        )
+        proxy_map = self.targeted_comp_proxies(
+            comp_node=comp_node, node_path=new_path, comp_layer=comp_layer
+        )
+        dirty_nodes = self.targeted_comp_post_proxies(
+            proxy_map=proxy_map, comp_layer=comp_layer
+        )
         new_children = []
-        for child_data in data.get('children', []):
+        for child_data in data.get("children", []):
             # Children will get the same fix names arg value as the parent
-            child_name = child_data.get('name')
-            _new_nodes, child_dirties = self.add_node(name=child_name,
-                                                      data=child_data,
-                                                      parent=new_node,
-                                                      layer=layer,
-                                                      comp_layer=comp_layer,
-                                                      fix_names=fix_names)
+            child_name = child_data.get("name")
+            _new_nodes, child_dirties = self.add_node(
+                name=child_name,
+                data=child_data,
+                parent=new_node,
+                layer=layer,
+                comp_layer=comp_layer,
+                fix_names=fix_names,
+            )
             new_children += _new_nodes
             dirty_nodes += child_dirties
         return_nodes += new_children
         if child_order is not None:
-            dirty_nodes += self.set_node_child_order(new_node,
-                                                     child_order,
-                                                     target_layer=layer,
-                                                     comp_layer=comp_layer)
+            dirty_nodes += self.set_node_child_order(
+                new_node, child_order, target_layer=layer, comp_layer=comp_layer
+            )
         dirty_nodes = list(set(dirty_nodes))
         update_time = str(int(round((time.time() - start) * 1000)))
         dirty_count = str(len(dirty_nodes))
-        debug = "Time add node(s): " + update_time + "ms | " + dirty_count + \
-                " node(s) are now dirty"
+        debug = (
+            "Time add node(s): "
+            + update_time
+            + "ms | "
+            + dirty_count
+            + " node(s) are now dirty"
+        )
         logger.debug(debug)
         return return_nodes, dirty_nodes
 
@@ -736,7 +793,7 @@ class Stage:
         name = getattr(node, INTERNAL_ATTRS.NAME)
         parent_path = getattr(node, INTERNAL_ATTRS.PARENT_PATH)
         parent = layer
-        if parent_path == '':
+        if parent_path == "":
             # This should only happen when duplicating world node.
             parent_path = nxt_path.WORLD
             if descendants:
@@ -746,9 +803,9 @@ class Stage:
             parent = layer.lookup(parent_path)
             if not parent:
                 parent_ns = nxt_path.str_path_to_node_namespace(parent_path)
-                node_table, dirty = self.add_node_hierarchy(parent_ns,
-                                                            parent=None,
-                                                            layer=layer)
+                node_table, dirty = self.add_node_hierarchy(
+                    parent_ns, parent=None, layer=layer
+                )
                 # Extract nodes from node table
                 nn = [n[1] for n in node_table]
                 dirty_nodes += dirty
@@ -756,8 +813,9 @@ class Stage:
                 parent = created_nodes[-1]
 
         data = get_node_as_dict(node)
-        new_nodes, dirty = self.add_node(name=name, data=data, parent=parent,
-                                         layer=layer.layer_idx())
+        new_nodes, dirty = self.add_node(
+            name=name, data=data, parent=parent, layer=layer.layer_idx()
+        )
         dirty_nodes += dirty
         created_nodes += new_nodes
 
@@ -770,25 +828,32 @@ class Stage:
                 data = get_node_as_dict(ref_child)
                 parent = new_parent
                 lay_idx = layer.layer_idx()
-                new, new_dirty = self.add_node(name=name, data=data,
-                                               parent=parent, layer=lay_idx)
+                new, new_dirty = self.add_node(
+                    name=name, data=data, parent=parent, layer=lay_idx
+                )
                 dirty += new_dirty
                 created += new
                 desc_parent = new[-1]
-                new_desc, desc_dirty = dupe_descendants(desc_parent, ref_child,
-                                                        layer)
+                new_desc, desc_dirty = dupe_descendants(desc_parent, ref_child, layer)
                 dirty += desc_dirty
                 created += new_desc
             return created, dirty
+
         if descendants:
-            desc_created, desc_dirty = dupe_descendants(new_nodes[-1], node,
-                                                        layer)
+            desc_created, desc_dirty = dupe_descendants(new_nodes[-1], node, layer)
             dirty_nodes += desc_dirty
             created_nodes += desc_created
         return created_nodes, dirty_nodes
 
-    def delete_node(self, node, layer, comp_layer=None, remove_layer_data=True,
-                    delete_descendants=False, other_removed_nodes=None):
+    def delete_node(
+        self,
+        node,
+        layer,
+        comp_layer=None,
+        remove_layer_data=True,
+        delete_descendants=False,
+        other_removed_nodes=None,
+    ):
         """Deletes the given spec node. Returns a bool of success and a list
         of dirty node paths. If a comp layer is provided deleted nodes are
         removed from the dirty map.
@@ -805,11 +870,13 @@ class Stage:
         :return: (bool, list)
         """
         if not node:
-            logger.debug('Cannot delete, node {} is invalid'.format(node))
+            logger.debug("Cannot delete, node {} is invalid".format(node))
             return False, []
         if not isinstance(layer, SpecLayer):
-            logger.error("You can not delete nodes from this layer type!"
-                         " {}".format(type(layer)))
+            logger.error(
+                "You can not delete nodes from this layer type!"
+                " {}".format(type(layer))
+            )
             return False, []
         if not other_removed_nodes:
             other_removed_nodes = []
@@ -817,8 +884,9 @@ class Stage:
         name = getattr(node, INTERNAL_ATTRS.NAME)
         node_path = nxt_path.join_node_paths(node_parent_path, name)
         remove_node_paths = [node_path]
-        descendants = layer.descendants(node_path, layer.RETURNS.Path,
-                                        include_implied=True)
+        descendants = layer.descendants(
+            node_path, layer.RETURNS.Path, include_implied=True
+        )
         if delete_descendants:
             remove_node_paths += descendants
         specs_to_remove = []
@@ -873,11 +941,9 @@ class Stage:
             if is_not_proxy:
                 parent_path = nxt_path.get_parent_path(remove_path)
                 parent_node = comp_layer.lookup(parent_path)
-                parent_inst = getattr(parent_node,
-                                      INTERNAL_ATTRS.INSTANCE_PATH, None)
+                parent_inst = getattr(parent_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
                 rt = comp_layer.RETURNS.NameDict
-                parent_inst_children = comp_layer.children(parent_inst,
-                                                           return_type=rt)
+                parent_inst_children = comp_layer.children(parent_inst, return_type=rt)
                 node_name = getattr(comp_node, INTERNAL_ATTRS.NAME)
                 if node_name in parent_inst_children.keys():
                     inst_src = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH)
@@ -904,16 +970,17 @@ class Stage:
             self._replace_base_classes(comp_node, tuple(bases_list))
             if old_child_order != new_child_order:
                 setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER, new_child_order)
-                self.propagate_child_order(remove_path, old_child_order,
-                                           new_child_order, comp_layer)
+                self.propagate_child_order(
+                    remove_path, old_child_order, new_child_order, comp_layer
+                )
             dirty_nodes += [remove_path]
             idx += 1
         for path, comp_node, dirties in comps_to_remove:
             keep_proxy = path in paths_to_keep
             rm_from_child_order = not keep_proxy
-            _dirty, deleted = self.ripple_delete(path, comp_node, layer,
-                                                 comp_layer, dirties,
-                                                 rm_from_child_order)
+            _dirty, deleted = self.ripple_delete(
+                path, comp_node, layer, comp_layer, dirties, rm_from_child_order
+            )
             if keep_proxy:
                 for item in deleted:
                     if item not in proxies_to_keep:
@@ -925,9 +992,9 @@ class Stage:
             remove_dirty_map = None
             for concern in comp_layer.get_node_dirties(path):
                 node = comp_layer.lookup(concern)
-                remove_dirty_map = not node and getattr(node,
-                                                        INTERNAL_ATTRS.PROXY,
-                                                        False)
+                remove_dirty_map = not node and getattr(
+                    node, INTERNAL_ATTRS.PROXY, False
+                )
             if remove_dirty_map:
                 self.remove_from_dirty_map(path, comp_layer._dirty_map)
         restored_proxies = []
@@ -955,13 +1022,17 @@ class Stage:
         return True, dirty_nodes
 
     @staticmethod
-    def remove_node_from_comp_layer(path, comp_node, comp_layer, ns=None,
-                                    rm_from_child_order=True,
-                                    rm_layer_data=True):
+    def remove_node_from_comp_layer(
+        path,
+        comp_node,
+        comp_layer,
+        ns=None,
+        rm_from_child_order=True,
+        rm_layer_data=True,
+    ):
         is_comp_node = comp_node.__name__ == CompNode.__name__
         if not is_comp_node:
-            raise TypeError("Wong node type provided, only CompNodes are "
-                            "accepted.")
+            raise TypeError("Wong node type provided, only CompNodes are " "accepted.")
         if ns is None:
             ns = nxt_path.str_path_to_node_namespace(path)
         name = getattr(comp_node, INTERNAL_ATTRS.NAME)
@@ -984,8 +1055,15 @@ class Stage:
             if path in list(comp_layer.collapse.keys()):
                 comp_layer.collapse.pop(path)
 
-    def ripple_delete(self, path, comp_node, target_layer, comp_layer,
-                      dirties=(), rm_from_child_order=True):
+    def ripple_delete(
+        self,
+        path,
+        comp_node,
+        target_layer,
+        comp_layer,
+        dirties=(),
+        rm_from_child_order=True,
+    ):
         dirty_nodes = []
         deleted = []
         deleted_paths = []
@@ -999,8 +1077,9 @@ class Stage:
             # node and therefore be deleted already
             if dirty_node is None:
                 continue
-            dirty_node_inst_path = getattr(dirty_node,
-                                           INTERNAL_ATTRS.INSTANCE_PATH, None)
+            dirty_node_inst_path = getattr(
+                dirty_node, INTERNAL_ATTRS.INSTANCE_PATH, None
+            )
             kill = True
             if dirty_node_inst_path:
                 inst_source = comp_layer.lookup(dirty_node_inst_path)
@@ -1010,56 +1089,49 @@ class Stage:
                     kill = getattr(inst_source, INTERNAL_ATTRS.PROXY)
                     if not kill:
                         break
-                    inst_path = getattr(inst_source,
-                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
+                    inst_path = getattr(inst_source, INTERNAL_ATTRS.INSTANCE_PATH, None)
                     if inst_path == path:
                         inst_source = None
                     else:
                         inst_source = comp_layer.lookup(inst_path)
             if getattr(dirty_node, INTERNAL_ATTRS.PROXY) and kill:
-                self.remove_node_from_comp_layer(dirty_path, dirty_node,
-                                                 comp_layer)
+                self.remove_node_from_comp_layer(dirty_path, dirty_node, comp_layer)
                 deleted += [(dirty_node_inst_path, dirty_path)]
                 deleted_paths += [dirty_path]
-                target_layer_parent = getattr(dirty_node,
-                                              INTERNAL_ATTRS.PARENT_PATH)
+                target_layer_parent = getattr(dirty_node, INTERNAL_ATTRS.PARENT_PATH)
                 tgt_parent = target_layer.lookup(target_layer_parent)
                 tgt_parent_children = target_layer.children(target_layer_parent)
                 rm_name = getattr(dirty_node, INTERNAL_ATTRS.NAME)
                 if tgt_parent and rm_name not in tgt_parent_children:
-                    tgt_parent_co = getattr(tgt_parent,
-                                            INTERNAL_ATTRS.CHILD_ORDER)
+                    tgt_parent_co = getattr(tgt_parent, INTERNAL_ATTRS.CHILD_ORDER)
                     if rm_name in tgt_parent_co:
                         tgt_parent_co.remove(rm_name)
             elif kill:
                 kill_inst_path += [dirty_path]
-            bases_list = [b for b in dirty_node.__bases__ if
-                          b is not comp_node]
+            bases_list = [b for b in dirty_node.__bases__ if b is not comp_node]
             self._replace_base_classes(dirty_node, tuple(bases_list))
-        inst_src, is_inst = get_opinion(comp_node,
-                                        INTERNAL_ATTRS.INSTANCE_PATH)
+        inst_src, is_inst = get_opinion(comp_node, INTERNAL_ATTRS.INSTANCE_PATH)
         is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
         pop_from_co = rm_from_child_order
         if is_inst and pop_from_co:
             inst_src_pp = nxt_path.get_parent_path(inst_src)
             rt = comp_layer.RETURNS.NameDict
-            src_children = comp_layer.children(inst_src_pp,
-                                               return_type=rt).keys()
-            tgt_children = target_layer.children(nxt_path.get_parent_path(path),
-                                                 return_type=rt).keys()
-            if name not in src_children or (not is_proxy and
-                                            name not in tgt_children):
+            src_children = comp_layer.children(inst_src_pp, return_type=rt).keys()
+            tgt_children = target_layer.children(
+                nxt_path.get_parent_path(path), return_type=rt
+            ).keys()
+            if name not in src_children or (not is_proxy and name not in tgt_children):
                 pop_from_co = False
-        self.remove_node_from_comp_layer(path, comp_node, comp_layer,
-                                         rm_from_child_order=pop_from_co)
+        self.remove_node_from_comp_layer(
+            path, comp_node, comp_layer, rm_from_child_order=pop_from_co
+        )
         deleted += [(inst_src, path)]
         deleted_paths += [path]
         if is_inst:
             # Get inst root
             inst_root = nxt_path.get_root_path(inst_src)
             # Get inst root descendants
-            root_descendants = comp_layer.descendants(inst_root,
-                                                      include_implied=True)
+            root_descendants = comp_layer.descendants(inst_root, include_implied=True)
             if root_descendants and path not in root_descendants:
                 rt = comp_layer.RETURNS.Path
                 descendants = comp_layer.descendants(path, rt)
@@ -1086,15 +1158,15 @@ class Stage:
                 continue
             inst_attr = INTERNAL_ATTRS.INSTANCE_PATH
             inst_path = getattr(inst_tgt, inst_attr, None)
-            opinions = get_historical_opinions(inst_tgt, inst_attr,
-                                               comp_layer, include_local=True)
+            opinions = get_historical_opinions(
+                inst_tgt, inst_attr, comp_layer, include_local=True
+            )
             if opinions:
                 historical_opinion = opinions[0].get(META_ATTRS.VALUE)
             else:
                 historical_opinion = None
             if inst_path in deleted_paths:
-                setattr(inst_tgt, INTERNAL_ATTRS.INSTANCE_PATH,
-                        historical_opinion)
+                setattr(inst_tgt, INTERNAL_ATTRS.INSTANCE_PATH, historical_opinion)
 
         return dirty_nodes, deleted
 
@@ -1117,11 +1189,13 @@ class Stage:
         _collapse_data = layer.collapse
         _top_collapse_data = self.top_layer.collapse
         if not nodes:
-            logger.error('No nodes provided!')
+            logger.error("No nodes provided!")
             return result_paths
         if not isinstance(layer, SpecLayer):
-            logger.error('Wrong layer type sent! Layer must be SpecLayer but '
-                         '{} was received.'.format(type(layer)))
+            logger.error(
+                "Wrong layer type sent! Layer must be SpecLayer but "
+                "{} was received.".format(type(layer))
+            )
             return result_paths
         if sys.version_info[0] == 2:
             parent_path_is_str = isinstance(parent_path, basestring)
@@ -1137,8 +1211,7 @@ class Stage:
             if node_parent_path != nxt_path.WORLD:
                 old_parent_node = layer.lookup(node_parent_path)
                 if old_parent_node is not None:
-                    child_order = getattr(old_parent_node,
-                                          INTERNAL_ATTRS.CHILD_ORDER)
+                    child_order = getattr(old_parent_node, INTERNAL_ATTRS.CHILD_ORDER)
                     if name in child_order:
                         child_order.remove(name)
                 else:
@@ -1156,15 +1229,14 @@ class Stage:
                             co.remove(child_name)
             new_parent_node = layer.lookup(parent_path)
             if check_names:
-                new_name = self.get_unique_node_name(name=name,
-                                                     layer=layer,
-                                                     parent_path=parent_path)
+                new_name = self.get_unique_node_name(
+                    name=name, layer=layer, parent_path=parent_path
+                )
                 setattr(node, INTERNAL_ATTRS.NAME, new_name)
             else:
                 new_name = name
             if new_parent_node is not None:
-                child_order = getattr(new_parent_node,
-                                      INTERNAL_ATTRS.CHILD_ORDER)
+                child_order = getattr(new_parent_node, INTERNAL_ATTRS.CHILD_ORDER)
                 if new_name not in child_order:
                     # The new name will be in the list if this is called from
                     # the parent undo function
@@ -1184,14 +1256,13 @@ class Stage:
                     continue
                 # Update all other paths that start with the old path
                 if nxt_path.is_ancestor(path, old_path):
-                    updated_path = nxt_path.replace_ancestor(path, old_path,
-                                                             new_path)
+                    updated_path = nxt_path.replace_ancestor(path, old_path, new_path)
                     _path_data[updated_path] = _path_data.pop(path)
                     _node_data[n] = updated_path
                     n_parent_path = getattr(n, INTERNAL_ATTRS.PARENT_PATH)
-                    new_parent_path = nxt_path.replace_ancestor(n_parent_path,
-                                                                old_path,
-                                                                new_path)
+                    new_parent_path = nxt_path.replace_ancestor(
+                        n_parent_path, old_path, new_path
+                    )
                     layer.clear_node_child_cache(path)
                     layer.clear_node_child_cache(updated_path)
                     layer.clear_node_child_cache(new_parent_path)
@@ -1214,14 +1285,15 @@ class Stage:
             new_path_in_layer = layer.get_node_path(node)
             node_parent_path = getattr(node, INTERNAL_ATTRS.PARENT_PATH)
             node_name = getattr(node, INTERNAL_ATTRS.NAME)
-            expected_new_path = nxt_path.join_node_paths(node_parent_path,
-                                                         node_name)
+            expected_new_path = nxt_path.join_node_paths(node_parent_path, node_name)
             # Test that the paths really did change
             bad_old_path = old_path == expected_new_path
             bad_path_in_layer = new_path_in_layer != expected_new_path
             if bad_old_path or bad_path_in_layer:
-                raise Exception("Parenting failed! Resulting node paths are "
-                                "not what we expected.")
+                raise Exception(
+                    "Parenting failed! Resulting node paths are "
+                    "not what we expected."
+                )
             result_paths[old_path] = expected_new_path
             idx += 1
         return result_paths
@@ -1232,17 +1304,16 @@ class Stage:
         attr = self.get_unique_attr_name(node_path, layer, attr)
         # Parse for attrs
         for sub_attr, value in attr_data.items():
-            if sub_attr == 'source':
+            if sub_attr == "source":
                 continue
-            if sub_attr == 'value':
+            if sub_attr == "value":
                 # We assume you've validated before now that the attr name
                 # your sending is allowable.
                 setattr(node, attr, value)
                 continue
             meta_attr = META_ATTRS._prefix + sub_attr + META_ATTRS._suffix
             if meta_attr not in META_ATTRS.ALL:
-                logger.warning('Invalid meta attr supplied! '
-                               '"{}"'.format(sub_attr))
+                logger.warning("Invalid meta attr supplied! " '"{}"'.format(sub_attr))
                 continue
             full_meta_attr = attr + meta_attr
             setattr(node, full_meta_attr, value)
@@ -1266,8 +1337,7 @@ class Stage:
         node = self.get_node_spec(node)
         node_path = layer.get_node_path(node)
         # get valid new name
-        new_name = self.get_unique_attr_name(node_path, layer,
-                                             attr_name=new_attr_name)
+        new_name = self.get_unique_attr_name(node_path, layer, attr_name=new_attr_name)
         # rename
         if attr_name in get_node_local_attr_names(node_path, [layer]):
             setattr(node, new_name, getattr(node, attr_name))
@@ -1304,14 +1374,15 @@ class Stage:
         parent_path = getattr(node, INTERNAL_ATTRS.PARENT_PATH)
         source_layer = self.get_node_source_layer(node)
         if source_layer is not layer:
-            logger.error("The node provided does not belong to the layer "
-                         "provided")
-            raise TypeError("Layer provided is not the same object as the "
-                            "node's source layer")
+            logger.error("The node provided does not belong to the layer " "provided")
+            raise TypeError(
+                "Layer provided is not the same object as the " "node's source layer"
+            )
         old_node_path = layer.get_node_path(node)
         rt = layer.RETURNS.Path
-        children_paths = layer.children(old_node_path, return_type=rt,
-                                        include_implied=True)
+        children_paths = layer.children(
+            old_node_path, return_type=rt, include_implied=True
+        )
         children = []
         for child_path in children_paths:
             child_node = layer.lookup(child_path)
@@ -1321,8 +1392,9 @@ class Stage:
         if not force:
             # Get the comp layer as the scope where possible to avoid re-comp
             scoped_layer = comp_layer or layer
-            name = self.get_unique_node_name(name=name, layer=scoped_layer,
-                                             parent_path=parent_path)
+            name = self.get_unique_node_name(
+                name=name, layer=scoped_layer, parent_path=parent_path
+            )
         old_name = getattr(node, INTERNAL_ATTRS.NAME)
         setattr(node, INTERNAL_ATTRS.NAME, name)
         new_node_path = nxt_path.join_node_paths(parent_path, name)
@@ -1340,8 +1412,11 @@ class Stage:
                 else:
                     child_order += [name]
 
-        layer_data_dicts = [META_DATA_KEY.POSITIONS, META_DATA_KEY.COLLAPSE,
-                            '_nodes_path_as_key']
+        layer_data_dicts = [
+            META_DATA_KEY.POSITIONS,
+            META_DATA_KEY.COLLAPSE,
+            "_nodes_path_as_key",
+        ]
         for data_dict in layer_data_dicts:
             active_dict = getattr(layer, data_dict)
             if old_node_path in list(active_dict.keys()):
@@ -1360,8 +1435,14 @@ class Stage:
         layer.refresh()
         return new_node_path
 
-    def transfer_node_data(self, target_node, target_layer, source_node,
-                           source_layer, include_inherit=False):
+    def transfer_node_data(
+        self,
+        target_node,
+        target_layer,
+        source_node,
+        source_layer,
+        include_inherit=False,
+    ):
         """Transfers data from one node to another. If the source arg is a
         node object a source layer must also be provided.
         :param target_node: NodeSpec
@@ -1372,8 +1453,7 @@ class Stage:
         :return: None
         """
         if not isinstance(source_node, dict):
-            data = self.get_node_data(source_node, source_layer,
-                                      include_inherit)
+            data = self.get_node_data(source_node, source_layer, include_inherit)
         else:
             data = source_node
         self.set_node_data(target_node, data, target_layer)
@@ -1384,13 +1464,16 @@ class Stage:
         for internal_attr in INTERNAL_ATTRS.TRACKED:
             attr_key = INTERNAL_ATTRS.as_save_key(internal_attr)
             if internal_attr is INTERNAL_ATTRS.COMPUTE:
-                attr_key = 'code'  # TODO: Refactor see #656
+                attr_key = "code"  # TODO: Refactor see #656
             val = node_data.get(attr_key)
             allow = internal_attr in INTERNAL_ATTRS.ALLOW_NO_OPINION
             if has_opinion(val) or allow:
                 setattr(node, internal_attr, val)
-                setattr(node, internal_attr + META_ATTRS.SOURCE,
-                        (layer.real_path, node_path))
+                setattr(
+                    node,
+                    internal_attr + META_ATTRS.SOURCE,
+                    (layer.real_path, node_path),
+                )
         # Un-tracked attrs
         for internal_attr in INTERNAL_ATTRS.UNTRACKED:
             attr_key = INTERNAL_ATTRS.as_save_key(internal_attr)
@@ -1399,12 +1482,11 @@ class Stage:
             if has_opinion(val) or allow:
                 setattr(node, internal_attr, val)
         # User attrs
-        attrs = node_data.get('attributes', {})
+        attrs = node_data.get("attributes", {})
         for attr, attr_data in attrs.items():
             self.node_setattr_data(node, attr, layer, True, **attr_data)
 
-    def node_setattr_data(self, node, attr, layer, create, comp_layer=None,
-                          **values):
+    def node_setattr_data(self, node, attr, layer, create, comp_layer=None, **values):
         node_path = layer.get_node_path(node)
         local_attrs = tuple(get_node_local_attr_names(node_path, [layer]))
         value_set = False
@@ -1412,23 +1494,23 @@ class Stage:
         if attr == INTERNAL_ATTRS.NAME:
             new_name = values.get(META_ATTRS.VALUE)
             if not new_name:
-                logger.warning('Cannot set node name to none')
+                logger.warning("Cannot set node name to none")
                 return
-            if 'force' in values:
-                force = values['force']
+            if "force" in values:
+                force = values["force"]
             else:
                 force = False
-            return self.set_node_name(node, new_name, layer, force=force,
-                                      comp_layer=comp_layer)
-        tracked = (attr not in INTERNAL_ATTRS.PROTECTED or
-                   attr in INTERNAL_ATTRS.TRACKED)
+            return self.set_node_name(
+                node, new_name, layer, force=force, comp_layer=comp_layer
+            )
+        tracked = attr not in INTERNAL_ATTRS.PROTECTED or attr in INTERNAL_ATTRS.TRACKED
         for sub_attr, value in values.items():
             if sys.version_info[0] == 2:
                 str_check = isinstance(value, basestring)
             else:
                 str_check = isinstance(value, str)
             if str_check:
-                if value == u'':
+                if value == "":
                     value = None
                 elif value.startswith('"'):
                     pass
@@ -1438,8 +1520,9 @@ class Stage:
                 meta_attr = META_ATTRS._prefix + sub_attr + META_ATTRS._suffix
                 # Fixme: Do we need to test for this case twice?
                 if meta_attr not in META_ATTRS.ALL:
-                    logger.warning('Invalid meta attr supplied! '
-                                   '"{}"'.format(sub_attr))
+                    logger.warning(
+                        "Invalid meta attr supplied! " '"{}"'.format(sub_attr)
+                    )
                     continue
                 full_attr_name = attr + meta_attr
             else:
@@ -1453,8 +1536,9 @@ class Stage:
                     continue
                 if attr == INTERNAL_ATTRS.INSTANCE_PATH:
                     inst_path = values.get(META_ATTRS.VALUE)
-                    dirties += self.set_node_instance_path(node, inst_path,
-                                                           layer, comp_layer)
+                    dirties += self.set_node_instance_path(
+                        node, inst_path, layer, comp_layer
+                    )
                     continue
                 if attr == INTERNAL_ATTRS.COMPUTE:
                     code_lines = values.get(META_ATTRS.VALUE)
@@ -1482,13 +1566,15 @@ class Stage:
             try:
                 return self.set_node_enabled(node, value, comp_layer)
             except NameError:
-                logger.warning('No value passed for: '
-                               '{}'.format(INTERNAL_ATTRS.ENABLED))
+                logger.warning(
+                    "No value passed for: " "{}".format(INTERNAL_ATTRS.ENABLED)
+                )
                 return []
         return attr
 
-    def set_node_instance_path(self, node, instance_path, target_layer,
-                               comp_layer=None):
+    def set_node_instance_path(
+        self, node, instance_path, target_layer, comp_layer=None
+    ):
         """Sets the node's instance path to the given path and sets the
         source meta attr.
         :param node: Node object
@@ -1508,44 +1594,45 @@ class Stage:
         dirty_nodes = []
         if comp_layer:
             comp_node = comp_layer.lookup(node_path)
-            unchanged = has_stronger_opinion(comp_node,
-                                             INTERNAL_ATTRS.INSTANCE_PATH,
-                                             target_layer.real_path)
+            unchanged = has_stronger_opinion(
+                comp_node, INTERNAL_ATTRS.INSTANCE_PATH, target_layer.real_path
+            )
             if not unchanged:
-                old_inst_path = getattr(comp_node,
-                                        INTERNAL_ATTRS.INSTANCE_PATH, None)
+                old_inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
                 dirty_nodes = comp_layer.get_node_dirties(old_inst_path)
                 if old_inst_path:
-                    dirty_nodes += self.targeted_uncomp(comp_node, comp_layer,
-                                                        target_layer,
-                                                        arcs=[CompArc.INSTANCE])
+                    dirty_nodes += self.targeted_uncomp(
+                        comp_node, comp_layer, target_layer, arcs=[CompArc.INSTANCE]
+                    )
                 expanded = None
                 if has_opinion(instance_path):
-                    expanded = nxt_path.expand_relative_node_path(instance_path,
-                                                                  node_path)
+                    expanded = nxt_path.expand_relative_node_path(
+                        instance_path, node_path
+                    )
                 else:
                     ip = INTERNAL_ATTRS.INSTANCE_PATH
-                    prev_inst_paths = get_historical_opinions(comp_node, ip,
-                                                              comp_layer)
+                    prev_inst_paths = get_historical_opinions(comp_node, ip, comp_layer)
                     for dat in prev_inst_paths:
                         path = dat[META_ATTRS.VALUE]
                         if has_opinion(path):
                             np = node_path
-                            expanded = nxt_path.expand_relative_node_path(path,
-                                                                          np)
+                            expanded = nxt_path.expand_relative_node_path(path, np)
                             break
                 setattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, expanded)
-                setattr(comp_node,
-                        INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
-                        (target_layer.real_path, node_path))
+                setattr(
+                    comp_node,
+                    INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
+                    (target_layer.real_path, node_path),
+                )
         setattr(node, INTERNAL_ATTRS.INSTANCE_PATH, instance_path)
-        setattr(node, INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
-                (target_layer.real_path, node_path))
+        setattr(
+            node,
+            INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
+            (target_layer.real_path, node_path),
+        )
         if comp_layer and not unchanged:
-            proxy_map = self.targeted_comp_proxies(comp_node, node_path,
-                                                   comp_layer)
-            dirty_nodes += self.targeted_comp_post_proxies(proxy_map,
-                                                           comp_layer)
+            proxy_map = self.targeted_comp_proxies(comp_node, node_path, comp_layer)
+            dirty_nodes += self.targeted_comp_post_proxies(proxy_map, comp_layer)
         return list(set(dirty_nodes))
 
     @staticmethod
@@ -1574,15 +1661,14 @@ class Stage:
         if expanded:
             real_path = nxt_path.expand_relative_node_path(inst_path, node_path)
         else:
-            real_path = self.get_uncomped_opinion(comp_node,
-                                                  INTERNAL_ATTRS.INSTANCE_PATH)
+            real_path = self.get_uncomped_opinion(
+                comp_node, INTERNAL_ATTRS.INSTANCE_PATH
+            )
         instance_node = comp_layer.lookup(real_path)
         return instance_node, real_path
 
-    def node_setattr_comment(self, node, attr_name, layer, comment=None,
-                             create=False):
-        self.node_setattr_data(node, attr_name, layer, create,
-                               comment=comment)
+    def node_setattr_comment(self, node, attr_name, layer, comment=None, create=False):
+        self.node_setattr_data(node, attr_name, layer, create, comment=comment)
 
     def lookup_layer(self, layer_path):
         """Finds and returns a layer object from the sub layers list who's
@@ -1594,7 +1680,7 @@ class Stage:
             if layer.real_path == layer_path:
                 return layer
         if layer_path:
-            logger.warning('Layer not found: {}'.format(layer_path))
+            logger.warning("Layer not found: {}".format(layer_path))
         return None
 
     def get_node_source_layer(self, node):
@@ -1637,7 +1723,7 @@ class Stage:
 
     def get_node_instanced_attr_names(self, node, comp_layer):
         if not isinstance(comp_layer, CompLayer):
-            logger.error('Wrong layer type supplied, must be comp layer!')
+            logger.error("Wrong layer type supplied, must be comp layer!")
             return []
         attrs = []
         node_path = comp_layer.get_node_path(node)
@@ -1650,8 +1736,7 @@ class Stage:
             p_loc = get_node_local_attr_names(parent_path, layers)
             p_inherits = self.get_node_inherited_attr_names(parent, comp_layer)
             inherited = p_loc + p_inherits
-            p_inst_attrs = self.get_node_instanced_attr_names(parent,
-                                                              comp_layer)
+            p_inst_attrs = self.get_node_instanced_attr_names(parent, comp_layer)
             attrs += [a for a in p_inst_attrs if a not in inherited]
         else:
             inherited = []
@@ -1690,7 +1775,7 @@ class Stage:
         try:
             attr_val = getattr(node, attr_name)
         except AttributeError:
-            attr_val = ''
+            attr_val = ""
 
         if resolved and attr_val:
             attr_val = self.resolve(node, attr_val, layer, attr_name=attr_name)
@@ -1699,7 +1784,7 @@ class Stage:
             return attr_val
         # get the raw version of this attribute value
         if attr_val is None:
-            attr_val = ''
+            attr_val = ""
         elif not attr_val:
             attr_val = str(attr_val)
         return attr_val
@@ -1719,7 +1804,7 @@ class Stage:
             source_layer, source_path = getattr(node, source_attr)
             return source_layer, source_path
         except AttributeError:
-            return '', ''
+            return "", ""
 
     def get_node_attr_data(self, node, attr_name, layer, quiet=False):
         for meta_attr in META_ATTRS.ALL:
@@ -1729,9 +1814,8 @@ class Stage:
         if not self.node_attr_exists(node, attr_name):
             node_path = layer.get_node_path(node)
             if not quiet:
-                msg = "The node {} does not have the attr \"{}\""
-                logger.error(msg.format(node_path, attr_name),
-                             links=[node_path])
+                msg = 'The node {} does not have the attr "{}"'
+                logger.error(msg.format(node_path, attr_name), links=[node_path])
             return {}
         value = getattr(node, attr_name)
         meta_attrs = {META_ATTRS.VALUE: value}
@@ -1741,8 +1825,7 @@ class Stage:
             if hasattr(node, meta_attr):
                 meta_attrs[pretty_name] = getattr(node, meta_attr)
 
-        attr_data = OrderedDict(sorted(meta_attrs.items(),
-                                       key=lambda x: x[0].lower()))
+        attr_data = OrderedDict(sorted(meta_attrs.items(), key=lambda x: x[0].lower()))
         # attr_data[attr_name] = sorted_meta_attrs
         return attr_data
 
@@ -1756,11 +1839,10 @@ class Stage:
                 val = getattr(node, internal_attr)
             except AttributeError:
                 val = None
-            if (has_opinion(val) or internal_attr in
-                    INTERNAL_ATTRS.ALLOW_NO_OPINION):
+            if has_opinion(val) or internal_attr in INTERNAL_ATTRS.ALLOW_NO_OPINION:
                 key = INTERNAL_ATTRS.as_save_key(internal_attr)
                 if internal_attr is INTERNAL_ATTRS.COMPUTE:
-                    key = 'code'  # TODO: Refactor see #656
+                    key = "code"  # TODO: Refactor see #656
                 node_data[key] = val
         if include_inherit:
             all_attrs = self.get_node_attr_names(node)
@@ -1774,14 +1856,15 @@ class Stage:
         attr_data = {}
         for attr in set(all_attrs):
             data = {}
-            val = self.get_node_attr_value(node, attr_name=attr, layer=layer,
-                                           resolved=False)
+            val = self.get_node_attr_value(
+                node, attr_name=attr, layer=layer, resolved=False
+            )
             comment = self.get_node_attr_comment(node, attr)
             data[META_ATTRS.VALUE] = val
             data[META_ATTRS.as_save_key(META_ATTRS.COMMENT)] = comment
             # if data:
             attr_data[attr] = data
-        node_data['attributes'] = attr_data
+        node_data["attributes"] = attr_data
         return node_data
 
     @staticmethod
@@ -1863,9 +1946,9 @@ class Stage:
         for token in tokens.get_standalone_tokens(text):
             token_content = tokens.get_token_content(token)
             token_type = Stage.determine_token_type(token_content)
-            rep = 'BADRESOLVE'
+            rep = "BADRESOLVE"
             if token_type:
-                cleaned = token_content[len(token_type.prefix):]
+                cleaned = token_content[len(token_type.prefix) :]
             else:
                 cleaned = token_content
             if isinstance(token_type, Token) and callable(token_type.resolve):
@@ -1886,8 +1969,8 @@ class Stage:
             else:
                 logger.warning('Unknown token:"{}" '.format(token_content))
             if rep is None:
-                logger.warning('Failed to resolve: {}'.format(token_content))
-                rep = ''
+                logger.warning("Failed to resolve: {}".format(token_content))
+                rep = ""
             resolved = resolved.replace(token, rep)
         return resolved
 
@@ -1917,18 +2000,16 @@ class Stage:
         # If this attr ref is to another node, go there and get the value
         if source_path:
             node_path = layer.get_node_path(node)
-            source_path = nxt_path.expand_relative_node_path(source_path,
-                                                             node_path)
+            source_path = nxt_path.expand_relative_node_path(source_path, node_path)
             resolve_source_node = layer.lookup(source_path)
-            return self.get_node_attr_value(resolve_source_node,
-                                            attr_name=attr_name, layer=layer,
-                                            resolved=True)
+            return self.get_node_attr_value(
+                resolve_source_node, attr_name=attr_name, layer=layer, resolved=True
+            )
         # NOTE: attr ref hierarchy is defined here.
         try:
             local_val = getattr(node, attr_name)
         except AttributeError:
-            local_val = self.get_node_attr_value(node, attr_name, layer,
-                                                 resolved=True)
+            local_val = self.get_node_attr_value(node, attr_name, layer, resolved=True)
         if local_val:
             return local_val
         warning_template = 'Failed to resolve attr "{}" on "{}"'
@@ -1954,8 +2035,10 @@ class Stage:
         cwd = start_layer.get_cwd()
         if not cwd:
             cwd = os.getcwd()
-            msg = ("No layer path found for {layer}, "
-                   "using cwd:{new} for file token resolution.")
+            msg = (
+                "No layer path found for {layer}, "
+                "using cwd:{new} for file token resolution."
+            )
             logger.debug(msg.format(layer=start_layer._name, new=cwd))
         return nxt_path.full_file_expand(token_str, start=cwd)
 
@@ -1976,7 +2059,7 @@ class Stage:
         resolved = self.resolve(node, text, start_layer)
         full_path = self.resolve_file_path_token(node, resolved, start_layer)
         if not os.path.exists(full_path):
-            return ''
+            return ""
         return full_path
 
     def resolve_contents_token(self, node, text, layer):
@@ -1996,13 +2079,19 @@ class Stage:
             with open(file_path) as fp:
                 contents = fp.read()
         except IOError:
-            logger.error('Failed to get contents of {}'.format(file_path))
-            return ''
+            logger.error("Failed to get contents of {}".format(file_path))
+            return ""
         # pipe contents back through resolve in case contents have tokens.
         return self.resolve(node, contents, layer)
 
-    def infer_lower_comp(self, comp_node, comp_layer, active_layers=None,
-                         depth=1, inferred_comp_layer=None):
+    def infer_lower_comp(
+        self,
+        comp_node,
+        comp_layer,
+        active_layers=None,
+        depth=1,
+        inferred_comp_layer=None,
+    ):
         """Infer a new comp node based on the provided args. This method
         attempts to shift the composition for a node to a different comp
         depth. The default depth is 1 which means it will infer a new comp
@@ -2043,30 +2132,35 @@ class Stage:
             return inferred_comp
         display_idx, end_idx = comp_layer._layer_range
         if not active_layers:
-            requested_layers = self._sub_layers[display_idx + depth:end_idx+1]
+            requested_layers = self._sub_layers[display_idx + depth : end_idx + 1]
             active_layers = get_active_layers(requested_layers)
         if not active_layers or depth < 0:
             return None
         is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
-        is_divergent = self._check_if_inst_diverges(path, comp_layer,
-                                                    active_layers)
+        is_divergent = self._check_if_inst_diverges(path, comp_layer, active_layers)
         if is_divergent:
-            logger.warning('Divergent instance detected, historical values '
-                           'may yield un-expected results!')
+            logger.warning(
+                "Divergent instance detected, historical values "
+                "may yield un-expected results!"
+            )
         specs = self.get_specs_at_path(path, active_layers)
-        dummy_spec = SpecNode.new({INTERNAL_ATTRS.NAME:
-                                       getattr(comp_node, INTERNAL_ATTRS.NAME),
-                                   INTERNAL_ATTRS.PARENT_PATH:
-                                       getattr(comp_node,
-                                               INTERNAL_ATTRS.PARENT_PATH),
-                                   INTERNAL_ATTRS.INSTANCE_PATH:
-                                       getattr(comp_node,
-                                               INTERNAL_ATTRS.INSTANCE_PATH),
-                                   INTERNAL_ATTRS.PROXY: is_proxy,
-                                   INTERNAL_ATTRS.SOURCE_LAYER: None})
+        dummy_spec = SpecNode.new(
+            {
+                INTERNAL_ATTRS.NAME: getattr(comp_node, INTERNAL_ATTRS.NAME),
+                INTERNAL_ATTRS.PARENT_PATH: getattr(
+                    comp_node, INTERNAL_ATTRS.PARENT_PATH
+                ),
+                INTERNAL_ATTRS.INSTANCE_PATH: getattr(
+                    comp_node, INTERNAL_ATTRS.INSTANCE_PATH
+                ),
+                INTERNAL_ATTRS.PROXY: is_proxy,
+                INTERNAL_ATTRS.SOURCE_LAYER: None,
+            }
+        )
         inferred_comp = CompNode.new(spec_node=dummy_spec)
-        self.add_node_to_comp_layer(path, inferred_comp, inferred_comp_layer,
-                                    add_to_child_order=False)
+        self.add_node_to_comp_layer(
+            path, inferred_comp, inferred_comp_layer, add_to_child_order=False
+        )
         if specs:
             self._replace_base_classes(inferred_comp, tuple(specs))
         ancestor_paths = nxt_path.all_ancestor_paths(path) + [nxt_path.WORLD]
@@ -2088,9 +2182,9 @@ class Stage:
             ancestors += [ancestor]
             ancestor_proxy_map = {CompArc.PARENT: parent}
             parent = ancestor
-            self.add_node_to_comp_layer(ancestor_path, ancestor,
-                                        inferred_comp_layer,
-                                        add_to_child_order=False)
+            self.add_node_to_comp_layer(
+                ancestor_path, ancestor, inferred_comp_layer, add_to_child_order=False
+            )
             self._replace_base_classes(ancestor, tuple(specs))
             inst_path = getattr(ancestor, INTERNAL_ATTRS.INSTANCE_PATH)
             for spec in reversed(specs):
@@ -2100,11 +2194,13 @@ class Stage:
             setattr(ancestor, INTERNAL_ATTRS.INSTANCE_PATH, inst_path)
             ancestor_inst_comp_src = comp_layer.lookup(inst_path)
             if ancestor_inst_comp_src:
-                ancestor_inst = self.infer_lower_comp(ancestor_inst_comp_src,
-                                                      comp_layer,
-                                                      active_layers,
-                                                      depth,
-                                                      inferred_comp_layer)
+                ancestor_inst = self.infer_lower_comp(
+                    ancestor_inst_comp_src,
+                    comp_layer,
+                    active_layers,
+                    depth,
+                    inferred_comp_layer,
+                )
                 ancestor_proxy_map[CompArc.INSTANCE] = ancestor_inst
             proxy_map[ancestor] = ancestor_proxy_map
             self.targeted_comp_post_proxies(proxy_map)
@@ -2113,17 +2209,18 @@ class Stage:
         if parent:
             name = getattr(inferred_comp, INTERNAL_ATTRS.NAME)
             parent_inst = getattr(parent, INTERNAL_ATTRS.INSTANCE_PATH)
-            children = comp_layer.children(parent_inst,
-                                           return_type=comp_layer.RETURNS.Path)
+            children = comp_layer.children(
+                parent_inst, return_type=comp_layer.RETURNS.Path
+            )
             for p in children:
                 if nxt_path.node_name_from_node_path(p) == name:
                     inst_path = p
                     break
         inst = None
         if not inst_path:
-            inst, inst_path = self.safe_get_node_instance(inferred_comp,
-                                                          inferred_comp_layer,
-                                                          expanded=True)
+            inst, inst_path = self.safe_get_node_instance(
+                inferred_comp, inferred_comp_layer, expanded=True
+            )
         infer_inst = False
         if inst_path and not inst:
             inst = comp_layer.lookup(inst_path)
@@ -2131,9 +2228,9 @@ class Stage:
         inst_path = getattr(inferred_comp, INTERNAL_ATTRS.INSTANCE_PATH)
         base_paths = [get_node_path(b) for b in inferred_comp.__bases__]
         if inst and infer_inst and inst_path not in base_paths:
-            inferred_inst = self.infer_lower_comp(inst, comp_layer,
-                                                  active_layers, depth,
-                                                  inferred_comp_layer)
+            inferred_inst = self.infer_lower_comp(
+                inst, comp_layer, active_layers, depth, inferred_comp_layer
+            )
             inferred_comp_proxy_map[CompArc.INSTANCE] = inferred_inst
         elif inst and inst_path not in base_paths:
             inferred_comp_proxy_map[CompArc.INSTANCE] = inst
@@ -2163,8 +2260,7 @@ class Stage:
         current_instances = {}
         for ancestor_path in reversed(ancestor_paths):
             ancestor = comp_layer.lookup(ancestor_path)
-            ancestor_inst_path = getattr(ancestor, INTERNAL_ATTRS.INSTANCE_PATH,
-                                         None)
+            ancestor_inst_path = getattr(ancestor, INTERNAL_ATTRS.INSTANCE_PATH, None)
             if ancestor_inst_path:
                 current_instances[ancestor_path] = ancestor_inst_path
 
@@ -2172,22 +2268,25 @@ class Stage:
             for layer in active_layers:
                 ancestor = layer.lookup(ancestor_path)
                 if ancestor:
-                    ancestor_inst_path = getattr(ancestor,
-                                                 INTERNAL_ATTRS.INSTANCE_PATH,
-                                                 None)
+                    ancestor_inst_path = getattr(
+                        ancestor, INTERNAL_ATTRS.INSTANCE_PATH, None
+                    )
                     comp_inst_path = current_instances.get(ancestor_path)
                     comp_has_op = has_opinion(comp_inst_path)
                     ancestor_has_op = has_opinion(ancestor_inst_path)
                     has_op = comp_has_op and ancestor_has_op
                     if comp_inst_path != ancestor_inst_path and has_op:
-                        src_layer = getattr(ancestor,
-                                            INTERNAL_ATTRS.SOURCE_LAYER)
-                        logger.debug('"{}" instance diverges \n'
-                                     'from "{}" to "{}" \n'
-                                     'on "{}"'.format(ancestor_path,
-                                                      comp_inst_path,
-                                                      ancestor_inst_path,
-                                                      src_layer))
+                        src_layer = getattr(ancestor, INTERNAL_ATTRS.SOURCE_LAYER)
+                        logger.debug(
+                            '"{}" instance diverges \n'
+                            'from "{}" to "{}" \n'
+                            'on "{}"'.format(
+                                ancestor_path,
+                                comp_inst_path,
+                                ancestor_inst_path,
+                                src_layer,
+                            )
+                        )
                         return True
         return False
 
@@ -2229,7 +2328,7 @@ class Stage:
             return unresolved
         resolved = self.resolve(node, unresolved, layer)
         typ = determine_nxt_type(resolved)
-        if typ in ('raw', 'str'):
+        if typ in ("raw", "str"):
             real = resolved
         else:
             try:
@@ -2247,16 +2346,16 @@ class Stage:
                 # rather than code_str we built
                 after_args[2] = after_args[2] - (len(typ) + 2)
                 new_err = err_type(err.args[0], tuple(after_args))
-                raise GraphSyntaxError(new_err, layer.real_path, attr_path,
-                                       err.lineno)
+                raise GraphSyntaxError(new_err, layer.real_path, attr_path, err.lineno)
             except Exception as err:
                 lineno = get_traceback_lineno(err_depth=1)
-                bad_line = resolved.split('\n')[lineno-1]
+                bad_line = resolved.split("\n")[lineno - 1]
                 node_path = layer.get_node_path(node)
                 attr_path = nxt_path.make_attr_path(node_path, attr)
                 _, _, tb = sys.exc_info()
-                raise GraphError(err, tb, layer.real_path, attr_path, lineno,
-                                 bad_line, err_depth=1)
+                raise GraphError(
+                    err, tb, layer.real_path, attr_path, lineno, bad_line, err_depth=1
+                )
         return real
 
     def get_node_attr_external_sources(self, node, attr_name, layer):
@@ -2275,10 +2374,8 @@ class Stage:
         :rtype: list
         """
         layer = layer or self.top_layer
-        attr_value = self.get_node_attr_value(node, attr_name, layer,
-                                              resolved=False)
-        attr_tokens = self.get_tokens_from(str(attr_value),
-                                           token_type=TOKENTYPE.ATTR)
+        attr_value = self.get_node_attr_value(node, attr_name, layer, resolved=False)
+        attr_tokens = self.get_tokens_from(str(attr_value), token_type=TOKENTYPE.ATTR)
         out_refs = []
         for token in attr_tokens:
             ref = tokens.get_token_content(token)
@@ -2291,10 +2388,10 @@ class Stage:
 
     def get_node_code_external_sources(self, node, layer):
         layer = layer or self.top_layer
-        code_string = self.get_node_code_string(node=node, layer=layer,
-                                                data_state=DATA_STATE.RAW)
-        attr_tokens = self.get_tokens_from(code_string,
-                                           token_type=TOKENTYPE.ATTR)
+        code_string = self.get_node_code_string(
+            node=node, layer=layer, data_state=DATA_STATE.RAW
+        )
+        attr_tokens = self.get_tokens_from(code_string, token_type=TOKENTYPE.ATTR)
         out_refs = []
         for token in attr_tokens:
             ref = tokens.get_token_content(token)
@@ -2320,9 +2417,10 @@ class Stage:
         """
         if data_state not in [DATA_STATE.RAW, DATA_STATE.RESOLVED]:
             data_state = DATA_STATE.RAW
-        code_lines = self.get_node_code_lines(node=node, layer=layer,
-                                              data_state=data_state)
-        return '\n'.join(code_lines)
+        code_lines = self.get_node_code_lines(
+            node=node, layer=layer, data_state=data_state
+        )
+        return "\n".join(code_lines)
 
     def get_node_code(self, node, layer, custom_code=None):
         """Converts node's compute lines into a code object. If an exception is
@@ -2336,18 +2434,19 @@ class Stage:
         """
         if custom_code:
             func_lines = custom_code
-            code_lines = func_lines.split('\n')
+            code_lines = func_lines.split("\n")
         else:
             resolved = DATA_STATE.RESOLVED
-            code_lines = self.get_node_code_lines(node=node, layer=layer,
-                                                        data_state=resolved)
+            code_lines = self.get_node_code_lines(
+                node=node, layer=layer, data_state=resolved
+            )
             # Ensures the compute complies and executes with correct line
             # numbers even if the compute is/startswith huge comment.
-            line_zero = ['# Blank Line']
-            func_lines = '\n'.join(line_zero + code_lines)
+            line_zero = ["# Blank Line"]
+            func_lines = "\n".join(line_zero + code_lines)
         path = layer.get_node_path(node)
         try:
-            _code = compile(func_lines, path, 'exec')
+            _code = compile(func_lines, path, "exec")
         except SyntaxError as err:
             # 2to3 check these tuples
             lineno = err.lineno - 1
@@ -2435,8 +2534,7 @@ class Stage:
     def get_node_local_attrs_data(self, node):
         raise NotImplementedError
 
-    def create_instance_node(self, source_path, tgt_path, comp_layer,
-                             new_tgt_ns=None):
+    def create_instance_node(self, source_path, tgt_path, comp_layer, new_tgt_ns=None):
         """Creates an instance node and adds it to the comp layer. Returns
         the new instance node if it isn't an implied node, otherwise returns
         False.
@@ -2459,8 +2557,7 @@ class Stage:
             name_dict = comp_layer.RETURNS.NameDict
             p_inst = getattr(inst_parent, INTERNAL_ATTRS.INSTANCE_PATH, None)
             inst_children = comp_layer.children(p_inst, return_type=name_dict)
-            inst_source_node = create_spec_node(data, comp_layer,
-                                                parent_path=inst_pp)
+            inst_source_node = create_spec_node(data, comp_layer, parent_path=inst_pp)
             if node_name in inst_children:
                 force_source_layer = True
             else:
@@ -2468,25 +2565,32 @@ class Stage:
 
         target_parent_path = nxt_path.get_parent_path(tgt_path)
         existing_node = comp_layer.lookup(tgt_path)
-        layer = self.lookup_layer(getattr(inst_source_node,
-                                          INTERNAL_ATTRS.SOURCE_LAYER))
+        layer = self.lookup_layer(
+            getattr(inst_source_node, INTERNAL_ATTRS.SOURCE_LAYER)
+        )
         if existing_node is None:
-            i_dat = {INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.NAME):
-                         getattr(inst_source_node, INTERNAL_ATTRS.NAME),
-                     INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.COMMENT):
-                         getattr(inst_source_node, INTERNAL_ATTRS.COMMENT),
-                     INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.ENABLED):
-                         getattr(inst_source_node, INTERNAL_ATTRS.ENABLED),
-                     INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.SOURCE_LAYER):
-                         getattr(inst_source_node, INTERNAL_ATTRS.SOURCE_LAYER),
-                     INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.PARENT_PATH):
-                         target_parent_path}
-            spec_node = create_spec_node(i_dat, layer,
-                                         parent_path=target_parent_path,
-                                         is_proxy=True)
+            i_dat = {
+                INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.NAME): getattr(
+                    inst_source_node, INTERNAL_ATTRS.NAME
+                ),
+                INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.COMMENT): getattr(
+                    inst_source_node, INTERNAL_ATTRS.COMMENT
+                ),
+                INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.ENABLED): getattr(
+                    inst_source_node, INTERNAL_ATTRS.ENABLED
+                ),
+                INTERNAL_ATTRS.as_save_key(INTERNAL_ATTRS.SOURCE_LAYER): getattr(
+                    inst_source_node, INTERNAL_ATTRS.SOURCE_LAYER
+                ),
+                INTERNAL_ATTRS.as_save_key(
+                    INTERNAL_ATTRS.PARENT_PATH
+                ): target_parent_path,
+            }
+            spec_node = create_spec_node(
+                i_dat, layer, parent_path=target_parent_path, is_proxy=True
+            )
             new_target = CompNode.new(spec_node=spec_node)
-            self.add_node_to_comp_layer(tgt_path, new_target, comp_layer,
-                                        ns=new_tgt_ns)
+            self.add_node_to_comp_layer(tgt_path, new_target, comp_layer, ns=new_tgt_ns)
             # This might be the wrong place to do this...
             parent_node = comp_layer.lookup(target_parent_path)
             parent_layer = getattr(parent_node, INTERNAL_ATTRS.SOURCE_LAYER)
@@ -2495,16 +2599,20 @@ class Stage:
             # Setting the instance path on the comp node because it is
             # persistent if and when the node is localized.
             setattr(new_target, INTERNAL_ATTRS.INSTANCE_PATH, source_path)
-            setattr(new_target,
-                    INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
-                    (parent_layer, source_path))
+            setattr(
+                new_target,
+                INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
+                (parent_layer, source_path),
+            )
 
         else:
             new_target = existing_node
             setattr(existing_node, INTERNAL_ATTRS.INSTANCE_PATH, source_path)
-            setattr(existing_node,
-                    INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
-                    (layer.real_path, source_path))
+            setattr(
+                existing_node,
+                INTERNAL_ATTRS.INSTANCE_PATH + META_ATTRS.SOURCE,
+                (layer.real_path, source_path),
+            )
         self.extend_dirty_map(source_path, tgt_path, comp_layer._dirty_map)
         if not implied:
             return new_target
@@ -2531,7 +2639,9 @@ class Stage:
         """
         len_source = len(source_ns)
         len_target = len(target_ns)
-        target_parent_path = target_ns[:-1] if len_target > 1 and len_source else target_ns
+        target_parent_path = (
+            target_ns[:-1] if len_target > 1 and len_source else target_ns
+        )
         matched_path = target_parent_path
         changed = False
         if len_source > len_target and source_ns[0] != target_ns[0]:
@@ -2539,7 +2649,7 @@ class Stage:
             source_suffix = source_ns[begin:]
             suffix_len = len(source_suffix)
             for i, item in enumerate(target_ns):
-                snip = target_ns[i:i + suffix_len]
+                snip = target_ns[i : i + suffix_len]
                 if snip == source_suffix[:-begin]:
                     matched_path = matched_path[:i] + source_suffix
                     changed = True
@@ -2550,7 +2660,7 @@ class Stage:
             source_suffix = source_ns[begin:]
             suffix_len = len(source_suffix)
             for i, item in enumerate(target_ns):
-                snip = target_ns[i:i + suffix_len]
+                snip = target_ns[i : i + suffix_len]
                 if snip == source_suffix[:-begin]:
                     matched_path = matched_path[:i] + source_suffix
                     changed = True
@@ -2564,14 +2674,14 @@ class Stage:
                     matched_path += [t]
                 elif i + 1 in range(len_target) and target_ns[i + 1] == s:
                     if source_ns[i - 1] == t:
-                        matched_path += source_ns[i - 1:]
+                        matched_path += source_ns[i - 1 :]
                     else:
                         matched_path += [t]
                         matched_path += source_ns[i:]
                     break
                 elif i - 1 in range(len_source) and source_ns[i - 1] == t:
                     if source_ns[i - 1] == t:
-                        matched_path += source_ns[i - 1:]
+                        matched_path += source_ns[i - 1 :]
                     else:
                         matched_path += [t]
                         matched_path += source_ns[i:]
@@ -2583,7 +2693,7 @@ class Stage:
             short = source_ns if len_source < len_target else target_ns
             for i, item in enumerate(short):
                 if i + 1 in range(len(longer)) and longer[i] != item:
-                    matched_path = short[:i + 1] + longer[i + 1:]
+                    matched_path = short[: i + 1] + longer[i + 1 :]
         return matched_path
 
     def new_layer(self, logical_index=int, layer_data=dict):
@@ -2595,7 +2705,7 @@ class Stage:
         layer = SpecLayer(layer_data)
         self.register_layer(layer, logical_index)
         build_time = str(int(round((time.time() - start) * 1000)))
-        logger.info("New layer build time: " + build_time + 'ms')
+        logger.info("New layer build time: " + build_time + "ms")
         return layer
 
     def register_layer(self, layer, logical_index=None):
@@ -2606,8 +2716,9 @@ class Stage:
 
     def build_stage(self, from_idx=0, node_paths=()):
         if node_paths and list(node_paths) != [nxt_path.WORLD]:
-            raise NotImplementedError('Only the world node path is supported '
-                                      'at this time!')
+            raise NotImplementedError(
+                "Only the world node path is supported " "at this time!"
+            )
         build_start_time = time.time()
         sub_layer_count = len(self._sub_layers)
         comp_layer = CompLayer()
@@ -2629,14 +2740,14 @@ class Stage:
         active_layers = get_active_layers(sub_layers)
         active_layer_count = len(active_layers)
         if active_layer_count < 1:
-            logger.compinfo('All layers muted!')
+            logger.compinfo("All layers muted!")
             return comp_layer
         comp_layer.cwd = active_layers[0].get_cwd()
         comp_layer.real_path = active_layers[0].real_path
         # Would prefer to set this during console construction, would need
         # to move real path into comp layer construction.
         comp_layer._console.layer_path = comp_layer.real_path
-        '''Organize all the nodes we're going to comp'''
+        """Organize all the nodes we're going to comp"""
         for sub_layer in active_layers:
             # Sort the layer node table since we do not know if its sorted
             sub_layer.sort_node_table()
@@ -2653,26 +2764,27 @@ class Stage:
         if not comp_layer._sublayer_node_tables:
             logger.compinfo("No nodes found!")
             return comp_layer
-        '''Pre proxy comp'''
+        """Pre proxy comp"""
         node_count = self.comp_pre_proxies(comp_layer=comp_layer)
-        '''Proxy comp'''
-        proxy_count, loops = self.comp_proxies(comp_layer=comp_layer,
-                                               node_count=node_count)
-        '''Post proxy comp'''
+        """Proxy comp"""
+        proxy_count, loops = self.comp_proxies(
+            comp_layer=comp_layer, node_count=node_count
+        )
+        """Post proxy comp"""
         try:
             root_count, total_count = self.post_proxy_comp(comp_layer)
-            logger.compinfo(('Number of nodes -->', total_count))
-            logger.compinfo(('Number of roots --> ', root_count))
+            logger.compinfo(("Number of nodes -->", total_count))
+            logger.compinfo(("Number of roots --> ", root_count))
         except Exception as e:
             logger.debug(e)
-            logger.critical('The comp encounter a critical error')
+            logger.critical("The comp encounter a critical error")
             comp_layer.failure = traceback.format_exc()
 
-        logger.compinfo(('Number of instances created --> ', proxy_count))
-        logger.compinfo(('Number of layers --> ', active_layer_count))
-        logger.compinfo(('Number of loops --> ', loops))
+        logger.compinfo(("Number of instances created --> ", proxy_count))
+        logger.compinfo(("Number of layers --> ", active_layer_count))
+        logger.compinfo(("Number of loops --> ", loops))
         build_time = str(int(round((time.time() - build_start_time) * 1000)))
-        logger.compinfo("New comp layer created in: " + build_time + 'ms')
+        logger.compinfo("New comp layer created in: " + build_time + "ms")
         return comp_layer
 
     def comp_pre_proxies(self, comp_layer):
@@ -2705,20 +2817,20 @@ class Stage:
                     # Node is already a comp node, we'll deal with it later
                     continue
                 # New comp node
-                attrs = {INTERNAL_ATTRS.NAME: getattr(spec_node,
-                                                      INTERNAL_ATTRS.NAME)
-                         }
+                attrs = {INTERNAL_ATTRS.NAME: getattr(spec_node, INTERNAL_ATTRS.NAME)}
                 comp_node = CompNode.new(spec_node=spec_node, attrs=attrs)
-                self.add_node_to_comp_layer(path=comp_node_path,
-                                            comp_node=comp_node,
-                                            comp_layer=comp_layer, ns=namespace,
-                                            add_to_child_order=False)
+                self.add_node_to_comp_layer(
+                    path=comp_node_path,
+                    comp_node=comp_node,
+                    comp_layer=comp_layer,
+                    ns=namespace,
+                    add_to_child_order=False,
+                )
                 base_mapping[comp_node_path] = bases
                 node_count += 1
         # Loop pre comp arcs
         for arc in CompArc.PRE_PROXY_ARCS:
-            overload_attrs = set(CompArc.INHERITANCE_MAP[arc] +
-                                 INTERNAL_ATTRS.TRACKED)
+            overload_attrs = set(CompArc.INHERITANCE_MAP[arc] + INTERNAL_ATTRS.TRACKED)
             if arc == CompArc.REFERENCE:
                 # Loop the empty comp nodes we just created
                 for ref_node_path, bases in base_mapping.items():
@@ -2729,35 +2841,33 @@ class Stage:
                     idx = 0
                     for spec_node in reversed(bases):
                         if idx == 0:
-                            child_order = getattr(spec_node,
-                                                  INTERNAL_ATTRS.CHILD_ORDER)
-                            setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER,
-                                    child_order)
+                            child_order = getattr(spec_node, INTERNAL_ATTRS.CHILD_ORDER)
+                            setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER, child_order)
                         for intern_attr in overload_attrs:
-                            attr_value, has = get_opinion(spec_node,
-                                                          intern_attr)
+                            attr_value, has = get_opinion(spec_node, intern_attr)
                             if has:
-                                src_layer = getattr(spec_node,
-                                                    INTERNAL_ATTRS.SOURCE_LAYER)
+                                src_layer = getattr(
+                                    spec_node, INTERNAL_ATTRS.SOURCE_LAYER
+                                )
                                 setattr(comp_node, intern_attr, attr_value)
                                 src_attr = intern_attr + META_ATTRS.SOURCE
-                                setattr(comp_node, src_attr, (src_layer,
-                                                              ref_node_path))
+                                setattr(comp_node, src_attr, (src_layer, ref_node_path))
                         idx += 1
                         if ref_node_path == nxt_path.WORLD:
                             continue
                         # Merge the child order from the spec to the comp node
                         spec_co = getattr(spec_node, INTERNAL_ATTRS.CHILD_ORDER)
                         comp_co = getattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER)
-                        child_order_overload = list_merger(spec_co,
-                                                           comp_co)
-                        setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER,
-                                child_order_overload)
+                        child_order_overload = list_merger(spec_co, comp_co)
+                        setattr(
+                            comp_node, INTERNAL_ATTRS.CHILD_ORDER, child_order_overload
+                        )
                         del spec_node
         return node_count
 
-    def targeted_comp_pre_proxies(self, spec_node, new_node_path, comp_layer,
-                                  target_layer):
+    def targeted_comp_pre_proxies(
+        self, spec_node, new_node_path, comp_layer, target_layer
+    ):
         """Adds a single node to a comp layer, loops the same arcs as
         `pre_proxy_comp`, the logic is slightly different as we are doing
         targeted work on the comp layer.
@@ -2771,8 +2881,9 @@ class Stage:
         comp_node = comp_layer.lookup(new_node_path)
         reference_map = {CompArc.REFERENCE: None}
         if comp_node is None:
-            comp_node = self.add_node_to_comp_layer(new_node_path, spec_node,
-                                                    comp_layer)
+            comp_node = self.add_node_to_comp_layer(
+                new_node_path, spec_node, comp_layer
+            )
         else:  # If a node exists at the node path we insert our new spec
             # into it's bases tuple
             tgt_idx = target_layer.layer_idx()
@@ -2793,13 +2904,19 @@ class Stage:
                 if sub_layer_idx > tgt_idx or is_comp_node:
                     # If the spec node's layer index is higher than ours
                     # it means we need to insert before it as we are stronger
-                    bases += [b for b in existing_bases[:i] if
-                              CompArc.get_arc(comp_node, b, comp_layer) ==
-                              CompArc.REFERENCE]
+                    bases += [
+                        b
+                        for b in existing_bases[:i]
+                        if CompArc.get_arc(comp_node, b, comp_layer)
+                        == CompArc.REFERENCE
+                    ]
                     bases += [spec_node]
-                    bases += [b for b in existing_bases[i:] if
-                              CompArc.get_arc(comp_node, b, comp_layer) ==
-                              CompArc.REFERENCE]
+                    bases += [
+                        b
+                        for b in existing_bases[i:]
+                        if CompArc.get_arc(comp_node, b, comp_layer)
+                        == CompArc.REFERENCE
+                    ]
                     inserted = True
                     break
                 i += 1
@@ -2813,8 +2930,7 @@ class Stage:
             for b in existing_bases[i:]:
                 arc = CompArc.get_arc(comp_node, b, comp_layer)
                 if not arc:
-                    logger.critical('Unexpected base class found, please '
-                                    're-comp!')
+                    logger.critical("Unexpected base class found, please " "re-comp!")
                     continue
                 # References were taken care of in the above loop
                 elif arc == CompArc.REFERENCE:
@@ -2838,8 +2954,7 @@ class Stage:
             overload_attrs = CompArc.INHERITANCE_MAP[arc]
             for spec_node in reversed(updated_base_classes):
                 for intern_attr in INTERNAL_ATTRS.TRACKED:
-                    attr_value, comp_has_op = get_opinion(spec_node,
-                                                          intern_attr)
+                    attr_value, comp_has_op = get_opinion(spec_node, intern_attr)
                     if not comp_has_op:
                         continue
                     src_layer = getattr(spec_node, INTERNAL_ATTRS.SOURCE_LAYER)
@@ -2867,7 +2982,7 @@ class Stage:
         dirty_nodes = comp_layer.get_node_dirties(parent_path)
         proxy_targets = comp_layer.get_node_dirties(node_path)
         parent_node = comp_layer.lookup(parent_path)
-        if not parent_node and parent_path != '':
+        if not parent_node and parent_path != "":
             while parent_path != nxt_path.WORLD:
                 parent_path = nxt_path.get_parent_path(parent_path)
                 parent_node = comp_layer.lookup(parent_path)
@@ -2879,20 +2994,19 @@ class Stage:
             instance_node = comp_layer.lookup(inst_path)
         else:
             instance_node = None
-        proxy_map[comp_node] = {CompArc.PARENT: parent_node,
-                                CompArc.INSTANCE: instance_node}
+        proxy_map[comp_node] = {
+            CompArc.PARENT: parent_node,
+            CompArc.INSTANCE: instance_node,
+        }
         for proxy_parent_path in dirty_nodes:
             if proxy_parent_path == node_path:
                 continue
             comp_node_name = getattr(comp_node, INTERNAL_ATTRS.NAME)
-            inst_tgt_path = nxt_path.join_node_paths(proxy_parent_path,
-                                                     comp_node_name)
+            inst_tgt_path = nxt_path.join_node_paths(proxy_parent_path, comp_node_name)
             inst_tgt_node = comp_layer.lookup(inst_tgt_path)
             if inst_tgt_node is not None:
                 continue
-            inst_node = self.create_instance_node(node_path,
-                                                      inst_tgt_path,
-                                                      comp_layer)
+            inst_node = self.create_instance_node(node_path, inst_tgt_path, comp_layer)
             if inst_node:
                 arc_dict = proxy_map.get(inst_node, {})
                 proxy_parent_node = comp_layer.lookup(proxy_parent_path)
@@ -2910,8 +3024,7 @@ class Stage:
             proxy_map[proxy_target] = arc_dict
         if not instance_node:
             return proxy_map
-        inst_src_descendants = comp_layer.descendants(inst_path,
-                                                      ordered=True)
+        inst_src_descendants = comp_layer.descendants(inst_path, ordered=True)
         src_dirties = comp_layer.get_node_dirties(node_path)
         current_nodes = [comp_node]
         for des in inst_src_descendants:
@@ -2927,11 +3040,9 @@ class Stage:
                             break
                     if skip:
                         continue
-                    inst_node = self.create_instance_node(des, tgt_path,
-                                                          comp_layer)
+                    inst_node = self.create_instance_node(des, tgt_path, comp_layer)
                 else:
-                    cur_inst = getattr(inst_node,
-                                       INTERNAL_ATTRS.INSTANCE_PATH, None)
+                    cur_inst = getattr(inst_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
                     if cur_inst is not des:
                         setattr(inst_node, INTERNAL_ATTRS.INSTANCE_PATH, des)
                 arc_dict = proxy_map.get(inst_node, {})
@@ -2952,24 +3063,25 @@ class Stage:
                 node_path = comp_layer.get_node_path(node)
                 to_do += self.discover_proxies(node_path, node, comp_layer)
             # Create and add new proxy nodes to the comp layer
-            for new_tgt_ns, new_source_path, new_tgt_path, in to_do:
+            for (
+                new_tgt_ns,
+                new_source_path,
+                new_tgt_path,
+            ) in to_do:
                 implied = False
                 if not comp_layer.lookup(new_tgt_path):
-                    implied = self.create_instance_node(new_source_path,
-                                                        new_tgt_path, comp_layer,
-                                                        new_tgt_ns)
+                    implied = self.create_instance_node(
+                        new_source_path, new_tgt_path, comp_layer, new_tgt_ns
+                    )
                     node_count += 1
                 if not implied:
                     implied_node = comp_layer.lookup(new_tgt_path)
-                    implied_proxies += [(implied_node, new_tgt_path,
-                                         new_tgt_ns)]
+                    implied_proxies += [(implied_node, new_tgt_path, new_tgt_ns)]
                 else:
                     new = comp_layer.lookup(new_tgt_path)
-                    cur_inst = getattr(new,
-                                       INTERNAL_ATTRS.INSTANCE_PATH, None)
+                    cur_inst = getattr(new, INTERNAL_ATTRS.INSTANCE_PATH, None)
                     if cur_inst != new_source_path:
-                        setattr(new, INTERNAL_ATTRS.INSTANCE_PATH,
-                                new_source_path)
+                        setattr(new, INTERNAL_ATTRS.INSTANCE_PATH, new_source_path)
                     inst_src_node = comp_layer.lookup(new_source_path)
                     arc_dict = proxy_map.get(new, {})
                     proxy_parent_path = nxt_path.get_parent_path(new_tgt_path)
@@ -2980,15 +3092,17 @@ class Stage:
                     new_nodes += [new]
             current_nodes += new_nodes
         for implied_proxy, implied_proxy_path, ns in implied_proxies:
-            self.remove_node_from_comp_layer(implied_proxy_path,
-                                             implied_proxy, comp_layer,
-                                             ns=ns,
-                                             rm_from_child_order=False,
-                                             rm_layer_data=False)
+            self.remove_node_from_comp_layer(
+                implied_proxy_path,
+                implied_proxy,
+                comp_layer,
+                ns=ns,
+                rm_from_child_order=False,
+                rm_layer_data=False,
+            )
         return proxy_map
 
-    def discover_proxies(self, node_path, comp_node, comp_layer,
-                         namespace=None):
+    def discover_proxies(self, node_path, comp_node, comp_layer, namespace=None):
         """Given a node and the current comp layer this function will return
         a multi list of proxy nodes that need to be created. Its called
         discover because it must be called many times as we discover nodes
@@ -3003,29 +3117,32 @@ class Stage:
         to_do = []
         if not namespace:
             namespace = nxt_path.str_path_to_node_namespace(node_path)
-        instance_path = getattr(comp_node,
-                                INTERNAL_ATTRS.INSTANCE_PATH, None)
+        instance_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
         if not instance_path:
             return to_do
         _expand = nxt_path.expand_relative_node_path
         if instance_path is nxt_path.WORLD:
-            logger.error("Invalid instance path on {}".format(node_path),
-                         links=[node_path])
+            logger.error(
+                "Invalid instance path on {}".format(node_path), links=[node_path]
+            )
             return to_do
         real_inst_path = _expand(instance_path, node_path)
         # Check that instance isn't an ancestor
         if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
-            logger.error('{} attempted to instance an ancestor!'
-                         ''.format(node_path), links=[node_path])
+            logger.error(
+                "{} attempted to instance an ancestor!" "".format(node_path),
+                links=[node_path],
+            )
             return to_do
         dirties = comp_layer.get_node_dirties(node_path)
         if real_inst_path in dirties:
-            logger.error('{} attempted to instance dependant!'
-                         ''.format(node_path), links=[node_path])
+            logger.error(
+                "{} attempted to instance dependant!" "".format(node_path),
+                links=[node_path],
+            )
             return to_do
         setattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, real_inst_path)
-        self.extend_dirty_map(real_inst_path, node_path,
-                              comp_layer._dirty_map)
+        self.extend_dirty_map(real_inst_path, node_path, comp_layer._dirty_map)
         real_inst_ns = nxt_path.str_path_to_node_namespace(real_inst_path)
         # Filter stray nodes
         if real_inst_path in comp_layer._nodes_path_as_key.keys():
@@ -3035,12 +3152,12 @@ class Stage:
             merged_child_order = list_merger(comp_co, inst_co)
             setattr(comp_node, INTERNAL_ATTRS.CHILD_ORDER, merged_child_order)
 
-        '''Get children'''
+        """Get children"""
         # Loop the children of the instance source and create proxy
         # nodes as needed
-        inst_children = comp_layer.children(real_inst_path,
-                                            comp_layer.RETURNS.Path,
-                                            include_implied=True)
+        inst_children = comp_layer.children(
+            real_inst_path, comp_layer.RETURNS.Path, include_implied=True
+        )
         for inst_child_src_path in inst_children:
             c_ns = nxt_path.str_path_to_node_namespace(inst_child_src_path)
             target_ns = namespace + [c_ns[-1]]
@@ -3048,9 +3165,8 @@ class Stage:
             target = comp_layer.lookup(tgt_path)
             if target:
                 # Can be empty string to overload a lower layer
-                ex_inst_path = getattr(target,
-                                       INTERNAL_ATTRS.INSTANCE_PATH, None)
-                if ex_inst_path != '':
+                ex_inst_path = getattr(target, INTERNAL_ATTRS.INSTANCE_PATH, None)
+                if ex_inst_path != "":
                     setattr(target, INTERNAL_ATTRS.INSTANCE_PATH, inst_child_src_path)
             else:
                 to_do += [(target_ns, inst_child_src_path, tgt_path)]
@@ -3076,28 +3192,34 @@ class Stage:
             for _, comp_node in instance_sorted:
                 node_path = comp_layer.get_node_path(comp_node)
                 namespace = nxt_path.str_path_to_node_namespace(node_path)
-                to_do += self.discover_proxies(node_path,
-                                               comp_node,
-                                               comp_layer,
-                                               namespace=namespace)
+                to_do += self.discover_proxies(
+                    node_path, comp_node, comp_layer, namespace=namespace
+                )
             # Create and add new proxy nodes to the comp layer
-            for new_tgt_ns, new_source_path, new_tgt_path, in to_do:
-                new = self.create_instance_node(new_source_path, new_tgt_path,
-                                                comp_layer, new_tgt_ns)
+            for (
+                new_tgt_ns,
+                new_source_path,
+                new_tgt_path,
+            ) in to_do:
+                new = self.create_instance_node(
+                    new_source_path, new_tgt_path, comp_layer, new_tgt_ns
+                )
                 if not new:
                     implied_node = comp_layer.lookup(new_tgt_path)
-                    implied_proxies += [(implied_node, new_tgt_path,
-                                         new_tgt_ns)]
+                    implied_proxies += [(implied_node, new_tgt_path, new_tgt_ns)]
                 node_count += 1
                 added_inst_count += 1
             proxy_count += added_inst_count
         for implied_proxy, implied_proxy_path, ns in implied_proxies:
             proxy_count -= 1
-            self.remove_node_from_comp_layer(implied_proxy_path,
-                                             implied_proxy, comp_layer,
-                                             ns=ns,
-                                             rm_from_child_order=False,
-                                             rm_layer_data=False)
+            self.remove_node_from_comp_layer(
+                implied_proxy_path,
+                implied_proxy,
+                comp_layer,
+                ns=ns,
+                rm_from_child_order=False,
+                rm_layer_data=False,
+            )
         return proxy_count, loops
 
     def post_proxy_comp(self, comp_layer):
@@ -3125,8 +3247,7 @@ class Stage:
                     base_path = parent_path
                 elif arc is CompArc.INSTANCE:
                     try:
-                        base_path = getattr(comp_node,
-                                            INTERNAL_ATTRS.INSTANCE_PATH)
+                        base_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH)
                     except AttributeError:
                         del node_path, comp_node
                         continue
@@ -3141,23 +3262,24 @@ class Stage:
                         cur_node_path = _node_data[comp_node]
                         real_path = _expand(base_path, cur_node_path)
                         if real_path != base_path:
-                            real = '| ({})'.format(real_path)
+                            real = "| ({})".format(real_path)
                         else:
-                            real = ''
+                            real = ""
                         t = (arc, base_path, real)
-                        logger.error("Unable to find {} node "
-                                     "for {}".format(arc, node_path),
-                                     links=[node_path])
-                        logger.debug('requested {} {}'.format(*t))
+                        logger.error(
+                            "Unable to find {} node " "for {}".format(arc, node_path),
+                            links=[node_path],
+                        )
+                        logger.debug("requested {} {}".format(*t))
                     continue
                 elif arc is CompArc.PARENT:  # Parent node exists
                     # Validate that this node's parent knows about it. Proxy
                     # nodes don't know about their "real" children until here.
                     cached = comp_layer.get_cached_child_paths(base_path) or []
                     if node_path not in cached:
-                        comp_layer.add_child_to_child_cache(base_path,
-                                                            node_path,
-                                                            comp_node)
+                        comp_layer.add_child_to_child_cache(
+                            base_path, node_path, comp_node
+                        )
                 for attr in overload_attrs:
                     _, has_opinion = get_opinion(comp_node, attr)
                     attr_value, _ = get_opinion(base, attr)
@@ -3232,8 +3354,9 @@ class Stage:
                 self.update_inherited_attrs(comp_node, comp_layer, arcs)
         return dirty_nodes
 
-    def targeted_uncomp(self, comp_node, comp_layer,
-                        target_layer, arcs=CompArc.ALL_ARCS):
+    def targeted_uncomp(
+        self, comp_node, comp_layer, target_layer, arcs=CompArc.ALL_ARCS
+    ):
         """For each arc in the arcs list remove the base class of the given
         node that corresponds to the arc name. Each arc name in the arcs list
         must map to an internal attr name in order to determine which base
@@ -3248,7 +3371,7 @@ class Stage:
         dirties = []
         for arc in arcs:
             if arc == CompArc.REFERENCE:
-                raise NotImplementedError('Can not un-comp reference arc.')
+                raise NotImplementedError("Can not un-comp reference arc.")
             internal_attr = CompArc.ATTR_NAMES[arc]
             arc_src_path = getattr(comp_node, internal_attr, None)
             base = comp_layer.lookup(arc_src_path)
@@ -3261,8 +3384,7 @@ class Stage:
                 parent_node = comp_layer.lookup(parent_path)
                 if parent_node and parent_node not in cur_bases:
                     cur_bases += [parent_node]
-                inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH,
-                                    None)
+                inst_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
                 descendants = comp_layer.descendants(inst_path)
                 for descendant in descendants:
                     dirties += comp_layer.get_node_dirties(descendant)
@@ -3273,24 +3395,21 @@ class Stage:
         for dirty_path in ripple_deletes:
             dirty_node = comp_layer.lookup(dirty_path)
             if dirty_node and getattr(dirty_node, INTERNAL_ATTRS.PROXY):
-                self.ripple_delete(dirty_path, dirty_node, target_layer,
-                                   comp_layer)
+                self.ripple_delete(dirty_path, dirty_node, target_layer, comp_layer)
             elif dirty_node and CompArc.INSTANCE in arcs:
                 tgt_node = target_layer.lookup(dirty_path)
-                self.targeted_uncomp(dirty_node, comp_layer, target_layer,
-                                     [CompArc.INSTANCE])
+                self.targeted_uncomp(
+                    dirty_node, comp_layer, target_layer, [CompArc.INSTANCE]
+                )
                 tgt_inst = getattr(tgt_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
-                expanded = nxt_path.expand_relative_node_path(tgt_inst,
-                                                              node_path)
-                if expanded != getattr(dirty_node,
-                                       INTERNAL_ATTRS.INSTANCE_PATH):
+                expanded = nxt_path.expand_relative_node_path(tgt_inst, node_path)
+                if expanded != getattr(dirty_node, INTERNAL_ATTRS.INSTANCE_PATH):
                     setattr(dirty_node, INTERNAL_ATTRS.INSTANCE_PATH, expanded)
         self.update_inherited_attrs(comp_node, comp_layer, arcs)
         return dirties
 
     @staticmethod
-    def instance_is_possible(node_path, comp_node, comp_layer,
-                             namespace=None):
+    def instance_is_possible(node_path, comp_node, comp_layer, namespace=None):
         """Simply checks that the given node has a valid shot at having
         proxies (instances) connected to it.
 
@@ -3298,25 +3417,29 @@ class Stage:
         """
         if not namespace:
             namespace = nxt_path.str_path_to_node_namespace(node_path)
-        instance_path = getattr(comp_node,
-                                INTERNAL_ATTRS.INSTANCE_PATH, None)
+        instance_path = getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
         if not instance_path:
             return
         _expand = nxt_path.expand_relative_node_path
         if instance_path is nxt_path.WORLD:
-            logger.error("Invalid instance path on {}".format(node_path),
-                         links=[node_path])
+            logger.error(
+                "Invalid instance path on {}".format(node_path), links=[node_path]
+            )
             return
         real_inst_path = _expand(instance_path, node_path)
         # Check that instance isn't an ancestor
         if node_path.startswith(real_inst_path + nxt_path.NODE_SEP):
-            logger.error('{} attempted to instance an ancestor!'
-                         ''.format(node_path), links=[node_path])
+            logger.error(
+                "{} attempted to instance an ancestor!" "".format(node_path),
+                links=[node_path],
+            )
             return
         dirties = comp_layer.get_node_dirties(node_path)
         if real_inst_path in dirties:
-            logger.error('{} attempted to instance dependant!'
-                         ''.format(node_path), links=[node_path])
+            logger.error(
+                "{} attempted to instance dependant!" "".format(node_path),
+                links=[node_path],
+            )
             return
         return real_inst_path
 
@@ -3364,17 +3487,17 @@ class Stage:
     @staticmethod
     def _add_base_class(comp_node, base):
         if not base:
-            logger.error('Invalid baseclass provided!')
+            logger.error("Invalid baseclass provided!")
             return
         comp_node.__bases__ += (base,)
 
     @staticmethod
     def _replace_base_classes(comp_node, bases):
         if None in bases:
-            logger.error('Invalid baseclass(es) in provided bases tuple!')
+            logger.error("Invalid baseclass(es) in provided bases tuple!")
             bases = tuple([b for b in bases if b is not None])
             if not bases:
-                logger.critical('No valid bases found in the bases tuple!')
+                logger.critical("No valid bases found in the bases tuple!")
                 return
         if bases != comp_node.__bases__:
             comp_node.__bases__ = bases
@@ -3434,8 +3557,7 @@ class Stage:
             # their instance source in the list.
             _, node = item
             node_path = comp_layer.get_node_path(node)
-            real_inst_path = self.instance_is_possible(node_path, node,
-                                                       comp_layer)
+            real_inst_path = self.instance_is_possible(node_path, node, comp_layer)
             src_item = src_dict.get(real_inst_path)
             if src_item:
                 idx = deep_sorted_nodes.index(src_item)
@@ -3516,8 +3638,7 @@ class Stage:
                 v.remove(node_path)
         return dirty_map
 
-    def get_layers_with_opinion(self, node_path, layer_list=None,
-                                attr_name=None):
+    def get_layers_with_opinion(self, node_path, layer_list=None, attr_name=None):
         """Returns all layers in given layer list(or current stage) that
         contain the given node_path. Ordered with the top layer at 0.
 
@@ -3559,16 +3680,16 @@ class Stage:
             if layer.parent_layer:
                 for parent_layer_dict in layer.parent_layer.sub_layers:
                     if parent_layer_dict[SAVE_KEY.FILEPATH] == layer_filepath:
-                        parent_layer_dict['layer'] = layer
+                        parent_layer_dict["layer"] = layer
                         break
 
-    def set_node_child_order(self, node, child_order, target_layer,
-                             comp_layer=None):
+    def set_node_child_order(self, node, child_order, target_layer, comp_layer=None):
         dirty = []
         node_path = target_layer.get_node_path(node)
         if node_path is None:
-            logger.error("Failed to set child order on {}".format(node_path),
-                         links=[node_path])
+            logger.error(
+                "Failed to set child order on {}".format(node_path), links=[node_path]
+            )
             return
         old_child_order = self.get_node_child_order(node)
         setattr(node, INTERNAL_ATTRS.CHILD_ORDER, child_order)
@@ -3588,7 +3709,7 @@ class Stage:
                 comp_safe_co = list_merger(comp_safe_co, inst_co)
         else:
             lower_child_orders = []
-            for layer in self._sub_layers[target_layer.layer_idx():]:
+            for layer in self._sub_layers[target_layer.layer_idx() :]:
                 lower_node = layer.lookup(node_path)
                 if lower_node:
                     lower_co = self.get_node_child_order(lower_node)
@@ -3598,23 +3719,24 @@ class Stage:
                 merged_lower_co = list_merger(merged_lower_co, lower_co)
             comp_safe_co = list_merger(merged_lower_co, comp_co)
         setattr(source_node, INTERNAL_ATTRS.CHILD_ORDER, comp_safe_co)
-        dirty = self.propagate_child_order(source_node_path=node_path,
-                                           old_child_order=old_child_order,
-                                           new_child_order=comp_safe_co,
-                                           comp_layer=comp_layer)
+        dirty = self.propagate_child_order(
+            source_node_path=node_path,
+            old_child_order=old_child_order,
+            new_child_order=comp_safe_co,
+            comp_layer=comp_layer,
+        )
         return dirty
 
-    def propagate_child_order(self, source_node_path, old_child_order,
-                              new_child_order, comp_layer):
+    def propagate_child_order(
+        self, source_node_path, old_child_order, new_child_order, comp_layer
+    ):
         dirites = comp_layer.get_node_dirties(source_node_path)
         old_len = len(old_child_order)
         for dirty in dirites:
             inst_target = comp_layer.lookup(dirty)
             rt = comp_layer.RETURNS.Path
-            inst_children = comp_layer.children(dirty, return_type=rt,
-                                                ordered=True)
-            inst_old = [nxt_path.node_name_from_node_path(p)
-                        for p in inst_children]
+            inst_children = comp_layer.children(dirty, return_type=rt, ordered=True)
+            inst_old = [nxt_path.node_name_from_node_path(p) for p in inst_children]
 
             old_set = set(old_child_order)
             target_set = set(inst_old)
@@ -3623,9 +3745,9 @@ class Stage:
             if old_set.issubset(target_set) and valid_sets:
                 i = 0  # Faster than enumerate or range(len())
                 for _ in inst_old:
-                    if inst_old[i:old_len + i] == old_child_order:
+                    if inst_old[i : old_len + i] == old_child_order:
                         updated_child_order = inst_old[:]
-                        updated_child_order[i:old_len + i] = new_child_order
+                        updated_child_order[i : old_len + i] = new_child_order
                         break
                     i += 1
                 if updated_child_order is new_child_order:
@@ -3634,8 +3756,7 @@ class Stage:
                 updated_child_order = inst_old
             else:
                 updated_child_order = inst_old + new_child_order
-            setattr(inst_target, INTERNAL_ATTRS.CHILD_ORDER,
-                    updated_child_order[:])
+            setattr(inst_target, INTERNAL_ATTRS.CHILD_ORDER, updated_child_order[:])
         return dirites
 
     @staticmethod
@@ -3671,8 +3792,7 @@ class Stage:
             if target_layer.lookup(child_path):
                 reverted_child_order += [name]
         rt = target_layer.RETURNS.NameDict
-        for child_name, _ in target_layer.children(node_path,
-                                                   return_type=rt).items():
+        for child_name, _ in target_layer.children(node_path, return_type=rt).items():
             if child_name not in reverted_child_order:
                 reverted_child_order += [child_name]
         return reverted_child_order
@@ -3687,7 +3807,7 @@ class Stage:
 
     def get_node_inherited_attr_names(self, node, comp_layer):
         if not isinstance(comp_layer, CompLayer):
-            logger.error('Wrong layer type supplied, must be comp layer!')
+            logger.error("Wrong layer type supplied, must be comp layer!")
             return []
         attrs = []
         node_path = comp_layer.get_node_path(node)
@@ -3742,8 +3862,11 @@ class Stage:
         """
         node_path = layer.get_node_path(node)
         setattr(node, INTERNAL_ATTRS.COMMENT, comment)
-        setattr(node, INTERNAL_ATTRS.COMMENT + META_ATTRS.SOURCE,
-                (layer.real_path, node_path))
+        setattr(
+            node,
+            INTERNAL_ATTRS.COMMENT + META_ATTRS.SOURCE,
+            (layer.real_path, node_path),
+        )
 
     @staticmethod
     def node_attr_exists(node, attr_name):
@@ -3790,7 +3913,9 @@ class Stage:
         if parameters:
             for k in parameters:
                 if "._enabled" in k:
-                    layer._nodes_path_as_key[f"{k.split('.')[0]}"]._enabled = parameters[k]
+                    layer._nodes_path_as_key[f"{k.split('.')[0]}"]._enabled = (
+                        parameters[k]
+                    )
 
         exec_order = layer.get_exec_order(start_path)
         return self.execute_nodes(exec_order, layer, parameters)
@@ -3818,8 +3943,7 @@ class Stage:
             raise ValueError("Execute Nodes requires a comp layer.")
         if not layer.runtime:
             dup_comp = self.build_stage(layer.layer_idx())
-            runtime_layer = self.setup_runtime_layer(dup_comp,
-                                                     parameters=parameters)
+            runtime_layer = self.setup_runtime_layer(dup_comp, parameters=parameters)
         else:
             runtime_layer = layer
             if parameters:
@@ -3838,11 +3962,13 @@ class Stage:
             try:
                 run(runtime_layer, stage=self, rt_node=curr_node)
             except ExitNode as exit_node:
-                logger.debug('Exited Node {}: {}'.format(path, exit_node), links=[path])
+                logger.debug("Exited Node {}: {}".format(path, exit_node), links=[path])
                 continue
             except ExitGraph as exit_graph:
                 exit_graph.runtime_layer = runtime_layer
-                logger.execinfo('Exited Graph {}: {}'.format(layer.real_path, exit_graph))
+                logger.execinfo(
+                    "Exited Graph {}: {}".format(layer.real_path, exit_graph)
+                )
                 raise
             finally:
                 runtime_layer.cache_layer.set_node_exit_time(path)
@@ -3864,15 +3990,15 @@ class Stage:
         resolved_code = self.resolve(rt_node, code_string, runtime_layer)
         runtime_layer.cache_layer.set_node_enter_time(node_path)
         try:
-            run(runtime_layer, stage=self, rt_node=rt_node,
-                custom_code=resolved_code)
+            run(runtime_layer, stage=self, rt_node=rt_node, custom_code=resolved_code)
         except (ExitNode, ExitGraph) as e:
             return e
         finally:
             runtime_layer.cache_layer.set_node_exit_time(node_path)
         exec_time = str(round((time.time() - exec_start)))
-        logger.execinfo("Successfully ran snippet in: "
-                        "{} second(s).".format(exec_time))
+        logger.execinfo(
+            "Successfully ran snippet in: " "{} second(s).".format(exec_time)
+        )
 
     @staticmethod
     def get_node_exec_in(node):
@@ -3885,8 +4011,11 @@ class Stage:
     def set_node_exec_in(node, exec_in_path, layer):
         node_path = layer.get_node_path(node)
         setattr(node, INTERNAL_ATTRS.EXECUTE_IN, exec_in_path)
-        setattr(node, INTERNAL_ATTRS.EXECUTE_IN + META_ATTRS.SOURCE,
-                (layer.real_path, node_path))
+        setattr(
+            node,
+            INTERNAL_ATTRS.EXECUTE_IN + META_ATTRS.SOURCE,
+            (layer.real_path, node_path),
+        )
 
     @staticmethod
     def set_node_enabled(spec_node, state, comp_layer):
@@ -3929,8 +4058,11 @@ class Stage:
     @staticmethod
     def get_layer_start_nodes(layer):
         rt = layer.RETURNS.NodeTable
-        return [nt[0] for nt in layer.descendants(return_type=rt)
-                if getattr(nt[1], INTERNAL_ATTRS.START_POINT)]
+        return [
+            nt[0]
+            for nt in layer.descendants(return_type=rt)
+            if getattr(nt[1], INTERNAL_ATTRS.START_POINT)
+        ]
 
     def set_runtime_parameters(self, parameters, runtime_layer):
         for attr_path, value in parameters.items():
@@ -3939,8 +4071,10 @@ class Stage:
             else:
                 attr_path_is_str = isinstance(attr_path, str)
             if not attr_path_is_str:
-                logger.error('Got an attr path "{}" that is not a string, '
-                             'skipping it.'.format(attr_path))
+                logger.error(
+                    'Got an attr path "{}" that is not a string, '
+                    "skipping it.".format(attr_path)
+                )
                 continue
             node_path = nxt_path.node_path_from_attr_path(attr_path=attr_path)
             node = runtime_layer.lookup(node_path)
@@ -3950,12 +4084,13 @@ class Stage:
             attr_name = nxt_path.attr_name_from_attr_path(attr_path)
             _, has_it = get_opinion(node, attr_name)
             if has_it:
-                logger.info('Setting {} = {}'.format(attr_path, value),
-                            links=[node_path])
+                logger.info(
+                    "Setting {} = {}".format(attr_path, value), links=[node_path]
+                )
             else:
-                logger.warning('Creating attr {} = {}'.format(attr_path,
-                                                              value),
-                               links=[node_path])
+                logger.warning(
+                    "Creating attr {} = {}".format(attr_path, value), links=[node_path]
+                )
             setattr(node, attr_name, str(value))
 
     def setup_runtime_layer(self, comp_layer=None, parameters=None):
@@ -3968,8 +4103,7 @@ class Stage:
         :rtype: CompLayer
         """
         if comp_layer is None:
-            logger.info('No comp layer provided comping all layers for '
-                        'execution')
+            logger.info("No comp layer provided comping all layers for " "execution")
             comp_layer = self.build_stage(from_idx=0)
         runtime_layer = comp_layer
         runtime_layer.runtime = True
@@ -3979,36 +4113,43 @@ class Stage:
         # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:
-            spec_layer = SpecNode.new({INTERNAL_ATTRS.NAME: nxt_path.WORLD,
-                                       INTERNAL_ATTRS.PARENT_PATH: ''})
+            spec_layer = SpecNode.new(
+                {INTERNAL_ATTRS.NAME: nxt_path.WORLD, INTERNAL_ATTRS.PARENT_PATH: ""}
+            )
             layer_node = CompNode.new(spec_layer)
-            self.add_node_to_comp_layer(nxt_path.WORLD, layer_node, comp_layer,
-                                        add_to_child_order=False)
+            self.add_node_to_comp_layer(
+                nxt_path.WORLD, layer_node, comp_layer, add_to_child_order=False
+            )
         # Set parameter overloads
         if parameters:
             self.set_runtime_parameters(parameters, runtime_layer)
 
         def execute(paths=(), start=None, parameters=None):
-            if (paths and start) or (not paths and not start) or not \
-                    isinstance(paths, (list, tuple)):
-                raise ValueError("Must give either a start point or a list of,"
-                                 " node paths to run.")
+            if (
+                (paths and start)
+                or (not paths and not start)
+                or not isinstance(paths, (list, tuple))
+            ):
+                raise ValueError(
+                    "Must give either a start point or a list of," " node paths to run."
+                )
             if start:
-                self.execute(start=start, layer=runtime_layer,
-                             parameters=parameters)
+                self.execute(start=start, layer=runtime_layer, parameters=parameters)
             else:
                 self.execute_nodes(paths, runtime_layer, parameters=parameters)
+
         # Setup console for this runtime layer
-        console_globals = {'STAGE': layer_node,
-                           '__stage__': self,
-                           'nxt_path': nxt_path,
-                           'w': w,
-                           'types': types,
-                           'self': layer_node,
-                           'execute': execute,
-                           'ExitNode': ExitNode,
-                           'ExitGraph': ExitGraph
-                           }
+        console_globals = {
+            "STAGE": layer_node,
+            "__stage__": self,
+            "nxt_path": nxt_path,
+            "w": w,
+            "types": types,
+            "self": layer_node,
+            "execute": execute,
+            "ExitNode": ExitNode,
+            "ExitGraph": ExitGraph,
+        }
         runtime_layer._console.globals = console_globals
         _code, lines = self.get_node_code(layer_node, runtime_layer)
         runtime_layer._console.node_path = nxt_path.WORLD
@@ -4055,21 +4196,22 @@ class Stage:
             temp_path = os.path.join(output_dir, file_name)
             nxt_io.save_file_data(save_data, temp_path)
         save_time = str(int(round((time.time() - start) * 1000)))
-        logger.debug("{} layer(s) saved to temp dir in: {}ms".format((e-s)-1,
-                                                                     save_time))
-        return temp_path.replace(os.sep, '/')
+        logger.debug(
+            "{} layer(s) saved to temp dir in: {}ms".format((e - s) - 1, save_time)
+        )
+        return temp_path.replace(os.sep, "/")
 
 
 def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     rt_path = runtime_layer.get_node_path(rt_node)
-    frame_node = type('frame', (), {})
+    frame_node = type("frame", (), {})
     setattr(frame_node, INTERNAL_ATTRS.NODE_PATH, rt_path)
     if custom_code:
         code = custom_code
     else:
-        code = stage.get_node_code_string(node=rt_node,
-                                          layer=runtime_layer,
-                                          data_state=DATA_STATE.RESOLVED)
+        code = stage.get_node_code_string(
+            node=rt_node, layer=runtime_layer, data_state=DATA_STATE.RESOLVED
+        )
     setattr(rt_node, INTERNAL_ATTRS.CACHED_CODE, code)
     setattr(frame_node, INTERNAL_ATTRS.CACHED_CODE, code)
     # pre run cache is used to compare to post-exec attrs of during_run_node
@@ -4082,10 +4224,10 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
             continue
         if attr.endswith(META_ATTRS._suffix):
             continue
-        setattr(rt_node, attr + META_ATTRS.SOURCE,
-                (runtime_layer.real_path, rt_path))
-        real = stage.get_attr_as_real_data_type(rt_node, attr, runtime_layer,
-                                                _globals=graph_globals)
+        setattr(rt_node, attr + META_ATTRS.SOURCE, (runtime_layer.real_path, rt_path))
+        real = stage.get_attr_as_real_data_type(
+            rt_node, attr, runtime_layer, _globals=graph_globals
+        )
         try:
             pre_run_cache[attr] = copy.deepcopy(real)
             setattr(frame_node, attr, copy.deepcopy(real))
@@ -4099,7 +4241,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     good_keys = list(graph_globals.keys())
     console.node_path = rt_path
     console.running_lines = lines
-    console.globals['self'] = frame_node
+    console.globals["self"] = frame_node
     runtime_layer.running = True
     exit_exception = None
     try:
@@ -4134,13 +4276,13 @@ def clean_globals(code_lines, good_keys, global_dict):
     :param global_dict: global dict to clean
     :return: None
     """
-    code_lines = [l for l in code_lines if not l.startswith(('#', "'", '"'))]
+    code_lines = [l for l in code_lines if not l.startswith(("#", "'", '"'))]
     cur_keys = list(global_dict.keys())
     sus_keys = [k for k in cur_keys if k not in good_keys]
     safe_keys = [] + good_keys
     for sus_key in sus_keys:
         for line in code_lines:
-            if 'global {}'.format(sus_key) in line:
+            if "global {}".format(sus_key) in line:
                 safe_keys += [sus_key]
                 break
     for bad_key in [k for k in cur_keys if k not in safe_keys]:
@@ -4151,7 +4293,7 @@ def determine_nxt_type(value):
     try:
         type_name = type(literal_eval(value)).__name__
     except (ValueError, NameError, SyntaxError):
-        type_name = 'raw'
+        type_name = "raw"
     return type_name
 
 
@@ -4166,7 +4308,7 @@ def w(string, quote_type=0):
     string arg in that string ie w('Hello World', '$') returns '$Hello World$'
     :return: String wrapped in quote marks or custom string
     """
-    quote_types = ['\'', '\"', '\'\'\'', '\"\"\"']
+    quote_types = ["'", '"', "'''", '"""']
     if isinstance(quote_type, int):
         char = quote_types[quote_type]
     else:
@@ -4198,7 +4340,7 @@ def get_historical_opinions(comp_node, attr, comp_layer, include_local=False):
                 continue
         val, has = get_opinion(b, attr)
         if has:
-            source = getattr(b, attr+META_ATTRS.SOURCE)
+            source = getattr(b, attr + META_ATTRS.SOURCE)
             historical = {META_ATTRS.SOURCE: source, META_ATTRS.VALUE: val}
             if historical not in historicals:
                 historicals += [historical]
@@ -4220,8 +4362,10 @@ def composite_lists(list_1, list_2):
                 offset = 1
                 if idx in range(len(composite_list)):
                     prev_idx = idx - 1
-                    if prev_idx >= 0 and composite_list[prev_idx] == \
-                            local_order[prev_idx]:
+                    if (
+                        prev_idx >= 0
+                        and composite_list[prev_idx] == local_order[prev_idx]
+                    ):
                         offset = 0
                     composite_list.insert(idx + offset, item)
                 else:
