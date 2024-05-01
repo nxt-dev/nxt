@@ -219,6 +219,8 @@ def historical_resolve_attr_ref(stage, string, comp_node, comp_layer,
                                                     active_layers,
                                                     token,
                                                     historical_depth)
+            else:
+                value = token.resolve(stage, comp_node, token_content, comp_layer)
         raw_token = make_token_str(attr_ref)
         resolved_token = resolved_token.replace(raw_token, value)
     return resolved_token
