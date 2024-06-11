@@ -26,7 +26,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/nxt-dev/nxt",
     packages=setuptools.find_packages(),
-    python_requires='>=2.7, <3.11',
+    python_requires='>=3.7, <3.11',
     entry_points={
         'console_scripts': [
             'nxt=nxt.cli:main',
