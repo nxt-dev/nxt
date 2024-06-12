@@ -3,7 +3,7 @@ import unittest
 import os
 
 # Internal
-from nxt.plugins.file_fallbacks import NXT_FILE_ROOTS
+from nxt.plugins.file_fallbacks import NXT_FILE_ROOTS, ROOT_PATH_SEP
 from nxt.session import Session
 from nxt.stage import DATA_STATE
 
@@ -218,7 +218,8 @@ class TestPathWithRoots(unittest.TestCase):
         print('Test in a saved file with an environment, path:: '
               'resolves to first real env root')
         test_root = os.path.dirname(my_dir)
-        os.environ[NXT_FILE_ROOTS] = 'a super fake root;' + test_root
+        test_roots = 'a super fake root' + ROOT_PATH_SEP + test_root
+        os.environ[NXT_FILE_ROOTS] = test_roots
         expected = os.path.join(test_root, self.test_filename).replace(os.sep,
                                                                        '/')
         found = test_stage.get_node_attr_value(test_node, test_attr,
