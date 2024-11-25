@@ -408,7 +408,7 @@ class Stage:
 
     @staticmethod
     def legalize_name(name):
-        """Returns given `name` without leading numeral, and matching
+        r"""Returns given `name` without leading numeral, and matching
         `\w` regex: (a-z, A-Z, 0-9, _)
         Replaces illegal characters with underscore.
         """

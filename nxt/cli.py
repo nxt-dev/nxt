@@ -92,7 +92,7 @@ def editor(args):
     else:
         paths = [args.path]
     os.environ[NXT_DCC_ENV_VAR] = STANDALONE
-    sys.exit(nxt_editor.launch_editor(paths, start_rpc=not args.no_rpc))
+    sys.exit(nxt_editor.launch_editor(paths, start_rpc=args.rpc))
 
 
 def execute(args):
@@ -167,9 +167,9 @@ def main():
         gui_parser.set_defaults(which='ui')
         gui_parser.add_argument('path', type=str, nargs='?',
                                 help='file(s) to open', default='')
-        no_rpc_help = ('Start editor without setting up an rpc server during '
-                       'startup.')
-        gui_parser.add_argument('-no-rpc', help=no_rpc_help,
+        rpc_help = ('Start editor with an rpc server running in the '
+                    'background.')
+        gui_parser.add_argument('-rpc', help=rpc_help,
                                 action='store_true')
 
     exec_parser = subs.add_parser('exec', help='Execute graph. See: exec -h')
