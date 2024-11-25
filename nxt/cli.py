@@ -5,6 +5,7 @@ import os
 import json
 import logging
 import time
+import traceback
 
 # Internal
 from nxt.session import Session
@@ -15,12 +16,15 @@ from nxt.constants import (API_VERSION, GRAPH_VERSION, NXT_DCC_ENV_VAR,
                            STANDALONE)
 from nxt.remote.contexts import iter_context_names
 has_editor = False
+editor_error = None
+editor_error_tb = None
 try:
     import nxt_editor
     from nxt_editor.constants import EDITOR_VERSION
     has_editor = True
-except ImportError:
-    pass
+except Exception as e:
+    editor_error = e
+    editor_error_tb = traceback.format_exc()
 
 logger = logging.getLogger('nxt')
 
@@ -84,8 +88,11 @@ def editor(args):
     :return: None
     """
     if not has_editor:
-        msg = 'Editor not found, you can install with "pip install nxt_editor"'
+        msg = ('Editor did not load, '
+               'you can install with "pip install nxt_editor"')
         print(msg)
+        print(editor_error)
+        print(editor_error_tb)
         return
     if isinstance(args.path, list):
         paths = args.path
