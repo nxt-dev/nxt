@@ -1,0 +1,228 @@
+{
+    "version": "1.17",
+    "alias": "pile",
+    "color": "#991c24",
+    "mute": false,
+    "solo": false,
+    "meta_data": {
+        "positions": {
+            "/bode": [
+                -211.81004558797292,
+                129.73347763638964
+            ],
+            "/bode2": [
+                208.70322570567708,
+                123.89391174647673
+            ],
+            "/bode3": [
+                592.6104453219506,
+                128.82083164402746
+            ],
+            "/init": [
+                -236.18263337667224,
+                -100.24529345795078
+            ],
+            "/loom": [
+                320.7859501347706,
+                375.730732833294
+            ],
+            "/node2": [
+                95.3070759889059,
+                -93.39966059719768
+            ],
+            "/node22": [
+                410.37225254788405,
+                -93.39966059719767
+            ],
+            "/node3": [
+                743.9777422990234,
+                -98.31658527422991
+            ],
+            "/zoom": [
+                -73.43182755449743,
+                381.4796624908125
+            ]
+        }
+    },
+    "nodes": {
+        "/": {
+            "code": [
+                "print(\"World node loves to import\")",
+                "import os",
+                "from os.path import join"
+            ]
+        },
+        "/bode": {
+            "execute_in": "/node3",
+            "child_order": [
+                "node3"
+            ],
+            "attrs": {
+                "sattr": {
+                    "type": "raw",
+                    "value": "parent"
+                }
+            },
+            "code": [
+                "print(\"This root says ${sattr}\")"
+            ]
+        },
+        "/bode/node3": {
+            "child_order": [
+                "node",
+                "node2"
+            ]
+        },
+        "/bode/node3/node": {
+            "code": [
+                "print(\"A word is ${_missing}!\")"
+            ]
+        },
+        "/bode/node3/node2": {
+            "attrs": {
+                "sattr": {
+                    "value": "child"
+                }
+            },
+            "code": [
+                "print(\"This child says ${sattr}\")"
+            ]
+        },
+        "/bode2": {
+            "instance": "/bode",
+            "execute_in": "/bode",
+            "attrs": {
+                "sattr": {
+                    "value": "second_parent"
+                }
+            }
+        },
+        "/bode3": {
+            "instance": "/bode",
+            "execute_in": "/bode2"
+        },
+        "/init": {
+            "start_point": true,
+            "attrs": {
+                "attr": {
+                    "type": "raw",
+                    "value": "green"
+                }
+            },
+            "code": [
+                "print(\"hello, this code was first in an nxt graph\")",
+                "print(\"If resolved worked say green-> ${attr}\")",
+                "",
+                "# Stick something on the stage for later",
+                "STAGE.zoom = \"zam\""
+            ]
+        },
+        "/loom": {
+            "execute_in": "/zoom",
+            "attrs": {
+                "mine": {
+                    "type": "raw",
+                    "value": "${/zoom.root_attr}"
+                },
+                "shared": {
+                    "type": "raw",
+                    "value": "wrong"
+                }
+            },
+            "code": [
+                "print(\"Resolve timing is ${mine}\")"
+            ]
+        },
+        "/node2": {
+            "execute_in": "/init",
+            "child_order": [
+                "node"
+            ],
+            "attrs": {
+                "attr": {
+                    "type": "raw",
+                    "value": "resolve"
+                }
+            },
+            "code": [
+                "print(\"This code came from: ${attr}\")",
+                "",
+                "# make a class to put on stage.",
+                "class MyImportantObject():",
+                "    def __init__(self, importance):",
+                "        self.some_val = importance",
+                "",
+                "    def is_important(self):",
+                "        return self.some_val",
+                "",
+                "STAGE.find_me = MyImportantObject(\"The color of your noodles\")"
+            ]
+        },
+        "/node2/node": {
+            "attrs": {
+                "attr": {
+                    "value": " "
+                }
+            },
+            "code": [
+                "print(\"This is${attr}child node code\")"
+            ]
+        },
+        "/node22": {
+            "instance": "/node2",
+            "execute_in": "/node2",
+            "child_order": [
+                "node",
+                "node2"
+            ],
+            "attrs": {
+                "attr": {
+                    "type": "raw",
+                    "value": " instance "
+                }
+            },
+            "code": [
+                "print(\"This code came from:${attr}\")"
+            ]
+        },
+        "/node22/node2": {
+            "code": [
+                "print(\"I wanna find some things on stage\")",
+                "print(STAGE.zoom)",
+                "print(STAGE.find_me)",
+                "print(STAGE.find_me.is_important())"
+            ]
+        },
+        "/node3": {
+            "execute_in": "/node22",
+            "code": [
+                "print(os)",
+                "print(join)"
+            ]
+        },
+        "/zoom": {
+            "start_point": false,
+            "execute_in": "/bode3",
+            "enabled": true,
+            "attrs": {
+                "root_attr": {
+                    "type": "raw",
+                    "value": "${shared}"
+                },
+                "shared": {
+                    "type": "raw",
+                    "value": "right"
+                }
+            },
+            "code": [
+                "print(\"We've got it ${root_attr}\")",
+                "# The next node shares a local attribute with this one.",
+                "# That attribute is named \"shared\". The raw pattern for",
+                "# root_attr here substitues shared. This must be resolved in",
+                "# the context of this node, not the node it is subsituted into",
+                "# where it would resolve to something different due to",
+                "# sharing the local attribute \"shared\"."
+            ]
+        }
+    }
+}

@@ -1,0 +1,18 @@
+[build-system]
+# scikit-build-core runs my CMakeLists to create the contents of the package.
+requires = ["scikit-build-core>=0.3.3"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+install.components = ["NO5_PY"]
+cmake.build-type = "Release"
+
+[project]
+name = "no5"
+version = "0.0.1"
+description="nxt comp engine in cpp"
+# readme = "README.md"
+authors = [
+  { name = "Michael Aldrich", email = "michael@aldrich.online" },
+]
+requires-python = ">=3.7"

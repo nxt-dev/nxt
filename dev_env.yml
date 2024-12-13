@@ -1,0 +1,8 @@
+name: no5
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - nxt-core

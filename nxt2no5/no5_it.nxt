@@ -1,0 +1,24 @@
+{
+    "version": "1.17",
+    "alias": "no5_it",
+    "color": "#6e33bb",
+    "mute": false,
+    "solo": false,
+    "meta_data": {
+        "positions": {
+            "/no5_it": [
+                -380.0,
+                -89.0
+            ]
+        }
+    },
+    "nodes": {
+        "/no5_it": {
+            "start_point": true,
+            "code": [
+                "from nxt2no5 import no5_it;no5_it()",
+                "# You can't run that code, it's just here for copy/paste"
+            ]
+        }
+    }
+}
