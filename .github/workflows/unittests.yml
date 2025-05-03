@@ -50,17 +50,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           libxkbcommon-x11-0 \
-          libxcb-cursor0 \
-          libxcb-icccm4 \
-          libxcb-image0 \
-          libxcb-keysyms1 \
-          libxcb-render-util0 \
-          libxcb-shape0 \
-          libxcb-xfixes0 \
-          libxcb-randr0 \
-          libxcb-xinerama0 \
-          libxcb-util1 \
+          libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+          libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 \
+          libxcb-randr0 libxcb-xinerama0 libxcb-util1 \
           libegl1 \
+          qtbase5-dev qtbase5-dev-tools \
+          libqt5gui5 libqt5widgets5 libqt5core5a \
           xvfb
 
     - name: Ensure PIP
@@ -77,9 +72,7 @@ jobs:
     - name: Run tests with xvfb (Ubuntu + Qt)
       if: runner.os == 'Linux' && env.QT_DEPENDENCIES == 'true'
       run: |
-        Xvfb :99 -screen 0 1024x768x24 &
-        export DISPLAY=:99
-        python -m nxt.cli test
+        xvfb-run -s "-screen 0 1024x768x24" python -m nxt.cli test
 
     - name: Run Unittests from CLI
       if: env.QT_DEPENDENCIES != 'true'
