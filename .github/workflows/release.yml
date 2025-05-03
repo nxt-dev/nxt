@@ -18,8 +18,25 @@ jobs:
     uses: nxt-dev/nxt/.github/workflows/unittests.yml@release
     with:
       QT_DEPENDENCIES: ${{ inputs.QT_DEPENDENCIES }}
+  changed-files:
+    runs-on: ubuntu-latest
+    name: Check if source actually changed
+    outputs:
+      any_changed: ${{ steps.changed-files.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v46.0.5
+        with:
+          files: |
+            nxt/**
+            nxt_editor/**
   build-and-deploy-pypi:
-    needs: [run-tests]
+    needs: [run-tests, changed-files]
+    if: needs.changed-files.outputs.any_changed == 'true'
     runs-on: ubuntu-latest
     env:
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
@@ -67,3 +84,11 @@ jobs:
       - name: Build package and upload
         run: |
           python -m nxt.cli -vv exec build/packaging.nxt -s /make_and_upload
+
+  skip-build:
+    name: Skipped build because source did not change
+    needs: [changed-files]
+    runs-on: ubuntu-latest
+    if: needs.changed-files.outputs.any_changed != 'true'
+    steps:
+      - run: echo "No changes in nxt or nxt_editor, skipping build and upload to PyPI."
