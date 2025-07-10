@@ -7,16 +7,16 @@
     "meta_data": {
         "positions": {
             "/make_and_test_upload": [
-                -223,
-                306
+                380.0,
+                340.0
             ],
             "/make_and_upload": [
-                -221.61718055199395,
-                65.0
+                400.0,
+                100.0
             ],
             "/make_package": [
-                -223.0,
-                -153.0
+                380.0,
+                -120.0
             ]
         }
     },
@@ -45,7 +45,7 @@
                 "import subprocess",
                 "orig_cwd = os.getcwd()",
                 "os.chdir('${repo_root}')",
-                "subprocess.call([sys.executable, '-m', 'twine' ,'upload', '--repository', 'testpypi', '${dest_dir}/*'])",
+                "subprocess.check_call([sys.executable, '-m', 'twine' ,'upload', '--repository', 'testpypi', '${dest_dir}/*'])",
                 "os.chdir(orig_cwd)"
             ]
         },

@@ -278,7 +278,7 @@ class StageParentPaths(unittest.TestCase):
         self.assertIs(True, hasattr(runtime_child, 'parent'))
         print("Test that the local attr from the parent node is IS accessible"
               "from the EDITOR child node via `self`.")
-        self.assertEquals(True, hasattr(self.child_node, 'parent'))
+        self.assertEqual(True, hasattr(self.child_node, 'parent'))
         # Test that code is not inherited
         print("Test that child code is NOT inherited FROM the PARENT.")
         self.assertEqual(["# Code"], getattr(runtime_parent,

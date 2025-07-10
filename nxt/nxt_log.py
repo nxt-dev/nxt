@@ -20,6 +20,7 @@ else:
 # Internal
 from .constants import USER_DIR
 
+LOG_DIR = os.path.join(tempfile.gettempdir(), 'nxt_logs')
 VERBOSE_ENV_VAR = 'NXT_VERBOSE'
 
 """Logging levels are as follows, with custom levels marked with *
@@ -248,10 +249,9 @@ def get_new_session_log_filename():
     :rtype: str
     """
     logger = logging.getLogger(__name__)
-    log_dir = os.path.join(tempfile.gettempdir(), 'nxt_logs')
     try:
-        os.makedirs(log_dir)
-        os.chmod(log_dir, 0o777)
+        os.makedirs(LOG_DIR)
+        os.chmod(LOG_DIR, 0o777)
     except OSError as err:
         if err.errno is errno.EEXIST:
             logger.debug("Not creating logs directory because it exists.")
@@ -259,7 +259,7 @@ def get_new_session_log_filename():
             raise
     log_filename_template = "nxt_session_{time}.log"
     log_filename = log_filename_template.format(time=str(int(time.time())))
-    return os.path.join(log_dir, log_filename)
+    return os.path.join(LOG_DIR, log_filename)
 
 
 def stop_session_log(filename):

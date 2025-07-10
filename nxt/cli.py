@@ -5,6 +5,7 @@ import os
 import json
 import logging
 import time
+import traceback
 
 # Internal
 from nxt.session import Session
@@ -15,12 +16,15 @@ from nxt.constants import (API_VERSION, GRAPH_VERSION, NXT_DCC_ENV_VAR,
                            STANDALONE)
 from nxt.remote.contexts import iter_context_names
 has_editor = False
+editor_error = None
+editor_error_tb = None
 try:
     import nxt_editor
     from nxt_editor.constants import EDITOR_VERSION
     has_editor = True
-except ImportError:
-    pass
+except Exception as e:
+    editor_error = e
+    editor_error_tb = traceback.format_exc()
 
 logger = logging.getLogger('nxt')
 
@@ -84,15 +88,18 @@ def editor(args):
     :return: None
     """
     if not has_editor:
-        msg = 'Editor not found, you can install with "pip install nxt_editor"'
+        msg = ('Editor did not load, '
+               'you can install with "pip install nxt_editor"')
         print(msg)
+        print(editor_error)
+        print(editor_error_tb)
         return
     if isinstance(args.path, list):
         paths = args.path
     else:
         paths = [args.path]
     os.environ[NXT_DCC_ENV_VAR] = STANDALONE
-    sys.exit(nxt_editor.launch_editor(paths, start_rpc=not args.no_rpc))
+    sys.exit(nxt_editor.launch_editor(paths, start_rpc=args.rpc))
 
 
 def execute(args):
@@ -167,9 +174,9 @@ def main():
         gui_parser.set_defaults(which='ui')
         gui_parser.add_argument('path', type=str, nargs='?',
                                 help='file(s) to open', default='')
-        no_rpc_help = ('Start editor without setting up an rpc server during '
-                       'startup.')
-        gui_parser.add_argument('-no-rpc', help=no_rpc_help,
+        rpc_help = ('Start editor with an rpc server running in the '
+                    'background.')
+        gui_parser.add_argument('-rpc', help=rpc_help,
                                 action='store_true')
 
     exec_parser = subs.add_parser('exec', help='Execute graph. See: exec -h')
