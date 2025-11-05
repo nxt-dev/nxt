@@ -3913,9 +3913,13 @@ class Stage:
         if parameters:
             for k in parameters:
                 if "._enabled" in k:
-                    layer._nodes_path_as_key[f"{k.split('.')[0]}"]._enabled = (
-                        parameters[k]
-                    )
+                    key_str = f"{k.split('.')[0]}"
+                    if key_str in layer._nodes_path_as_key:
+                        layer._nodes_path_as_key[key_str]._enabled = parameters[k]
+                    else:
+                        logger.warning(
+                            f"Node {key_str} not found in layer {layer.real_path} for parameter {k}"
+                        )
 
         exec_order = layer.get_exec_order(start_path)
         return self.execute_nodes(exec_order, layer, parameters)
