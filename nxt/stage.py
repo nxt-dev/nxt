@@ -4084,7 +4084,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         try:
             pre_run_cache[attr] = copy.deepcopy(real)
             setattr(frame_node, attr, copy.deepcopy(real))
-        except RuntimeError:
+        except Exception as e: # There are lots of reasons copy might fail
             pre_run_cache[attr] = real
             setattr(frame_node, attr, real)
     # Cache the node before exec so we can see what it tried to run if it fails
