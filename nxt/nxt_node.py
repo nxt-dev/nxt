@@ -40,7 +40,9 @@ class INTERNAL_ATTRS(object):
     CACHED_CODE = _prefix + 'cached_code'
     # List of python attrs that a node will have but we don't want to parse or
     # considering in our composite logic
-    BUILTINS = tuple(dir(type('NodeSpec', (object,), {})))
+    class _NodeSpec(object):
+        pass
+    BUILTINS = tuple(dir(_NodeSpec))
     # A list of node attrs that are used internally in our composite logic but
     # tracked and like user attrs with a `_source__nxt` meta attr
     TRACKED = (COMPUTE, EXECUTE_IN, COMMENT, START_POINT, ENABLED,
