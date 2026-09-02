@@ -9,6 +9,35 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# Expanded paths, keyed by the expanded path and the directory it was
+# resolved from. See full_file_expand.
+_REAL_PATH_CACHE = {}
+# Keeps a long lived session from growing this without bound.
+_REAL_PATH_CACHE_LIMIT = 20000
+
+
+# Bumped every time the caches are cleared. Anything else that caches
+# filesystem answers for the length of a run can key off this instead of
+# needing its own invalidation hook.
+_FILE_EXPAND_GENERATION = 0
+
+
+def file_expand_generation():
+    """Counter that changes whenever cached path expansions are dropped."""
+    return _FILE_EXPAND_GENERATION
+
+
+def clear_file_expand_cache():
+    """Forget cached path expansions.
+
+    Called when a graph starts executing, so each run resolves against the
+    filesystem as it is at that moment.
+    """
+    global _FILE_EXPAND_GENERATION
+    _FILE_EXPAND_GENERATION += 1
+    _REAL_PATH_CACHE.clear()
+
+
 def full_file_expand(path, start=None):
     """A combination of commonly used os.path functions called to completely
     expand given `path`. If `start` is given, os.cwd is temporarily changed
@@ -23,17 +52,35 @@ def full_file_expand(path, start=None):
     variables, and user character "~" are expanded.
     :rtype: [type]
     """
-    orig_cwd = os.getcwd()
-    if start:
-        os.chdir(start)
-
     full_path = unify_env_vars(path)
     full_path = os.path.expandvars(full_path)
     full_path = os.path.expanduser(full_path)
-    full_path = os.path.realpath(full_path)
-    os.chdir(orig_cwd)
-    full_path = full_path.replace(os.path.sep, '/')  # Thanks windows.
-    return full_path
+    # realpath is the expensive part, on Windows it hits the filesystem for
+    # every component. Resolving one build's file tokens asks for the same
+    # few hundred paths tens of thousands of times, so the answer is cached.
+    #
+    # The key is the path *after* variable expansion, so a graph changing an
+    # environment variable lands on a different entry rather than a stale
+    # one. Whether a file exists is checked separately by the callers that
+    # care about it and is not cached, so a file written during a build is
+    # still seen to appear.
+    key = (full_path, start)
+    cached = _REAL_PATH_CACHE.get(key)
+    if cached is not None:
+        return cached
+    orig_cwd = None
+    if start:
+        orig_cwd = os.getcwd()
+        os.chdir(start)
+    try:
+        real_path = os.path.realpath(full_path)
+    finally:
+        if orig_cwd is not None:
+            os.chdir(orig_cwd)
+    real_path = real_path.replace(os.path.sep, '/')  # Thanks windows.
+    if len(_REAL_PATH_CACHE) < _REAL_PATH_CACHE_LIMIT:
+        _REAL_PATH_CACHE[key] = real_path
+    return real_path
 
 
 # Regex patterns for finding all env vars.
