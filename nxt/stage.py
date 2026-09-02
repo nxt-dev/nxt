@@ -37,6 +37,7 @@ from .nxt_layer import (
     SAVE_KEY,
     META_DATA_KEY,
     sort_multidimensional_list,
+    RankedList,
     get_active_layers,
     get_node_local_attr_names,
 )
@@ -169,6 +170,9 @@ class Stage:
             layer_data = {}
         self.debug = False
         self.uid = nxt_uuid(f=True)
+        # Inferred historical comps, see infer_lower_comp. Dropped whenever
+        # the stage is re-comped or a graph starts running.
+        self._inferred_comp_cache = {}
         self._sub_layers = []
         self._active_sub_layers = []
         self._filepath = layer_data.get("_filepath", "untitled.nxt")
@@ -2124,6 +2128,19 @@ class Stage:
         """
         if depth == 0:
             return comp_node
+        # Historical file tokens ask for the same node at the same depth over
+        # and over, once per token that mentions it. Results are cached, but
+        # only for top level calls: those own the temporary layer they build
+        # into, so a cached node always comes back with the same layer it was
+        # wired against. Recursive calls build into a layer the caller owns
+        # and are left alone.
+        cache = self._inferred_comp_cache
+        cache_key = None
+        if inferred_comp_layer is None:
+            cache_key = (id(comp_layer), get_node_path(comp_node), depth,
+                         tuple(id(l) for l in active_layers or ()))
+            if cache_key in cache:
+                return cache[cache_key]
         if not inferred_comp_layer:
             inferred_comp_layer = CompLayer()
         path = get_node_path(comp_node)
@@ -2135,6 +2152,8 @@ class Stage:
             requested_layers = self._sub_layers[display_idx + depth : end_idx + 1]
             active_layers = get_active_layers(requested_layers)
         if not active_layers or depth < 0:
+            if cache_key is not None:
+                cache[cache_key] = None
             return None
         is_proxy = getattr(comp_node, INTERNAL_ATTRS.PROXY)
         is_divergent = self._check_if_inst_diverges(path, comp_layer, active_layers)
@@ -2235,12 +2254,16 @@ class Stage:
         elif inst and inst_path not in base_paths:
             inferred_comp_proxy_map[CompArc.INSTANCE] = inst
         elif not inst and getattr(inferred_comp, INTERNAL_ATTRS.PROXY):
+            if cache_key is not None:
+                cache[cache_key] = None
             return None
         parent_path = nxt_path.get_parent_path(path)
         if parent_path and parent_path not in base_paths:
             inferred_comp_proxy_map[CompArc.PARENT] = parent
         proxy_map[inferred_comp] = inferred_comp_proxy_map
         self.targeted_comp_post_proxies(proxy_map)
+        if cache_key is not None:
+            cache[cache_key] = inferred_comp
         return inferred_comp
 
     @staticmethod
@@ -2720,6 +2743,7 @@ class Stage:
                 "Only the world node path is supported " "at this time!"
             )
         build_start_time = time.time()
+        self._inferred_comp_cache = {}
         sub_layer_count = len(self._sub_layers)
         comp_layer = CompLayer()
         comp_layer.uid = nxt_uuid(from_idx + sub_layer_count)
@@ -3550,7 +3574,9 @@ class Stage:
         sort_multidimensional_list(inst_sorted_nodes, sort_by_idx=0)
         if not deep_sort:
             return inst_sorted_nodes
-        deep_sorted_nodes = inst_sorted_nodes[:]
+        # Same moves as a plain list, but index and remove do not scan from
+        # the front, which is what made this quadratic in node count.
+        deep_sorted_nodes = RankedList(inst_sorted_nodes)
         offset_dict = {}
         for item in inst_sorted_nodes:
             # Now we sort relative instances to make sure they fall after
@@ -3572,7 +3598,7 @@ class Stage:
                 # Track the new offset
                 offset_dict[real_inst_path] = offset + 1
 
-        return deep_sorted_nodes
+        return deep_sorted_nodes.to_list()
 
     @staticmethod
     def get_instance_sources(node, trace_list, comp_layer):
@@ -3945,6 +3971,10 @@ class Stage:
         """
         if not isinstance(layer, CompLayer):
             raise ValueError("Execute Nodes requires a comp layer.")
+        # Path expansions and inferred comps are cached for the duration of
+        # a run, so start each run looking at things as they are now.
+        nxt_path.clear_file_expand_cache()
+        self._inferred_comp_cache = {}
         if not layer.runtime:
             dup_comp = self.build_stage(layer.layer_idx())
             runtime_layer = self.setup_runtime_layer(dup_comp, parameters=parameters)
