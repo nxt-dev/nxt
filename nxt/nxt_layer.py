@@ -107,6 +107,14 @@ class SpecLayer(object):
         self._node_table = []
         self._cached_children = {}
         self._cached_implied_children = {}
+        # Whether _cached_children holds an entry for every path in the
+        # layer. See _build_child_cache.
+        self._bulk_child_cache_valid = False
+        # Ancestor path -> implied child paths, for every path in the layer.
+        # See _build_implied_index.
+        self._implied_index = {}
+        self._implied_index_valid = False
+        self._implied_index_len = -1
         self._name = UNTITLED
         self._layer_idx = 0
         self.mute = False
@@ -291,6 +299,12 @@ class SpecLayer(object):
         children_cache = self._cached_children.get(node_path)
         if node_path == nxt_path.WORLD:
             children_cache = None
+        elif children_cache is None and not self._bulk_child_cache_valid:
+            # Filling this cache one path at a time walked every node in the
+            # layer per lookup, making a comp O(n^2) in node count. Fill it
+            # for every path in one pass instead.
+            self._build_child_cache()
+            children_cache = self._cached_children.get(node_path)
         if children_cache is not None:
             children_nodes = children_cache[LayerReturnTypes.Node][:]
             children_paths = children_cache[LayerReturnTypes.Path][:]
@@ -318,30 +332,51 @@ class SpecLayer(object):
                 implied_children = implied_c_cache[LayerReturnTypes.Path][:]
                 if return_type is LayerReturnTypes.Boolean and not cache_real:
                     return bool(implied_children + children_paths)
+            elif node_path is not nxt_path.WORLD:
+                # Same answer the scan below would give, without walking
+                # every node in the layer for this one path.
+                implied_children = self._implied_children_for(node_path)
+                path_implied = {LayerReturnTypes.Path: implied_children}
+                self._cached_implied_children[node_path] = path_implied
             else:
+                # The world path is never served from the index, it is
+                # always recomputed. See _build_implied_index.
                 path_implied = {LayerReturnTypes.Path: implied_children}
                 self._cached_implied_children[node_path] = path_implied
                 cache_implied = True
         re_cache = cache_implied or cache_real
         if re_cache:
+            # Hoisted out of the loop below, these only depend on node_path.
+            # Mirrors nxt_path.is_ancestor, which treats the world path as an
+            # ancestor of everything by identity.
+            node_path_is_world = node_path is nxt_path.WORLD
+            ancestor_prefix = node_path + nxt_path.NODE_SEP
+            trim_depth = nxt_path.get_path_depth(node_path) + 1
+            seen_implied = set()
+            trim = nxt_path.trim_to_depth
+            parent_attr = nxt_node.INTERNAL_ATTRS.PARENT_PATH
+            name_attr = nxt_node.INTERNAL_ATTRS.NAME
             for path, node in self._nodes_path_as_key.items():
                 if cache_real:
-                    parent_path = getattr(node,
-                                          nxt_node.INTERNAL_ATTRS.PARENT_PATH)
-                    if parent_path is node_path:
+                    parent_path = getattr(node, parent_attr)
+                    # Compared by value. This used to be an identity check,
+                    # which silently missed children whose parent path was an
+                    # equal but distinct string. The bulk index above matches
+                    # by value too, so both paths agree.
+                    if parent_path == node_path:
                         children_nodes += [node]
                         children_paths += [path]
                         node_table += [[path, node]]
-                        key = getattr(node, nxt_node.INTERNAL_ATTRS.NAME)
-                        name_dict[key] = node
+                        name_dict[getattr(node, name_attr)] = node
                 if not include_implied or not cache_implied:
                     continue
-                # TODO: Caching the ancestors could save around 51ms per loop
-                if nxt_path.is_ancestor(path, node_path):
-                    trim_depth = nxt_path.get_path_depth(node_path) + 1
-                    trimmed = nxt_path.trim_to_depth(path, trim_depth)
-                    if trimmed not in implied_children:
-                        implied_children += [trimmed]
+                if not node_path_is_world:
+                    if not path.startswith(ancestor_prefix):
+                        continue
+                trimmed = trim(path, trim_depth)
+                if trimmed not in seen_implied:
+                    seen_implied.add(trimmed)
+                    implied_children += [trimmed]
         if cache_real:
             k = LayerReturnTypes.Path
             self._cached_children[node_path][k] = children_paths[:]
@@ -407,6 +442,98 @@ class SpecLayer(object):
         else:
             logger.error('Invalid return type provided')
             return None
+
+    def _implied_children_for(self, node_path):
+        """Implied child paths of a path, from the bulk index.
+
+        An implied child is a path a node's descendants pass through but
+        that has no node of its own, so /a has an implied child /a/b when
+        only /a/b/c exists.
+
+        :param node_path: path to get the implied children of
+        :type node_path: str
+        :return: list of node paths
+        :rtype: list
+        """
+        if (not self._implied_index_valid
+                or self._implied_index_len != len(self._nodes_path_as_key)):
+            self._build_implied_index()
+        return self._implied_index.get(node_path, [])[:]
+
+    def _build_implied_index(self):
+        """Map every ancestor path in the layer to its implied children.
+
+        Built in one pass over the nodes. Answering this per path meant
+        testing every node in the layer for ancestry on every lookup, and
+        compositing asks for the implied children of most paths.
+
+        Nodes are visited in the order they appear in the layer and each
+        bucket keeps first seen order, which is the order the per path scan
+        this replaced produced.
+        """
+        index = {}
+        seen = {}
+        sep = nxt_path.NODE_SEP
+        for path in self._nodes_path_as_key:
+            if path == nxt_path.WORLD:
+                continue
+            parts = path.split(sep)
+            # parts[0] is empty for a rooted path, so a path of depth d has
+            # d + 1 parts. Ancestors run from depth 1 up to the path's
+            # parent, the world path is excluded because children() always
+            # recomputes it.
+            for depth in range(1, len(parts) - 1):
+                ancestor = sep.join(parts[:depth + 1])
+                trimmed = sep.join(parts[:depth + 2])
+                bucket = index.get(ancestor)
+                if bucket is None:
+                    index[ancestor] = bucket = []
+                    seen[ancestor] = set()
+                ancestor_seen = seen[ancestor]
+                if trimmed not in ancestor_seen:
+                    ancestor_seen.add(trimmed)
+                    bucket += [trimmed]
+        self._implied_index = index
+        self._implied_index_len = len(self._nodes_path_as_key)
+        self._implied_index_valid = True
+
+    def _build_child_cache(self):
+        """Populate the real children cache for every path in the layer in
+        a single pass over the nodes.
+
+        children() used to fill this cache one path at a time, and each fill
+        walked every node in the layer. Compositing asks for the children of
+        most paths, so that made a comp quadratic in node count.
+        """
+        cache = {}
+
+        def new_entry():
+            return {LayerReturnTypes.Node: [],
+                    LayerReturnTypes.Path: [],
+                    LayerReturnTypes.NodeTable: [],
+                    LayerReturnTypes.NameDict: {}}
+
+        # Childless paths need an entry too, or they keep missing the cache.
+        for path in self._nodes_path_as_key:
+            if path != nxt_path.WORLD:
+                cache[path] = new_entry()
+        for path, node in self._nodes_path_as_key.items():
+            parent_path = getattr(node, nxt_node.INTERNAL_ATTRS.PARENT_PATH)
+            # The world path is never cached, children() always rebuilds it.
+            if not parent_path or parent_path == nxt_path.WORLD:
+                continue
+            entry = cache.get(parent_path)
+            if entry is None:
+                # Parent has no node of its own, it is an implied path.
+                entry = new_entry()
+                cache[parent_path] = entry
+            entry[LayerReturnTypes.Node] += [node]
+            entry[LayerReturnTypes.Path] += [path]
+            entry[LayerReturnTypes.NodeTable] += [[path, node]]
+            key = getattr(node, nxt_node.INTERNAL_ATTRS.NAME)
+            entry[LayerReturnTypes.NameDict][key] = node
+        self._cached_children = cache
+        self._bulk_child_cache_valid = True
 
     def get_cached_child_paths(self, parent_path):
         """Get the cached child paths for the given parent path. If no cache
@@ -556,6 +683,9 @@ class SpecLayer(object):
             pass
 
     def clear_node_child_cache(self, parent_path):
+        # The bulk indexes no longer cover every path, rebuild on demand.
+        self._bulk_child_cache_valid = False
+        self._implied_index_valid = False
         try:
             self._cached_children.pop(parent_path)
         except KeyError:
@@ -1179,6 +1309,115 @@ def order_nodes_dict(node_dict):
     return ordered_nodes
 
 
+class RankedList(object):
+    """List that answers "where is this item" and "put this item at index i"
+    in log time rather than by scanning.
+
+    Stage.sort_instances moves most of its items exactly once, and both
+    list.index and list.remove scan from the front, which made the sort
+    quadratic in node count. Items here sit in per position buckets with a
+    Fenwick tree over the bucket sizes turning a bucket into a global index.
+
+    Items are matched by identity. The list scans this replaces matched by
+    equality, but the items are (trace, node) pairs holding distinct node
+    classes, so no two of them ever compare equal.
+    """
+
+    def __init__(self, items):
+        self._buckets = [[item] for item in items]
+        self._where = {id(item): i for i, item in enumerate(items)}
+        size = len(self._buckets)
+        self._n = size
+        self._total = size
+        # Fenwick tree, 1 based, holding the live count of each bucket.
+        tree = [0] * (size + 1)
+        for i in range(1, size + 1):
+            tree[i] += 1
+            parent = i + (i & -i)
+            if parent <= size:
+                tree[parent] += tree[i]
+        self._tree = tree
+
+    def _add(self, bucket, delta):
+        i = bucket + 1
+        while i <= self._n:
+            self._tree[i] += delta
+            i += i & -i
+
+    def _prefix(self, bucket):
+        """Number of live items in the buckets before the given one."""
+        total = 0
+        i = bucket
+        while i > 0:
+            total += self._tree[i]
+            i -= i & -i
+        return total
+
+    def _find(self, rank):
+        """The bucket holding a global rank, and the offset inside it."""
+        pos = 0
+        remaining = rank
+        step = 1
+        while step * 2 <= self._n:
+            step *= 2
+        while step:
+            nxt = pos + step
+            if nxt <= self._n and self._tree[nxt] <= remaining:
+                pos = nxt
+                remaining -= self._tree[nxt]
+            step //= 2
+        return pos, remaining
+
+    def index(self, item):
+        bucket = self._where[id(item)]
+        offset = 0
+        for other in self._buckets[bucket]:
+            if other is item:
+                break
+            offset += 1
+        return self._prefix(bucket) + offset
+
+    def remove(self, item):
+        bucket = self._where.pop(id(item))
+        contents = self._buckets[bucket]
+        for i, other in enumerate(contents):
+            if other is item:
+                del contents[i]
+                break
+        self._add(bucket, -1)
+        self._total -= 1
+
+    def insert(self, rank, item):
+        if not self._n:
+            # Nothing to position against, start a bucket.
+            self._buckets += [[item]]
+            self._n = 1
+            self._tree = [0, 1]
+            self._where[id(item)] = 0
+            self._total += 1
+            return
+        if rank >= self._total:
+            # Past the end, which list.insert treats as an append.
+            bucket = self._n - 1
+            self._buckets[bucket].append(item)
+        else:
+            bucket, offset = self._find(rank)
+            if bucket >= self._n:
+                bucket = self._n - 1
+                self._buckets[bucket].append(item)
+            else:
+                self._buckets[bucket].insert(offset, item)
+        self._where[id(item)] = bucket
+        self._add(bucket, 1)
+        self._total += 1
+
+    def to_list(self):
+        out = []
+        for contents in self._buckets:
+            out += contents
+        return out
+
+
 def sort_multidimensional_list(multi_list, sort_by_idx):
     """Takes a multi-dimensional list and sorts it by the length of a sub-list
     item. The item who's length we sort by is
@@ -1204,21 +1443,7 @@ def sort_multidimensional_list(multi_list, sort_by_idx):
     """
     if not multi_list:
         return multi_list
-    list_len = len(multi_list)
-    i = 0
-    while i <= list_len:
-        ii = 0
-        ii_high_end = list_len - i - 1
-        item_len = len(multi_list[0][sort_by_idx])
-        while ii < ii_high_end:
-            ii_plus_one = ii + 1
-            next_item_len = len(multi_list[ii_plus_one][sort_by_idx])
-            if item_len > next_item_len:
-                _temp = multi_list[ii]
-                multi_list[ii] = multi_list[ii_plus_one]
-                multi_list[ii_plus_one] = _temp
-            else:
-                item_len = next_item_len
-            ii = ii_plus_one
-        i += 1
+    # Sorted in place, callers rely on the mutation as well as the return.
+    # list.sort is stable, matching the bubble sort this replaced.
+    multi_list.sort(key=lambda item: len(item[sort_by_idx]))
     return multi_list
