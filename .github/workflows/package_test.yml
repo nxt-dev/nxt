@@ -12,6 +12,26 @@ on:
 
 jobs:
   test-package-version:
-    uses: squarebit-studios/sbgitworkflows/.github/workflows/package_version_test.yml@main
-    with:
-      version-file-path: "nxt/version.json"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Version changed
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            version:
+              - nxt/version.json
+
+      - name: Invalid version
+        if: steps.filter.outputs.version == 'false'
+        run: |
+          echo "Package version already exists. Please bump nxt/version.json."
+          exit 1
+
+      - name: Valid version
+        if: steps.filter.outputs.version == 'true'
+        run: echo "Package version changed."
