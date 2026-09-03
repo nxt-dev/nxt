@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+"""Command line entry point for nxt.
+
+setup.py declares this as a console_script, which pip generates for a pip
+install. The rez package is built by copying the source, so the launcher is
+kept here and put on PATH by package.py.
+"""
+import sys
+
+from nxt.cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())
