@@ -47,8 +47,7 @@ def commands():
         env.PATH.append("{root}/bin")
 
 
-build_command = (
-    'mkdir -p "$REZ_BUILD_INSTALL_PATH/python"; '
-    'cp -r {root}/nxt "$REZ_BUILD_INSTALL_PATH/python/nxt"; '
-    'cp -r {root}/bin "$REZ_BUILD_INSTALL_PATH/bin"'
-)
+# A script rather than a shell one liner, so the build behaves the same on
+# Windows as on the macOS and Linux runners.
+build_command = "python {root}/rez_build.py"
+
