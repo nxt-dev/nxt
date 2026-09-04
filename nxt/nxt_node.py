@@ -17,6 +17,12 @@ else:
 logger = logging.getLogger(__name__)
 
 
+class _ClassAttrProbe(object):
+    """Exists only so INTERNAL_ATTRS.BUILTINS can see what python puts on a
+    class that is declared in source, as opposed to one built with type()."""
+    pass
+
+
 class INTERNAL_ATTRS(object):
     """Class uses for easy access to internal attr constants and various
     lists of them used for composition. Only modify if you are sure of the
@@ -39,8 +45,14 @@ class INTERNAL_ATTRS(object):
     START_POINT = _prefix + 'start_point'
     CACHED_CODE = _prefix + 'cached_code'
     # List of python attrs that a node will have but we don't want to parse or
-    # considering in our composite logic
-    BUILTINS = tuple(dir(type('NodeSpec', (object,), {})))
+    # considering in our composite logic.
+    # Two probes, because python does not give both kinds of class the same
+    # attrs. 3.13 added __firstlineno__ and __static_attributes__, which the
+    # compiler writes onto classes declared in source but not onto ones built
+    # by calling type(). Node classes are built both ways, so ask both and
+    # whatever a future python adds is covered without another look at this.
+    BUILTINS = tuple(sorted(set(dir(type('NodeSpec', (object,), {})))
+                            | set(dir(_ClassAttrProbe))))
     # A list of node attrs that are used internally in our composite logic but
     # tracked and like user attrs with a `_source__nxt` meta attr
     TRACKED = (COMPUTE, EXECUTE_IN, COMMENT, START_POINT, ENABLED,

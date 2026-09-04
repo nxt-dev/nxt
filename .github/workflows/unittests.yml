@@ -22,7 +22,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.9', '3.10', '3.11']
+        # 3.11 is Unreal 5.5-5.8 and Maya 2025/2026, 3.13 is Maya 2027.
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
       fail-fast: true
     runs-on: ${{ matrix.os }}
 
@@ -32,11 +33,26 @@ jobs:
 
     - name: Determine nxt-core branch to use
       run: |
-        if [ "${{ github.ref_name }}" = "release" ]; then
-          echo "NXT_CORE_BRANCH=release" >> $GITHUB_ENV
-        else
-          echo "NXT_CORE_BRANCH=dev" >> $GITHUB_ENV
-        fi
+        # Our forks test against our nxt on our branches; anything else
+        # keeps using upstream, so this workflow still suits both.
+        case "${{ github.repository_owner }}" in
+          squarebit-studios)
+            echo "NXT_CORE_REPO=squarebit-studios/nxt" >> $GITHUB_ENV
+            if [ "${{ github.ref_name }}" = "sb_release" ]; then
+              echo "NXT_CORE_BRANCH=sb_release" >> $GITHUB_ENV
+            else
+              echo "NXT_CORE_BRANCH=sb_dev" >> $GITHUB_ENV
+            fi
+            ;;
+          *)
+            echo "NXT_CORE_REPO=nxt-dev/nxt" >> $GITHUB_ENV
+            if [ "${{ github.ref_name }}" = "release" ]; then
+              echo "NXT_CORE_BRANCH=release" >> $GITHUB_ENV
+            else
+              echo "NXT_CORE_BRANCH=dev" >> $GITHUB_ENV
+            fi
+            ;;
+        esac
       shell: bash
 
     - name: Install Python ${{ matrix.python-version }}
@@ -64,7 +80,7 @@ jobs:
     - name: Install nxt-core
       if: github.repository != 'nxt-dev/nxt'
       run: |
-        pip install git+https://github.com/nxt-dev/nxt.git@${{ env.NXT_CORE_BRANCH }}
+        pip install git+https://github.com/${{ env.NXT_CORE_REPO }}.git@${{ env.NXT_CORE_BRANCH }}
 
     - name: Install this package
       run: pip install .
