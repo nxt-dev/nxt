@@ -23,7 +23,7 @@
 
 # Installation/Usage
 
-**This repo is the nxt core, it does not come with a UI. If you're looking for the UI, please see [the nxt editor](https://github.com/nxt-dev/nxt_editor).**
+**This repo is the nxt core, it does not come with a UI. If you're looking for the UI, please see [the nxt editor](https://github.com/squarebit-studios/nxt_editor).**
 This package is designed for headless execution of graphs in a render farm or other headless environment.  
 Only clone this repo if you're contributing to the NXT codebase.
 
@@ -31,14 +31,20 @@ Only clone this repo if you're contributing to the NXT codebase.
 
 #### Requirements
 
-- Python >= [2.7.*](https://www.python.org/download/releases/2.7) <= [3.7.*](https://www.python.org/download/releases/3.7)
-- We strongly recommend using a Python [virtual environment](https://docs.python.org/3.7/tutorial/venv.html)
+- Python [3.7](https://www.python.org/downloads/release/python-370/) to [3.13](https://www.python.org/downloads/release/python-3130/)
+- We strongly recommend using a Python [virtual environment](https://docs.python.org/3/library/venv.html)
 
 *[Requirements for contributors](CONTRIBUTING.md#python-environment)*  
 
 ### NXT Python Core
 
-Our releases are hosted on [PyPi](https://pypi.org/project/nxt-editor/).
+Our releases are hosted on [PyPi](https://pypi.org/project/nxt-core/).
+
+> **This is the Square Bit fork.** It is distributed internally as the
+> `nxt_core` rez package, not from PyPI. The PyPI release is upstream's and
+> lags behind: 0.18.1 at the time of writing, and capped at Python `<3.12`, so
+> it will not install into Maya 2027. Use the rez package for anything on
+> Python 3.12 or newer.
 
 **Install:**  
 `pip install nxt-core`
