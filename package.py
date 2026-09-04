@@ -31,7 +31,7 @@ requires = ["python-3.10+<3.14"]
 
 private_build_requires = []
 
-release_branches = ["sb_release"]
+release_branches = ["release"]
 
 help = [["Home Page", "https://github.com/nxt-dev/nxt"]]
 
