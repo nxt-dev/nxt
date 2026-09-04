@@ -30,14 +30,14 @@ Only clone this repo if you're contributing to the NXT codebase.
 
 #### Requirements
 
-- Python >= [2.7.*](https://www.python.org/download/releases/2.7) <= [3.7.*](https://www.python.org/download/releases/3.7)
-- We strongly recommend using a Python [virtual environment](https://docs.python.org/3.7/tutorial/venv.html)
+- Python [3.7](https://www.python.org/downloads/release/python-370/) to [3.13](https://www.python.org/downloads/release/python-3130/)
+- We strongly recommend using a Python [virtual environment](https://docs.python.org/3/library/venv.html)
 
 *[Requirements for contributors](CONTRIBUTING.md#python-environment)*  
 
 ### NXT Python Core
 
-Our releases are hosted on [PyPi](https://pypi.org/project/nxt-editor/).
+Our releases are hosted on [PyPi](https://pypi.org/project/nxt-core/).
 
 **Install:**  
 `pip install nxt-core`
