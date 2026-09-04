@@ -3958,6 +3958,13 @@ class Stage:
             child_order = getattr(parent_node, INTERNAL_ATTRS.CHILD_ORDER, None)
             if child_order is not None and old_name in child_order:
                 child_order[child_order.index(old_name)] = new_name
+        # Position and collapsed state are keyed by path as well, and the
+        # comp layer holds its own copy that build_stage refreshes from the
+        # spec layers. Skipping the rebuild means moving them here, or the
+        # node loses its position and lands back at the origin.
+        for by_path in (comp_layer.positions, comp_layer.collapse):
+            if old_path in by_path:
+                by_path[new_path] = by_path.pop(old_path)
         # The child caches key on path, and rebuild themselves from the node
         # table, which is now correct.
         comp_layer.clear_node_child_cache(old_path)
