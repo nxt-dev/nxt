@@ -4,6 +4,9 @@ name: Runner check
 # else, so we can see whether the job is offered a runner at all without
 # writing anything to the packages path.
 on:
+  push:
+    branches:
+      - 'sb_dev'
   workflow_dispatch:
 
 jobs:
