@@ -77,10 +77,25 @@ jobs:
     - name: Ensure PIP
       run: python -m ensurepip --upgrade
 
+    # Only the editor needs core installed separately; the core repo is
+    # already the thing under test. The old check was against the full
+    # nxt-dev/nxt path, so a fork of core failed to recognise itself and
+    # tried to pip install itself from git.
     - name: Install nxt-core
-      if: github.repository != 'nxt-dev/nxt'
+      if: ${{ !endsWith(github.repository, '/nxt') }}
+      shell: bash
+      env:
+        # Private repos need a credential to clone. Passed down by the
+        # caller's `secrets: inherit`; empty here means public, which is
+        # still true for nxt-dev.
+        GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       run: |
-        pip install git+https://github.com/${{ env.NXT_CORE_REPO }}.git@${{ env.NXT_CORE_BRANCH }}
+        if [ -n "$GIT_TOKEN" ]; then
+          url="https://x-access-token:$GIT_TOKEN@github.com/$NXT_CORE_REPO.git"
+        else
+          url="https://github.com/$NXT_CORE_REPO.git"
+        fi
+        pip install "git+$url@$NXT_CORE_BRANCH"
 
     - name: Install this package
       run: pip install .
