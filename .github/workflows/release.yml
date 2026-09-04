@@ -15,10 +15,12 @@ on:
 
 jobs:
   run-tests:
+    if: github.repository == 'nxt-dev/nxt'
     uses: nxt-dev/nxt/.github/workflows/unittests.yml@release
     with:
       QT_DEPENDENCIES: ${{ inputs.QT_DEPENDENCIES }}
   changed-files:
+    if: github.repository == 'nxt-dev/nxt'
     runs-on: ubuntu-latest
     name: Check if source actually changed
     outputs:
