@@ -1,7 +1,18 @@
 <div align="center">
 
-![Release Status](https://github.com/nxt-dev/nxt/actions/workflows/release.yml/badge.svg?branch=release)
-![Dev Status](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)
+[![Unittests](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml?query=branch%3Adev)
+
+![Version](https://img.shields.io/badge/version-0.18.2-green?logo=rocket&logoColor=green)
+![License](https://img.shields.io/badge/License-MIT-blue)&nbsp;&nbsp;
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
+![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat)
+
+![Python39](https://img.shields.io/badge/python-3.9-3776AB.svg?logo=python&logoColor=3776AB)
+![Python310](https://img.shields.io/badge/python-3.10-3776AB.svg?logo=python&logoColor=3776AB)
+![Python311](https://img.shields.io/badge/python-3.11-3776AB.svg?logo=python&logoColor=3776AB)
+![Python312](https://img.shields.io/badge/python-3.12-3776AB.svg?logo=python&logoColor=3776AB)
+![Python313](https://img.shields.io/badge/python-3.13-3776AB.svg?logo=python&logoColor=3776AB)
 # NXT Python Core
 
 </div>
