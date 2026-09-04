@@ -1353,6 +1353,73 @@ class Stage:
                     setattr(node, new_meta_attr_name, getattr(node, meta_attr))
                     delattr(node, meta_attr)
 
+    def can_rename_targeted(self, old_path, new_path, layer, comp_layer):
+        """Whether a rename can be composited in place, without a rebuild.
+
+        A rename is a path change, and a path change only alters what the
+        stage composites when another layer is involved, or when something
+        else derives its own path from this one. When none of that is true
+        the comp layer can be updated by removing one node and adding one
+        back, which is what a new node already costs.
+
+        :param old_path: path the node is moving from
+        :type old_path: str
+        :param new_path: path the node is moving to
+        :type new_path: str
+        :param layer: SpecLayer the node is authored on
+        :type layer: SpecLayer
+        :param comp_layer: CompLayer that would be updated
+        :type comp_layer: CompLayer
+        :return: (can_target, reason), reason explains a False
+        :rtype: tuple
+        """
+        if comp_layer is None:
+            return False, "no comp layer to update"
+        if old_path == new_path:
+            return False, "name is unchanged"
+        # Another layer authors the path being vacated, so what composites
+        # there afterwards is not what composites there now.
+        others = [l for l in self.get_layers_with_opinion(old_path)
+                  if l is not layer]
+        if others:
+            where = ", ".join(str(l.get_alias()) for l in others)
+            return False, "{} is also authored on {}".format(old_path, where)
+        # Something already composites at the path being moved into.
+        if comp_layer.lookup(new_path) is not None:
+            return False, "{} already exists".format(new_path)
+        # Other nodes instance this one, so their proxies move with it.
+        # get_node_dirties returns the dependents only, not the path asked
+        # about, so any entry at all means something derives from it.
+        if comp_layer.get_node_dirties(old_path):
+            return False, "{} is instanced elsewhere".format(old_path)
+        # An instanced ancestor is just as disqualifying: every proxy of that
+        # ancestor carries a child mirroring this node, and those move too.
+        for ancestor in nxt_path.all_ancestor_paths(old_path):
+            if comp_layer.get_node_dirties(ancestor):
+                return False, "ancestor {} is instanced elsewhere".format(
+                    ancestor
+                )
+        # If this node or an ancestor instances something, the comp node here
+        # may be an authored node merged with a proxy generated from that
+        # instance. Removing it would drop the generated half.
+        for path in [old_path] + nxt_path.all_ancestor_paths(old_path):
+            comp_node = comp_layer.lookup(path)
+            if comp_node is None:
+                continue
+            if getattr(comp_node, INTERNAL_ATTRS.PROXY, False):
+                return False, "{} is a proxy".format(path)
+            if getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None):
+                return False, "{} instances another node".format(path)
+        # Anything under this path moves with it. Asked as a prefix scan
+        # rather than through children(), because an edit just before this
+        # will have dropped the child caches and asking rebuilds both of
+        # them, which costs more than the rename it is guarding.
+        prefix = old_path + nxt_path.NODE_SEP
+        for path in comp_layer._nodes_path_as_key:
+            if path.startswith(prefix):
+                return False, "{} has descendants".format(old_path)
+        return True, ""
+
     def set_node_name(self, node, name, layer, force=False, comp_layer=None):
         """Set's the name of a node. This by definition changes the path to
         the node. Default behavior is to prevent clashing node names when
@@ -1400,8 +1467,18 @@ class Stage:
                 name=name, layer=scoped_layer, parent_path=parent_path
             )
         old_name = getattr(node, INTERNAL_ATTRS.NAME)
-        setattr(node, INTERNAL_ATTRS.NAME, name)
         new_node_path = nxt_path.join_node_paths(parent_path, name)
+        # Decided before anything moves, while the old path is still valid.
+        # When this holds the comp layer is updated in place below instead of
+        # the caller rebuilding the whole stage.
+        targeted, reason = self.can_rename_targeted(
+            old_node_path, new_node_path, layer, comp_layer
+        )
+        if not targeted:
+            logger.debug(
+                "Rename of {} needs a rebuild: {}".format(old_node_path, reason)
+            )
+        setattr(node, INTERNAL_ATTRS.NAME, name)
         parent_node = layer.lookup(parent_path)
         if parent_node:
             child_order = getattr(parent_node, INTERNAL_ATTRS.CHILD_ORDER)
@@ -1436,7 +1513,17 @@ class Stage:
         layer.clear_node_child_cache(old_node_path)
         if children:
             self.parent_nodes(children, new_node_path, layer, check_names=False)
-        layer.refresh()
+        if targeted:
+            # refresh() rewrites the node table and every node's attr sources
+            # for the whole layer. One node moved, so only that one is
+            # updated. Depth is unchanged by a rename and the node table is
+            # sorted by depth, so its order still holds.
+            self.retarget_spec_node(node, old_node_path, new_node_path, layer)
+            self.rekey_comp_node(
+                old_node_path, new_node_path, name, old_name, comp_layer
+            )
+        else:
+            layer.refresh()
         return new_node_path
 
     def transfer_node_data(
@@ -3794,6 +3881,88 @@ class Stage:
                 node = node.__bases__[0]
                 object_name = node.__name__
             return node
+
+    @staticmethod
+    def retarget_spec_node(node, old_path, new_path, layer):
+        """Update one spec node's bookkeeping after its path changed.
+
+        The layer wide refresh() does this for every node it holds, which is
+        wasted work when a single node was renamed.
+
+        :param node: the spec node that moved
+        :param old_path: path it was at
+        :type old_path: str
+        :param new_path: path it is at now
+        :type new_path: str
+        :param layer: SpecLayer holding it
+        :type layer: SpecLayer
+        """
+        new_ns = nxt_path.str_path_to_node_namespace(new_path)
+        for entry in layer._node_table:
+            if entry[1] is node:
+                entry[0] = new_ns
+                break
+        for attr in get_node_local_attr_names(new_path, [layer]):
+            setattr(
+                node,
+                attr + META_ATTRS.SOURCE,
+                (layer.real_path, new_path),
+            )
+        layer.clear_node_child_cache(old_path)
+        layer.clear_node_child_cache(new_path)
+        layer.clear_node_child_cache(nxt_path.get_parent_path(new_path))
+
+    def rekey_comp_node(self, old_path, new_path, new_name, old_name,
+                        comp_layer):
+        """Move one node in the comp layer from one path to another.
+
+        A rename is not a delete and a create. The composited node at the old
+        path may be several opinions merged together, an authored node and a
+        proxy among them, and rebuilding it from one spec node would throw
+        the rest away. Nothing about what is merged changes when a node is
+        renamed, only where it is filed, so the node object is kept and
+        re-filed under the new path.
+
+        Callers must have established with can_rename_targeted that no other
+        layer and nothing derived is involved.
+
+        :param old_path: path being vacated
+        :type old_path: str
+        :param new_path: path being moved to
+        :type new_path: str
+        :param new_name: the node's new name
+        :type new_name: str
+        :param old_name: the name it had, for the parent's child order
+        :type old_name: str
+        :param comp_layer: CompLayer to update
+        :type comp_layer: CompLayer
+        """
+        comp_node = comp_layer.lookup(old_path)
+        if comp_node is None:
+            return
+        comp_layer._nodes_path_as_key.pop(old_path)
+        comp_layer._nodes_path_as_key[new_path] = comp_node
+        comp_layer._nodes_node_as_key[comp_node] = new_path
+        new_ns = nxt_path.str_path_to_node_namespace(new_path)
+        for entry in comp_layer._node_table:
+            if entry[1] is comp_node:
+                entry[0] = new_ns
+                break
+        setattr(comp_node, INTERNAL_ATTRS.NAME, new_name)
+        # The node does not move, it is renamed where it sits. This is the
+        # same edit set_node_name already makes to the spec layer's parent,
+        # applied to the composited parent so the two agree.
+        parent_path = nxt_path.get_parent_path(new_path)
+        parent_node = comp_layer.lookup(parent_path)
+        if parent_node is not None:
+            child_order = getattr(parent_node, INTERNAL_ATTRS.CHILD_ORDER, None)
+            if child_order is not None and old_name in child_order:
+                child_order[child_order.index(old_name)] = new_name
+        # The child caches key on path, and rebuild themselves from the node
+        # table, which is now correct.
+        comp_layer.clear_node_child_cache(old_path)
+        comp_layer.clear_node_child_cache(new_path)
+        comp_layer.clear_node_child_cache(parent_path)
 
     @staticmethod
     def get_node_child_order(node):
