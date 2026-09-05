@@ -75,6 +75,33 @@ class LayerReturnTypes(object):
     Boolean = 'Boolean'  # Return if there is at least one child
 
 
+def make_reference_portable(ref, base_dir):
+    """Rewrite an absolute reference path relative to `base_dir` so the
+    graph keeps working when its folder is moved or shared. References that
+    are already relative, start with an environment variable, or cannot be
+    made relative (e.g. another Windows drive) are returned unchanged.
+
+    :param ref: Reference path as stored on a layer.
+    :type ref: str
+    :param base_dir: Directory the owning layer is being saved to.
+    :type base_dir: str
+    :return: The portable reference path, or the original `ref` if unchanged.
+    :rtype: str
+    """
+    if not ref or not os.path.isabs(ref):
+        return ref
+    if ref[0] in ('$', '%'):  # env var token, leave for full_file_expand
+        return ref
+    expanded = nxt_path.full_file_expand(ref, start=base_dir)
+    try:
+        rel = os.path.relpath(expanded, base_dir).replace(os.sep, '/')
+    except ValueError:
+        return ref
+    if not rel.startswith('.'):
+        rel = './' + rel
+    return rel
+
+
 class SpecLayer(object):
     """Layer object representing layer data from disk.
     """
@@ -829,6 +856,7 @@ class SpecLayer(object):
         if self.get_alias(local=True) == UNTITLED:
             self.set_alias(graph_name)
         save_data = self.get_save_data()
+        self._make_references_portable(save_data, os.path.dirname(filepath))
         try:
             json.dumps(save_data, indent=4, sort_keys=False)
         except TypeError:
@@ -842,6 +870,29 @@ class SpecLayer(object):
             self.real_path = filepath
             self.propegate_real_path()
         return save_data
+
+    def _make_references_portable(self, save_data, base_dir):
+        """Rewrite absolute reference paths in `save_data` relative to
+        `base_dir`. Matching comp_override keys are remapped so overrides
+        stay associated with their reference. Only the save data is touched,
+        never the live layer state.
+
+        :param save_data: Save dict returned by `get_save_data`.
+        :type save_data: dict
+        :param base_dir: Directory the layer is being saved to.
+        :type base_dir: str
+        """
+        refs = save_data.get(SAVE_KEY.REFERENCES)
+        if not refs or not base_dir:
+            return
+        comp_overs = save_data.get(SAVE_KEY.COMP_ORVERRIDES, {})
+        for i, ref in enumerate(refs):
+            new_ref = make_reference_portable(ref, base_dir)
+            if new_ref == ref:
+                continue
+            refs[i] = new_ref
+            if ref in comp_overs:
+                comp_overs[new_ref] = comp_overs.pop(ref)
 
     def get_meta_data(self):
         positions = OrderedDict(sorted(self.positions.items(),
