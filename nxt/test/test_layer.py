@@ -45,3 +45,33 @@ class TestReferences(unittest.TestCase):
         os.remove(temporary_graph_path)
         self.assertIsNotNone(comp_layer_with_ref.lookup('/i_am_here'))
 
+    def test_reference_saved_relative(self):
+        test_dir = os.path.dirname(__file__)
+        empty_path = os.path.join(test_dir, 'empty.nxt')
+        empty_spec_layer = nxt_layer.SpecLayer.load_from_filepath(empty_path)
+        abs_ref = os.path.abspath(os.path.join(test_dir, 'ref_test.nxt'))
+        empty_spec_layer.add_reference(abs_ref)
+        empty_spec_layer.set_mute_over(abs_ref, False)
+        temporary_graph_path = os.path.join(test_dir, 'IWILLBEDELTED.nxt')
+        save_data = empty_spec_layer.save(temporary_graph_path)
+        stage_with_ref = stage.Stage.load_from_filepath(temporary_graph_path)
+        comp_layer_with_ref = stage_with_ref.build_stage()
+        os.remove(temporary_graph_path)
+        # Absolute reference is saved relative to the graph
+        refs = save_data[nxt_layer.SAVE_KEY.REFERENCES]
+        self.assertEqual(['./ref_test.nxt'], refs)
+        # Comp overrides follow the rewritten reference
+        overs = save_data[nxt_layer.SAVE_KEY.COMP_ORVERRIDES]
+        self.assertIn('./ref_test.nxt', overs)
+        self.assertNotIn(abs_ref, overs)
+        # Live layer state is untouched and the graph still loads
+        self.assertEqual([abs_ref], empty_spec_layer.get_references())
+        self.assertIsNotNone(comp_layer_with_ref.lookup('/i_am_here'))
+
+    def test_reference_portable_unchanged(self):
+        base_dir = os.path.dirname(__file__)
+        for ref in ('./ref_test.nxt', 'ref_test.nxt', '../up/ref_test.nxt',
+                    '$MY_GRAPHS/ref_test.nxt', ''):
+            self.assertEqual(ref, nxt_layer.make_reference_portable(ref,
+                                                                    base_dir))
+
