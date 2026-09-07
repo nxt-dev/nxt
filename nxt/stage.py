@@ -396,19 +396,15 @@ class Stage:
                 layer_data = nxt_io.load_file_data(sub_layer_path)
                 if not layer_data:
                     continue
-            except IOError as e:
+            except IOError:
+                # Keep the reference. It is what the graph says it needs,
+                # and this machine failing to find it does not make that
+                # untrue: someone else's does. Dropping it here meant the
+                # next save of this layer wrote the file without it, so
+                # opening a graph with one reference missing and saving
+                # for any reason lost it for everyone.
                 msg_pattern = "Failed to open {} referenced by {}"
                 logger.exception(msg_pattern.format(sub_layer_path, real_path))
-                try:
-                    parent_layer.sub_layer_paths.remove(sub_layer_path)
-                except ValueError:
-                    pass
-                bad_layer_dat = []
-                for sub_layer_dat in parent_layer.sub_layers:
-                    if sub_layer_dat.get(SAVE_KEY.FILEPATH) == sub_layer_path:
-                        bad_layer_dat += [sub_layer_dat]
-                for dat in bad_layer_dat:
-                    parent_layer.sub_layers.remove(dat)
                 continue
             self.load_from_file(layer_data, parent_layer=parent_layer)
         os.chdir(old_cwd)
