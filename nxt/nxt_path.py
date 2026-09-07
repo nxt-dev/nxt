@@ -64,7 +64,16 @@ def full_file_expand(path, start=None):
     # one. Whether a file exists is checked separately by the callers that
     # care about it and is not cached, so a file written during a build is
     # still seen to appear.
-    key = (full_path, start)
+    #
+    # A relative path with no start resolves against the working directory,
+    # so the answer is only good for the directory it was worked out in and
+    # the key has to say which. Leaving it out meant a relative path
+    # resolved once kept its first answer after a chdir, which quietly
+    # pointed layer references at the wrong place.
+    if start or os.path.isabs(full_path):
+        key = (full_path, start)
+    else:
+        key = (full_path, os.getcwd())
     cached = _REAL_PATH_CACHE.get(key)
     if cached is not None:
         return cached
