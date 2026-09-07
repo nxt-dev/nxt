@@ -50,6 +50,46 @@ def register_reference_path_expander(expander):
     plugin_expanders += [expander]
 
 
+def expand_reference_path(filepath, layer_dir=None):
+    """Where a reference points, resolved the way loading resolves it.
+
+    A reference is stored as written, which is often partial, so anything
+    that wants to show a person where it actually lands has to ask the
+    same machinery that loading asks. Order is: expand variables, "~" and
+    relative paths, then every registered expander, which is what walks
+    NXT_FILE_ROOTS, then the referring layer's own directory.
+
+    :param filepath: the reference as stored on the layer
+    :type filepath: str
+    :param layer_dir: directory of the layer holding the reference, which
+        is how a path relative to its own file resolves
+    :type layer_dir: str | None
+    :return: (resolved path, whether a file is there). The path is
+        returned even when nothing is there, because where it looked is
+        the useful thing to show.
+    :rtype: tuple
+    """
+    if not filepath:
+        return '', False
+    real_path = nxt_path.full_file_expand(filepath)
+    if os.path.isfile(real_path):
+        return real_path, True
+    for expander in plugin_expanders:
+        try:
+            found = expander(filepath, layer_dir)
+        except TypeError:
+            # Expanders are registered as taking one argument; the one
+            # that knows about roots can also take the layer's directory.
+            found = expander(filepath)
+        if found and os.path.isfile(found):
+            return found, True
+    if layer_dir:
+        beside = nxt_path.full_file_expand(filepath, start=layer_dir)
+        if os.path.isfile(beside):
+            return beside, True
+    return real_path, False
+
+
 def load_file_data(filepath):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
