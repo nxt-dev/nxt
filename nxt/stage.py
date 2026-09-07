@@ -298,7 +298,17 @@ class Stage:
             file_path = ref[SAVE_KEY.FILEPATH]
             d = os.path.dirname(layer_data[SAVE_KEY.REAL_PATH])
             real_file_path = nxt_path.full_file_expand(file_path, d)
-            deep_sub_layer_data = nxt_io.load_file_data(real_file_path)
+            try:
+                deep_sub_layer_data = nxt_io.load_file_data(real_file_path)
+            except IOError:
+                # Same rule as loading a graph: a reference this machine
+                # cannot find is kept and skipped, not thrown. Raising here
+                # aborts whoever was rebuilding the layer stack, and they
+                # are usually partway through, so the stage is left with
+                # layers taken out and nothing put back.
+                msg = "Failed to open {} referenced by {}"
+                logger.exception(msg.format(file_path, new_sublayer.filepath))
+                continue
             deep_sub_layer_data["parent_layer"] = new_sublayer
             deep_sub_layer_data[SAVE_KEY.FILEPATH] = file_path
             deep_sub_layer_data[SAVE_KEY.REAL_PATH] = real_file_path
