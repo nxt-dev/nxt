@@ -19,6 +19,7 @@ import tempfile
 import unittest
 
 # Internal
+from nxt import nxt_io
 from nxt.session import Session
 
 # The failed open is logged, and these tests cause it on purpose.
@@ -104,6 +105,54 @@ class MissingReferencesSurviveLoading(unittest.TestCase):
         self.assertEqual(['a.nxt'], stage.top_layer.get_references())
         stage.top_layer.save()
         self.assertEqual(['a.nxt'], self.on_disk())
+
+
+class AddingALayerWhoseOwnReferenceIsMissing(unittest.TestCase):
+    """Building a layer stack walks nested references and opens each one.
+
+    Keeping references that do not resolve means they now reach here,
+    where loading used to prune them before anything else saw them. This
+    threw on the first file it could not read, and the callers are usually
+    partway through rebuilding a stack, so the stage was left with layers
+    taken out and nothing put back.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='nxt_nested_')
+        # rig references something not on this machine.
+        write_graph(os.path.join(self.tmp, 'rig.nxt'), 'rig',
+                    references=['$NXT_NO_SUCH_ROOT/lib/muscles.nxt'],
+                    node_names=['from_rig'])
+        self.top_path = os.path.join(self.tmp, 'top.nxt')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_opening_it(self):
+        write_graph(self.top_path, 'top', references=['rig.nxt'],
+                    node_names=['from_top'])
+        stage = Session().load_file(filepath=self.top_path)
+        self.assertEqual(['top', 'rig'],
+                         [l.get_alias() for l in stage._sub_layers])
+        comped = stage.build_stage()._nodes_path_as_key
+        self.assertIn('/from_rig', comped)
+        self.assertIn('/from_top', comped)
+
+    def test_adding_it_as_a_sublayer(self):
+        # The path that threw: new_sublayer walking rig's own references.
+        write_graph(self.top_path, 'top', node_names=['from_top'])
+        stage = Session().load_file(filepath=self.top_path)
+        top = stage.top_layer
+        real_path = os.path.join(self.tmp, 'rig.nxt')
+        layer_data = nxt_io.load_file_data(real_path)
+        layer_data.update({'parent_layer': top,
+                           'filepath': 'rig.nxt',
+                           'real_path': real_path,
+                           'alias': layer_data.get('name')})
+        stage.new_sublayer(layer_data=layer_data, idx=1)
+        self.assertEqual(['top', 'rig'],
+                         [l.get_alias() for l in stage._sub_layers])
+        self.assertIn('/from_rig', stage.build_stage()._nodes_path_as_key)
 
 
 if __name__ == '__main__':
