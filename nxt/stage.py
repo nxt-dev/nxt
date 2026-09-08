@@ -324,8 +324,15 @@ class Stage:
             layer = self._sub_layers[layer]
         file_path = layer.filepath
         layer_data = layer.sub_layers
-        for remove_sub_data in layer_data:
-            layer_data.remove(remove_sub_data)
+        # Walk a copy. This loop empties the very list it iterates, and
+        # taking items out of a list while going through it skips every
+        # other one, so a layer with more than one reference only ever
+        # recursed into the first. The rest stayed in the stage with their
+        # nodes still comping, which looks like a removal that did most of
+        # the job. Recursing can take entries out too, hence the check.
+        for remove_sub_data in list(layer_data):
+            if remove_sub_data in layer_data:
+                layer_data.remove(remove_sub_data)
             ref_layer = remove_sub_data.get("layer")
             if not ref_layer:
                 continue
@@ -333,14 +340,23 @@ class Stage:
         for sub_layer in self._sub_layers:
             if sub_layer is layer:
                 continue
-            if file_path in sub_layer.sub_layer_paths:
-                sub_layer.sub_layer_paths.remove(file_path)
             sub_layer_data = sub_layer.sub_layers
-            rm_d = [d for d in sub_layer_data if d[SAVE_KEY.FILEPATH] == file_path]
+            # Only the entries that point at the layer being removed. Two
+            # layers can reference the same file and get one each, and a
+            # reference that never resolved has no layer behind it at all;
+            # neither is this one, and both are still what their layer asks
+            # for.
+            rm_d = [d for d in sub_layer_data
+                    if d[SAVE_KEY.FILEPATH] == file_path
+                    and d.get("layer") is layer]
             for rd in rm_d:
-                ref_layer = rd["layer"]
-                if ref_layer is layer:
-                    sub_layer_data.remove(rd)
+                sub_layer_data.remove(rd)
+                # The path goes with the entry it belonged to, not with
+                # the name. Dropping it by name alone took the reference
+                # off every other layer that named the same file, and
+                # saving any of them then wrote it out without one.
+                if file_path in sub_layer.sub_layer_paths:
+                    sub_layer.sub_layer_paths.remove(file_path)
         if layer in self._sub_layers:
             self._sub_layers.remove(layer)
         for i, layer in enumerate(self._sub_layers):
