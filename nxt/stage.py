@@ -435,6 +435,188 @@ class Stage:
             self.load_from_file(layer_data, parent_layer=parent_layer)
         os.chdir(old_cwd)
 
+    def reference_dependencies(self, layer):
+        """A layer and every layer it pulls in, as deep as they go.
+
+        Reloading one file is rarely the whole story: a layer is what its
+        own file says plus what everything it references says, so this is
+        the set of files that decide what that layer contributes.
+
+        A reference that did not resolve has no layer behind it and is
+        left out: there is nothing loaded to reload.
+
+        :param layer: layer to start from
+        :return: the layer first, then its references depth first
+        :rtype: list
+        """
+        found = [layer]
+        for sub_layer_data in layer.sub_layers:
+            sub_layer = sub_layer_data.get("layer")
+            if sub_layer is None:
+                continue
+            for deeper in self.reference_dependencies(sub_layer):
+                if deeper not in found:
+                    found.append(deeper)
+        return found
+
+    def reload_layers(self, layers, source=None):
+        """Re-read layers, replacing what is in memory with what is saved.
+
+        This throws away unsaved work on the layers it is given; that is
+        what reloading is, and asking about it belongs to whoever offers
+        it. Nothing is composited here, because which comp to build and
+        when to build it is the caller's business, and a reload of
+        several layers wants one comp at the end rather than one each.
+
+        A layer that has never been written has nothing to be reloaded
+        from and is skipped, with a complaint.
+
+        A file that has come to reference something else since it was
+        opened brings that with it: the layers it now names are loaded,
+        the ones it stopped naming are let go, and the stack is put in
+        the order it gives. The layers it still names are left as they
+        are, whatever state they are in, because nobody asked for those
+        to be read again.
+
+        :param layers: layers to reload
+        :type layers: list
+        :param source: real path -> layer data to use instead of reading
+            the file, for putting back what a layer held before
+        :type source: dict | None
+        :return: real path -> the data each layer held before, in the form
+            `source` takes, so that one reload can undo another. Layers a
+            changed reference took out of the stage are in here too.
+        :rtype: dict
+        """
+        source = source or {}
+        previous = {}
+        restack = False
+        for layer in layers:
+            real_path = layer.real_path
+            layer_data = source.get(real_path)
+            if layer_data is None:
+                if not real_path or not os.path.isfile(str(real_path)):
+                    logger.error('Cannot reload "{}", it has never been '
+                                 'saved'.format(layer.get_alias()))
+                    continue
+                layer_data = nxt_io.load_file_data(real_path)
+            was_referencing = layer.get_references()
+            previous.setdefault(real_path, layer.get_save_data())
+            layer.reload_from_data(layer_data)
+            if layer.get_references() == was_referencing:
+                continue
+            # Order counts as a change: it decides whose opinion wins.
+            restack = True
+            gone, arrived = self.settle_references(layer)
+            for gone_path, gone_data in gone.items():
+                previous.setdefault(gone_path, gone_data)
+            for fresh in arrived:
+                fresh_data = source.get(fresh.real_path)
+                if fresh_data is None:
+                    continue
+                # Coming back from an undo, and this layer was in the
+                # stage before with something else in it.
+                previous.setdefault(fresh.real_path, fresh.get_save_data())
+                fresh.reload_from_data(fresh_data)
+        if restack:
+            self.resort_layers()
+        return previous
+
+    def settle_references(self, layer):
+        """Put the stack under a layer back in step with its references.
+
+        Only the difference is touched. A reference that was there before
+        and is there still keeps the layer it had, whatever state that
+        layer is in; a layer nothing references any more would otherwise
+        go on compositing, and a reference nothing loaded would show as
+        missing when the file it names is right there.
+
+        :param layer: layer whose references have changed
+        :return: ({real path: save data} of the layers taken out, the
+            layers brought in, the ones they reference included)
+        :rtype: tuple
+        """
+        wanted = [d[SAVE_KEY.FILEPATH] for d in layer.sub_layers]
+        gone = {}
+        for child in list(self._sub_layers):
+            if child.parent_layer is not layer:
+                continue
+            if child.filepath in wanted:
+                continue
+            gone[child.real_path] = child.get_save_data()
+            self.remove_sublayer(child)
+        arrived = []
+        for sub_layer_data in list(layer.sub_layers):
+            if sub_layer_data.get("layer") is not None:
+                continue
+            reference = sub_layer_data[SAVE_KEY.FILEPATH]
+            arrived += self.load_reference(layer, reference)
+        return gone, arrived
+
+    def load_reference(self, layer, reference):
+        """Load one of a layer's references, and what it references.
+
+        The work `load_from_file` does for each reference it finds in a
+        file, for one that turned up after the file was opened. A
+        reference this machine cannot find is left as written, because it
+        is still what the graph asks for and may resolve elsewhere.
+
+        :param layer: layer holding the reference
+        :param reference: the reference as stored on that layer
+        :type reference: str
+        :return: the layers this brought into the stage
+        :rtype: list
+        """
+        before = len(self._sub_layers)
+        old_cwd = os.getcwd()
+        directory = os.path.dirname(layer.real_path or "")
+        try:
+            if directory:
+                os.chdir(directory)
+            layer_data = nxt_io.load_file_data(reference)
+        except IOError:
+            logger.exception('Failed to open {} referenced by {}'
+                             ''.format(reference, layer.real_path))
+            return []
+        finally:
+            os.chdir(old_cwd)
+        if not layer_data:
+            return []
+        self.load_from_file(layer_data, parent_layer=layer)
+        return self._sub_layers[before:]
+
+    def resort_layers(self):
+        """Stack the layers in the order the references describe.
+
+        Layers are stacked depth first from the top: a layer, then what
+        it references, in the order it references them. That order is
+        what decides whose opinion wins, so a file that has come to
+        reference the same layers in a different order has to be able to
+        move them, not only to add and to remove.
+        """
+        ordered = []
+        seen = set()
+
+        def walk(layer):
+            ordered.append(layer)
+            seen.add(id(layer))
+            for sub_layer_data in layer.sub_layers:
+                sub_layer = sub_layer_data.get("layer")
+                if sub_layer is not None and id(sub_layer) not in seen:
+                    walk(sub_layer)
+
+        walk(self.top_layer)
+        for layer in self._sub_layers:
+            if id(layer) not in seen:
+                # Nothing reaches it through a reference any more.
+                # Leaving it on the end beats dropping it here, where
+                # whoever is holding it would not be told.
+                ordered.append(layer)
+                seen.add(id(layer))
+        self._sub_layers = ordered
+        for idx, layer in enumerate(self._sub_layers):
+            layer._layer_idx = idx
+
     def get_layer_save_data(self, layer_idx):
         layer = self._sub_layers[layer_idx]
         return layer.get_save_data()

@@ -152,6 +152,52 @@ class SpecLayer(object):
         self._construct_node_specs(layer_data)
         self.refresh()
 
+    def reload_from_data(self, layer_data):
+        """Replace everything this layer holds with what the data says.
+
+        The layer object is kept. A stage holds its layers by object and
+        so does everything looking at one -- the target layer, the
+        display layer, the layer tree, the source layer recorded on every
+        node -- so building a new layer and swapping it in would leave
+        all of those pointing at a layer that is not in the graph.
+
+        What is not in the data is what does not belong to it: where the
+        layer sits in the stack, which layer references it, which file it
+        came from, and whether it is locked, which is a local opinion
+        nobody writes to a file. Those are carried over.
+
+        What a layer references does come from the data, because that is
+        what the file says this layer is built on, and the layers already
+        loaded behind the references that survive are kept. Putting the
+        stage's stack back in step with the new list -- loading what
+        arrived, letting go of what went, and stacking them in the order
+        the file gives -- is `Stage.settle_references`, because the stack
+        is the stage's to hold, not one layer's.
+
+        :param layer_data: clean dict of an nxt save file
+        :type layer_data: dict
+        """
+        wired = {}
+        for sub_layer_data in self.sub_layers:
+            sub_layer = sub_layer_data.get('layer')
+            if sub_layer is not None:
+                wired[sub_layer_data[SAVE_KEY.FILEPATH]] = sub_layer
+        layer_idx = self._layer_idx
+        layer_data = dict(layer_data)
+        layer_data['parent_layer'] = self.parent_layer
+        for key, fallback in ((SAVE_KEY.FILEPATH, self.filepath),
+                              (SAVE_KEY.REAL_PATH, self.real_path),
+                              (SAVE_KEY.CWD, self.cwd),
+                              (SAVE_KEY.LOCK, self.lock)):
+            if layer_data.get(key) is None:
+                layer_data[key] = fallback
+        self.__init__(layer_data)
+        self._layer_idx = layer_idx
+        for sub_layer_data in self.sub_layers:
+            sub_layer = wired.get(sub_layer_data[SAVE_KEY.FILEPATH])
+            if sub_layer is not None:
+                sub_layer_data['layer'] = sub_layer
+
     def get_cwd(self):
         path = getattr(self, SAVE_KEY.CWD)
         if path:
