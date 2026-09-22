@@ -2845,6 +2845,14 @@ class Stage:
             logical_index = len(self._sub_layers)
         self._sub_layers.insert(logical_index, layer)
         layer._layer_idx = logical_index
+        # A layer joining the stage is registered with the layer that
+        # references it here, rather than the first time somebody
+        # composites the whole stack. Compositing from part way down only
+        # ever registered the layers it walked, so a stage that had never
+        # been comped from the top had references pointing at nothing, and
+        # removing one of those left its layer in the stage with its nodes
+        # still comping.
+        self.assign_layer_parents([layer])
 
     def build_stage(self, from_idx=0, node_paths=()):
         if node_paths and list(node_paths) != [nxt_path.WORLD]:
