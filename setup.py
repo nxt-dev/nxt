@@ -26,8 +26,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/nxt-dev/nxt",
     packages=setuptools.find_packages(),
-    # Maya 2022 is 3.7, Maya 2027 and its 3.13 is the current ceiling.
-    python_requires='>=3.10, <3.14',
+    python_requires='>=3.7, <3.15',
     entry_points={
         'console_scripts': [
             'nxt=nxt.cli:main',
