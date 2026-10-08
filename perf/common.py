@@ -14,8 +14,7 @@ WORK_DIR = os.path.join(PERF_DIR, "_work")
 
 # A big production graph to measure against, if there is one. Set
 # NXT_PERF_GRAPH to a .nxt path. Graphs referencing files outside the repo
-# also need NXT_FILE_ROOTS and NXT_ROOTS_CONFIG_FILE set the way the graph's
-# environment sets them.
+# also need NXT_FILE_ROOTS set the way the graph's environment sets it.
 BIG_GRAPH_ENV_VAR = "NXT_PERF_GRAPH"
 
 # Graphs that are meant to fail, or that trip a pre-existing crash unrelated

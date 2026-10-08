@@ -14,13 +14,12 @@ Nothing to install. Every script imports `nxt` from this checkout, whatever
 the working directory.
 
 Point `NXT_PERF_GRAPH` at a real production graph to measure against one.
-If that graph references files outside the repo, set `NXT_FILE_ROOTS` and
-`NXT_ROOTS_CONFIG_FILE` the way its environment sets them:
+If that graph references files outside the repo, set `NXT_FILE_ROOTS` the
+way its environment sets it:
 
 ```bash
 export NXT_PERF_GRAPH="/path/to/some_rig.nxt"
-export NXT_FILE_ROOTS="..."          # as the project sets it
-export NXT_ROOTS_CONFIG_FILE="..."   # as the project sets it
+export NXT_FILE_ROOTS="..."   # as the project sets it
 ```
 
 Without it the harnesses still run, against the test suite graphs and any
