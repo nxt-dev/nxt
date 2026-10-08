@@ -55,9 +55,12 @@ def expand_reference_path(filepath, layer_dir=None):
 
     A reference is stored as written, which is often partial, so anything
     that wants to show a person where it actually lands has to ask the
-    same machinery that loading asks. Order is: expand variables, "~" and
-    relative paths, then every registered expander, which is what walks
-    NXT_FILE_ROOTS, then the referring layer's own directory.
+    same machinery that loading asks. A path that is absolute once
+    variables and "~" are expanded is taken as it is. Anything else is
+    tried against every registered expander, which is what walks
+    NXT_FILE_ROOTS, and then against the referring layer's own directory,
+    so a root wins over a file beside the layer, as it does on load.
+    Without a layer directory the working directory stands in for it.
 
     :param filepath: the reference as stored on the layer
     :type filepath: str
@@ -71,8 +74,8 @@ def expand_reference_path(filepath, layer_dir=None):
     """
     if not filepath:
         return '', False
-    real_path = nxt_path.full_file_expand(filepath)
-    if os.path.isfile(real_path):
+    real_path = nxt_path.full_file_expand(filepath, start=layer_dir)
+    if is_absolute(filepath) and os.path.isfile(real_path):
         return real_path, True
     for expander in plugin_expanders:
         try:
@@ -83,23 +86,39 @@ def expand_reference_path(filepath, layer_dir=None):
             found = expander(filepath)
         if found and os.path.isfile(found):
             return found, True
-    if layer_dir:
-        beside = nxt_path.full_file_expand(filepath, start=layer_dir)
-        if os.path.isfile(beside):
-            return beside, True
+    if os.path.isfile(real_path):
+        return real_path, True
     return real_path, False
 
 
-def load_file_data(filepath):
+def is_absolute(filepath):
+    """Whether a path is absolute once its variables and "~" are expanded.
+
+    :param filepath: path as written
+    :type filepath: str
+    :rtype: bool
+    """
+    expanded = os.path.expandvars(nxt_path.unify_env_vars(filepath))
+    return os.path.isabs(os.path.expanduser(expanded))
+
+
+def load_file_data(filepath, layer_dir=None):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
     to the legacy converter for conversion.
 
+    A relative path is looked for under each registered expander first,
+    which is what walks NXT_FILE_ROOTS, and then relative to `layer_dir`,
+    or to the working directory when no `layer_dir` is given.
+
     :param filepath: string of save file filepath
     :type filepath: str
+    :param layer_dir: directory of the layer referencing this file, which
+        a relative path is resolved against
+    :type layer_dir: str | None
     :return: dict of file data
     """
-    real_path = nxt_path.full_file_expand(filepath)
+    real_path = nxt_path.full_file_expand(filepath, start=layer_dir)
     for expander in plugin_expanders:
         found_path = expander(filepath)
         if not os.path.isfile(found_path):

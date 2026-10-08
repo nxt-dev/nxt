@@ -296,10 +296,15 @@ class Stage:
             if ref.get("layer"):
                 continue
             file_path = ref[SAVE_KEY.FILEPATH]
+            # Resolved the way opening the graph resolves it, so a root in
+            # NXT_FILE_ROOTS wins over a file beside the layer here too.
+            # Joining the path to the layer's directory first meant roots
+            # were never asked, and a reference added in the editor could
+            # load a different file than opening the same graph did.
             d = os.path.dirname(layer_data[SAVE_KEY.REAL_PATH])
-            real_file_path = nxt_path.full_file_expand(file_path, d)
             try:
-                deep_sub_layer_data = nxt_io.load_file_data(real_file_path)
+                deep_sub_layer_data = nxt_io.load_file_data(file_path,
+                                                            layer_dir=d)
             except IOError:
                 # Same rule as loading a graph: a reference this machine
                 # cannot find is kept and skipped, not thrown. Raising here
@@ -310,8 +315,6 @@ class Stage:
                 logger.exception(msg.format(file_path, new_sublayer.filepath))
                 continue
             deep_sub_layer_data["parent_layer"] = new_sublayer
-            deep_sub_layer_data[SAVE_KEY.FILEPATH] = file_path
-            deep_sub_layer_data[SAVE_KEY.REAL_PATH] = real_file_path
             self.new_sublayer(deep_sub_layer_data, idx=idx + 1)
         else:
             new_sublayer.save()

@@ -6,13 +6,18 @@ references has to resolve them the way loading does, or it will disagree
 with what actually opens.
 """
 # Built-in
+import json
 import logging
 import os
+import shutil
+import tempfile
 import unittest
 
 # Internal
 from nxt import nxt_io
 from nxt.plugins import file_fallbacks
+from nxt.session import Session
+from nxt.stage import Stage
 
 logging.getLogger('nxt').propagate = False
 
@@ -101,6 +106,90 @@ class ReferencePathsResolve(unittest.TestCase):
         self.assertTrue(found)
         data = nxt_io.load_file_data(KNOWN)
         self.assertTrue(data, 'loading found it too')
+
+
+class RootsWinOverTheLayerDirectory(unittest.TestCase):
+    """The same file name beside a layer and under a root.
+
+    Opening a graph lets the root win, which is what lets a working copy
+    listed in NXT_FILE_ROOTS stand in for the file a graph sits beside.
+    Everything else that resolves a reference has to agree, or the same
+    graph loads different files depending on how its layers got there.
+    """
+
+    def setUp(self):
+        self.saved_roots = os.environ.get(file_fallbacks.NXT_FILE_ROOTS)
+        self.saved_cwd = os.getcwd()
+        self.tmp = tempfile.mkdtemp(prefix='nxt_ref_roots_')
+        self.graph_dir = os.path.join(self.tmp, 'graph')
+        self.root_dir = os.path.join(self.tmp, 'root')
+        os.makedirs(self.graph_dir)
+        os.makedirs(self.root_dir)
+        self.write(self.graph_dir, 'top.nxt', 'top', ['mid.nxt'])
+        self.write(self.graph_dir, 'mid.nxt', 'mid', ['leaf.nxt'])
+        self.write(self.graph_dir, 'leaf.nxt', 'leaf_beside')
+        self.write(self.root_dir, 'leaf.nxt', 'leaf_under_root')
+        os.environ[file_fallbacks.NXT_FILE_ROOTS] = self.root_dir
+        file_fallbacks._ENV_ROOTS_CACHE.clear()
+        # Somewhere that is neither, the way an editor session is.
+        os.chdir(self.tmp)
+
+    def tearDown(self):
+        os.chdir(self.saved_cwd)
+        if self.saved_roots is None:
+            os.environ.pop(file_fallbacks.NXT_FILE_ROOTS, None)
+        else:
+            os.environ[file_fallbacks.NXT_FILE_ROOTS] = self.saved_roots
+        file_fallbacks._ENV_ROOTS_CACHE.clear()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def write(directory, name, alias, references=()):
+        with open(os.path.join(directory, name), 'w') as file_object:
+            json.dump({'version': '1.17', 'alias': alias,
+                       'references': list(references)}, file_object)
+
+    def test_opening_the_graph_takes_the_root(self):
+        stage = Session().load_file(os.path.join(self.graph_dir, 'top.nxt'))
+        aliases = [layer.get_alias() for layer in stage._sub_layers]
+        self.assertIn('leaf_under_root', aliases)
+
+    def test_adding_a_reference_takes_the_root_too(self):
+        # What the editor does when a reference is added: the layer comes
+        # in through new_sublayer, and its own references with it.
+        mid = os.path.join(self.graph_dir, 'mid.nxt')
+        stage = Stage()
+        stage.new_sublayer(layer_data=nxt_io.load_file_data(mid), idx=0)
+        aliases = [layer.get_alias() for layer in stage._sub_layers]
+        self.assertIn('leaf_under_root', aliases)
+        self.assertNotIn('leaf_beside', aliases)
+
+    def test_the_preview_shows_the_root(self):
+        resolved, found = nxt_io.expand_reference_path(
+            'leaf.nxt', layer_dir=self.graph_dir)
+        self.assertTrue(found)
+        self.assertTrue(os.path.samefile(
+            os.path.join(self.root_dir, 'leaf.nxt'), resolved))
+
+    def test_beside_the_layer_when_no_root_has_it(self):
+        os.remove(os.path.join(self.root_dir, 'leaf.nxt'))
+        resolved, found = nxt_io.expand_reference_path(
+            'leaf.nxt', layer_dir=self.graph_dir)
+        self.assertTrue(found)
+        self.assertTrue(os.path.samefile(
+            os.path.join(self.graph_dir, 'leaf.nxt'), resolved))
+
+    def test_the_working_directory_is_not_the_layers(self):
+        # A file of the same name where the session happens to be is not
+        # what the layer means, when the layer's own directory is known.
+        os.remove(os.path.join(self.root_dir, 'leaf.nxt'))
+        os.remove(os.path.join(self.graph_dir, 'leaf.nxt'))
+        self.write(self.tmp, 'leaf.nxt', 'leaf_in_cwd')
+        resolved, found = nxt_io.expand_reference_path(
+            'leaf.nxt', layer_dir=self.graph_dir)
+        self.assertFalse(found)
+        self.assertTrue(os.path.samefile(self.graph_dir,
+                                         os.path.dirname(resolved)))
 
 
 if __name__ == '__main__':
