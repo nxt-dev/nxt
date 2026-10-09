@@ -871,6 +871,67 @@ class SpecLayer(object):
             refs += [ref[SAVE_KEY.FILEPATH]]
         return refs
 
+    def rebased_references(self, old_dir, new_dir):
+        """How this layer's relative references read from another folder.
+
+        A reference relative to this layer's folder means a different file
+        once the layer is somewhere else, so a copy saved elsewhere would
+        have lost them. Each one that found its file beside the old folder
+        is written again from the new one: relative if the file is beside
+        the new folder too, whole if not. References that are absolute, use
+        a variable or a token, are found through NXT_FILE_ROOTS, or find
+        nothing at all are left as written, since none of those depend on
+        this layer's folder.
+
+        :param old_dir: the folder the layer was saved in
+        :param new_dir: the folder it is being saved to
+        :return: {reference as written now: reference to write instead}
+        :rtype: dict
+        """
+        if not old_dir or not new_dir:
+            return {}
+        if os.path.normcase(os.path.realpath(old_dir)) == \
+                os.path.normcase(os.path.realpath(new_dir)):
+            return {}
+        renamed = {}
+        for ref in self.get_references():
+            if (not ref or ref.startswith('${') or ref.startswith('$')
+                    or ref.startswith('%') or nxt_io.is_absolute(ref)):
+                continue
+            beside_old = nxt_path.full_file_expand(ref, start=old_dir)
+            if not os.path.isfile(beside_old):
+                continue
+            found, exists = nxt_io.expand_reference_path(ref, old_dir)
+            if not exists or os.path.normcase(found) != \
+                    os.path.normcase(beside_old):
+                # Found through a root, which works from any folder.
+                continue
+            new_ref = nxt_io.stored_reference_path(beside_old, new_dir)
+            if new_ref != ref:
+                renamed[ref] = new_ref
+        return renamed
+
+    def rebase_references(self, renamed):
+        """Write references, and the comp overrides that belong to them,
+        under new names. See rebased_references.
+
+        :param renamed: {reference as written now: reference to write instead}
+        :type renamed: dict
+        """
+        for sub_layer_data in self.sub_layers:
+            ref = sub_layer_data[SAVE_KEY.FILEPATH]
+            if ref not in renamed:
+                continue
+            sub_layer_data[SAVE_KEY.FILEPATH] = renamed[ref]
+            layer = sub_layer_data.get('layer')
+            if layer is not None and layer.filepath == ref:
+                layer.filepath = renamed[ref]
+        self.sub_layer_paths = [renamed.get(path, path)
+                                for path in self.sub_layer_paths]
+        for old_ref, new_ref in renamed.items():
+            if old_ref in self.comp_overrides:
+                self.comp_overrides[new_ref] = self.comp_overrides.pop(old_ref)
+
     def _get_meta_attr(self, meta_attr, over_dict_attr=None, local=False,
                        fallback_to_local=True):
         """Private method for getting meta attr opinions, comped or local,
@@ -993,18 +1054,44 @@ class SpecLayer(object):
         else:
             root.locks[layer_path] = lock
 
-    def save(self, filepath=None):
+    def save(self, filepath=None, as_copy=False):
         """Save this layer, optionally to new, given filepath.
+
+        Saved to another folder, relative references are written so they
+        still find the same files from there. See rebased_references.
 
         :param filepath: file path to save to, defaults to None
         :type filepath: str, optional
+        :param as_copy: write a copy and leave this layer as it is, where it
+            is, rather than moving it to the new file
+        :type as_copy: bool
         """
         filepath = filepath or self.real_path
+        renamed = {}
+        if self.real_path and filepath != self.real_path:
+            renamed = self.rebased_references(os.path.dirname(self.real_path),
+                                              os.path.dirname(filepath))
+        if renamed and not as_copy:
+            # The layer lives there now, so a plain save later writes the
+            # same thing.
+            self.rebase_references(renamed)
         # Update graph name
         graph_name = os.path.splitext(os.path.basename(filepath))[0]
-        if self.get_alias(local=True) == UNTITLED:
+        if self.get_alias(local=True) == UNTITLED and not as_copy:
             self.set_alias(graph_name)
         save_data = self.get_save_data()
+        if as_copy:
+            if save_data.get(SAVE_KEY.ALIAS) == UNTITLED:
+                save_data[SAVE_KEY.ALIAS] = graph_name
+            if renamed:
+                save_data[SAVE_KEY.REFERENCES] = [
+                    renamed.get(ref, ref)
+                    for ref in save_data.get(SAVE_KEY.REFERENCES, [])]
+                overrides = save_data.get(SAVE_KEY.COMP_ORVERRIDES)
+                if overrides:
+                    save_data[SAVE_KEY.COMP_ORVERRIDES] = OrderedDict(
+                        (renamed.get(key, key), value)
+                        for key, value in overrides.items())
         try:
             json.dumps(save_data, indent=4, sort_keys=False)
         except TypeError:
@@ -1014,7 +1101,7 @@ class SpecLayer(object):
             return
         logger.info("Save Data Generated")
         nxt_io.save_file_data(save_data=save_data, filepath=filepath)
-        if filepath != self.real_path:
+        if filepath != self.real_path and not as_copy:
             self.real_path = filepath
             self.propegate_real_path()
         return save_data

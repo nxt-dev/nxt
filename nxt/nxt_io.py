@@ -102,6 +102,39 @@ def is_absolute(filepath):
     return os.path.isabs(os.path.expanduser(expanded))
 
 
+def stored_reference_path(path, layer_dir):
+    """How a file is written into a layer as a reference.
+
+    Relative to the layer when it sits alongside it, which keeps a graph
+    portable. Anything else is stored whole: making a path relative across
+    drives or out of the layer's folder would be worse than being explicit,
+    and would get in the way of NXT_FILE_ROOTS. Symlinks are resolved on
+    both sides first, so a file reached by another name for the same folder
+    still counts as beside it.
+
+    :param path: the file to reference
+    :type path: str
+    :param layer_dir: folder of the layer that holds the reference, or None
+        when it has never been saved
+    :type layer_dir: str | None
+    :return: forward slashed path, relative when the file is beside the layer
+    :rtype: str
+    """
+    path = path.replace(os.path.sep, '/')
+    if not layer_dir:
+        return path
+    try:
+        relative = os.path.relpath(os.path.realpath(path),
+                                   os.path.realpath(layer_dir))
+    except ValueError:
+        # Different drive on Windows.
+        return path
+    relative = relative.replace(os.path.sep, '/')
+    if relative.startswith('..'):
+        return path
+    return relative
+
+
 def load_file_data(filepath, layer_dir=None):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
