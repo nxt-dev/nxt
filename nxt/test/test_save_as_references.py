@@ -35,7 +35,9 @@ class SaveAsKeepsReferences(unittest.TestCase):
         self.saved_roots = os.environ.pop(file_fallbacks.NXT_FILE_ROOTS, None)
         file_fallbacks._ENV_ROOTS_CACHE.clear()
         self.cwd = os.getcwd()
-        self.tmp = tempfile.mkdtemp(prefix='nxt_save_as_')
+        # Resolved, since nxt writes resolved paths and a temp folder
+        # can have a short name on Windows.
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix='nxt_save_as_'))
         self.graph_dir = os.path.join(self.tmp, 'graph')
         self.copy_dir = os.path.join(self.tmp, 'copy')
         self.root_dir = os.path.join(self.tmp, 'root')
@@ -130,8 +132,8 @@ class SaveAsKeepsReferences(unittest.TestCase):
         copy_path = os.path.join(self.copy_dir, 'top.nxt')
         layer.save(copy_path, as_copy=True)
         self.assertEqual(self.references, layer.get_references())
-        self.assertEqual(os.path.normcase(self.top),
-                         os.path.normcase(layer.real_path))
+        # The same file, however the temp folder happens to be spelled.
+        self.assertTrue(os.path.samefile(self.top, layer.real_path))
         with open(copy_path) as file_object:
             data = json.load(file_object)
         self.assertIn(self.beside.replace(os.sep, '/'), data['references'])
