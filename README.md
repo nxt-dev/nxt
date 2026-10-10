@@ -3,7 +3,7 @@
 [![Release](https://github.com/nxt-dev/nxt/actions/workflows/release.yml/badge.svg?branch=release)](https://github.com/nxt-dev/nxt/actions/workflows/release.yml)
 [![Unittests](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml?query=branch%3Adev)
 
-[![Version](https://img.shields.io/badge/version-0.21.0-green?logo=rocket&logoColor=green)](https://github.com/nxt-dev/nxt/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.21.1-green?logo=rocket&logoColor=green)](https://github.com/nxt-dev/nxt/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)&nbsp;&nbsp;
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)

@@ -17,10 +17,13 @@ class TestExpansion(unittest.TestCase):
         }
         platform_tests['linux2'] = platform_tests['linux']
         platform_tests['darwin'] = platform_tests['linux']
-        win_expected = os.path.join(os.getcwd(), "come\\back\\down")
+        # Resolved like the result is: on Windows the working directory can
+        # be spelled in a different case than the folders on disk.
+        cwd = os.path.realpath(os.getcwd())
+        win_expected = os.path.join(cwd, "come\\back\\down")
         win_expected = win_expected.replace(os.path.sep, '/')
         platform_expected = {
-            'linux': os.path.join(os.getcwd(), "come/back/down"),
+            'linux': os.path.join(cwd, "come/back/down"),
             'win32': win_expected
         }
         platform_expected['linux2'] = platform_expected['linux']
