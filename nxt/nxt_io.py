@@ -50,16 +50,108 @@ def register_reference_path_expander(expander):
     plugin_expanders += [expander]
 
 
-def load_file_data(filepath):
+def expand_reference_path(filepath, layer_dir=None):
+    """Where a reference points, resolved the way loading resolves it.
+
+    A reference is stored as written, which is often partial, so anything
+    that wants to show a person where it actually lands has to ask the
+    same machinery that loading asks. A path that is absolute once
+    variables and "~" are expanded is taken as it is. Anything else is
+    tried against every registered expander, which is what walks
+    NXT_FILE_ROOTS, and then against the referring layer's own directory,
+    so a root wins over a file beside the layer, as it does on load.
+    Without a layer directory the working directory stands in for it.
+
+    :param filepath: the reference as stored on the layer
+    :type filepath: str
+    :param layer_dir: directory of the layer holding the reference, which
+        is how a path relative to its own file resolves
+    :type layer_dir: str | None
+    :return: (resolved path, whether a file is there). The path is
+        returned even when nothing is there, because where it looked is
+        the useful thing to show.
+    :rtype: tuple
+    """
+    if not filepath:
+        return '', False
+    real_path = nxt_path.full_file_expand(filepath, start=layer_dir)
+    if is_absolute(filepath) and os.path.isfile(real_path):
+        return real_path, True
+    for expander in plugin_expanders:
+        try:
+            found = expander(filepath, layer_dir)
+        except TypeError:
+            # Expanders are registered as taking one argument; the one
+            # that knows about roots can also take the layer's directory.
+            found = expander(filepath)
+        if found and os.path.isfile(found):
+            return found, True
+    if os.path.isfile(real_path):
+        return real_path, True
+    return real_path, False
+
+
+def is_absolute(filepath):
+    """Whether a path is absolute once its variables and "~" are expanded.
+
+    :param filepath: path as written
+    :type filepath: str
+    :rtype: bool
+    """
+    expanded = os.path.expandvars(nxt_path.unify_env_vars(filepath))
+    return os.path.isabs(os.path.expanduser(expanded))
+
+
+def stored_reference_path(path, layer_dir):
+    """How a file is written into a layer as a reference.
+
+    Relative to the layer when it sits alongside it, which keeps a graph
+    portable. Anything else is stored whole: making a path relative across
+    drives or out of the layer's folder would be worse than being explicit,
+    and would get in the way of NXT_FILE_ROOTS. Symlinks are resolved on
+    both sides first, so a file reached by another name for the same folder
+    still counts as beside it.
+
+    :param path: the file to reference
+    :type path: str
+    :param layer_dir: folder of the layer that holds the reference, or None
+        when it has never been saved
+    :type layer_dir: str | None
+    :return: forward slashed path, relative when the file is beside the layer
+    :rtype: str
+    """
+    path = path.replace(os.path.sep, '/')
+    if not layer_dir:
+        return path
+    try:
+        relative = os.path.relpath(os.path.realpath(path),
+                                   os.path.realpath(layer_dir))
+    except ValueError:
+        # Different drive on Windows.
+        return path
+    relative = relative.replace(os.path.sep, '/')
+    if relative.startswith('..'):
+        return path
+    return relative
+
+
+def load_file_data(filepath, layer_dir=None):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
     to the legacy converter for conversion.
 
+    A relative path is looked for under each registered expander first,
+    which is what walks NXT_FILE_ROOTS, and then relative to `layer_dir`,
+    or to the working directory when no `layer_dir` is given.
+
     :param filepath: string of save file filepath
     :type filepath: str
+    :param layer_dir: directory of the layer referencing this file, which
+        a relative path is resolved against
+    :type layer_dir: str | None
     :return: dict of file data
     """
-    real_path = nxt_path.full_file_expand(filepath)
+    real_path = nxt_path.full_file_expand(filepath, start=layer_dir)
     for expander in plugin_expanders:
         found_path = expander(filepath)
         if not os.path.isfile(found_path):

@@ -71,15 +71,50 @@ def resolve_filelist_token(stage, node, cleaned, layer, **kwargs):
     return file_list
 
 
+# Whole filelist walks, for tokens that cannot depend on the node asking.
+# Keyed by nxt_path's expand generation, so a run that starts fresh gets a
+# fresh answer without this plugin needing its own invalidation hook.
+_FILE_LIST_CACHE = {}
+
+
+def _is_node_independent(value):
+    """Whether a filelist token resolves the same for every node.
+
+    A walk only reaches back to the node it was asked for through the tokens
+    nested inside it: attr refs are resolved against the node at each
+    historical depth, and nested file tokens recurse. A token whose content
+    holds no tokens at all has nothing node specific left in it, so every
+    node asking gets the same list.
+    """
+    content = get_token_content(value) if value.startswith('${') else value
+    _, _, raw = content.partition(FILE_LIST_PREFIX)
+    return not get_standalone_tokens(raw)
+
+
 def resolve_file_list_token(stage, comp_node, value, comp_layer):
     if not isinstance(comp_layer, CompLayer):
         logger.error('File list resolve requires a comp layer or a '
                      'sub-class of a comp layer!')
         return stage.resolve_file_token(comp_node, value, comp_layer)
     first, last = comp_layer._layer_range
+    # Unlike file::, a filelist:: walk visits every layer, it is collecting
+    # all the paths rather than stopping at the first that exists. On a rig
+    # that is the single most expensive thing a build does, and most of the
+    # walks are for the same literal path asked by different nodes.
+    cache_key = None
+    if _is_node_independent(value):
+        cache_key = (nxt_path.file_expand_generation(), id(comp_layer),
+                     first, last, value)
+        cached = _FILE_LIST_CACHE.get(cache_key)
+        if cached is not None:
+            return iter(cached)
     paths = generate_historical_values(first, last, value, stage,
                                        comp_node, comp_layer, file_list_token)
-    return paths
+    if cache_key is None:
+        return paths
+    resolved = list(paths)
+    _FILE_LIST_CACHE[cache_key] = resolved
+    return iter(resolved)
 
 
 def resolve_file_token_with_fallbacks(stage, comp_node, value, comp_layer):
@@ -219,19 +254,39 @@ def historical_resolve_attr_ref(stage, string, comp_node, comp_layer,
                                                     active_layers,
                                                     token,
                                                     historical_depth)
+            else:
+                value = token.resolve(stage, comp_node, token_content, comp_layer)
         raw_token = make_token_str(attr_ref)
         resolved_token = resolved_token.replace(raw_token, value)
     return resolved_token
 
 
+# Usable roots, keyed by the raw env var value they came from.
+_ENV_ROOTS_CACHE = {}
+
+
 def iter_env_roots(only_exsiting=True):
-    if NXT_FILE_ROOTS not in os.environ:
+    """Yield the roots in NXT_FILE_ROOTS, skipping any that do not exist.
+
+    Resolving one build's file tokens calls this tens of thousands of times,
+    and it used to stat every root every time. The usable roots are cached
+    against the raw env var, so a graph changing NXT_FILE_ROOTS gets a fresh
+    answer while a build that does not pays for the check once.
+    """
+    raw = os.environ.get(NXT_FILE_ROOTS)
+    if not raw:
         return
-    if NXT_FILE_ROOTS in os.environ:
-        for root in os.environ.get(NXT_FILE_ROOTS).split(ROOT_PATH_SEP):
+    key = (raw, only_exsiting)
+    roots = _ENV_ROOTS_CACHE.get(key)
+    if roots is None:
+        roots = []
+        for root in raw.split(ROOT_PATH_SEP):
             if only_exsiting and not os.path.exists(root):
                 continue
-            yield root
+            roots += [root]
+        _ENV_ROOTS_CACHE[key] = roots
+    for root in roots:
+        yield root
 
 
 def file_root_fallback(filepath, layer_dir=None):
