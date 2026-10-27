@@ -272,11 +272,16 @@ def iter_env_roots(only_exsiting=True):
     and it used to stat every root every time. The usable roots are cached
     against the raw env var, so a graph changing NXT_FILE_ROOTS gets a fresh
     answer while a build that does not pays for the check once.
+
+    And against the working directory: a relative root exists or not
+    depending on where it is looked from, and loading a graph changes into
+    each layer's folder. Cached without it, a relative root checked once
+    from the wrong folder was skipped for good.
     """
     raw = os.environ.get(NXT_FILE_ROOTS)
     if not raw:
         return
-    key = (raw, only_exsiting)
+    key = (raw, only_exsiting, os.getcwd())
     roots = _ENV_ROOTS_CACHE.get(key)
     if roots is None:
         roots = []

@@ -3,7 +3,7 @@
 [![Unittests](https://github.com/squarebit-studios/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)](https://github.com/squarebit-studios/nxt/actions/workflows/unittests.yml?query=branch%3Adev)
 [![Rez Release](https://github.com/squarebit-studios/nxt/actions/workflows/rez_release.yml/badge.svg?branch=release)](https://github.com/squarebit-studios/nxt/actions/workflows/rez_release.yml)
 
-[![Version](https://img.shields.io/badge/version-0.21.0-green?logo=rocket&logoColor=green)](https://github.com/squarebit-studios/nxt/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.21.1-green?logo=rocket&logoColor=green)](https://github.com/squarebit-studios/nxt/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)&nbsp;&nbsp;
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)
@@ -42,10 +42,8 @@ Only clone this repo if you're contributing to the NXT codebase.
 Our releases are hosted on [PyPi](https://pypi.org/project/nxt-core/).
 
 > **This is the Square Bit fork.** It is distributed internally as the
-> `nxt_core` rez package, not from PyPI. The PyPI release is upstream's and
-> lags behind: 0.18.1 at the time of writing, and capped at Python `<3.12`, so
-> it will not install into Maya 2027. Use the rez package for anything on
-> Python 3.12 or newer.
+> `nxt_core` rez package, not from PyPI. Use the rez package inside the
+> studio; it is tested against the python versions our hosts use.
 
 **Install:**  
 `pip install nxt-core`

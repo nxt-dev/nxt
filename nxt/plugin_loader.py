@@ -20,6 +20,8 @@ def load_plugins():
         if not os.path.isdir(plugin_dir):
             continue
         for file_name in os.listdir(plugin_dir):
+            if not file_name.endswith('.py'):
+                continue
             mod_name, _ = os.path.splitext(file_name)
             if mod_name in _nxt_loaded_plugin_module_names:
                 continue
