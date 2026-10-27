@@ -124,8 +124,8 @@ class Session(object):
         else:
             return False
 
-    def save_layer(self, layer, filepath=None):
-        layer.save(filepath=filepath)
+    def save_layer(self, layer, filepath=None, as_copy=False):
+        layer.save(filepath=filepath, as_copy=as_copy)
 
     def get_stage(self, path):
         """Get the graph object for a specified file path.
