@@ -4443,6 +4443,25 @@ class Stage:
         )
 
     @staticmethod
+    def _comped_enabled(comp_node, node_path):
+        """The enabled state a full comp gives a comp node: the strongest
+        opinion among what it is built from, in the order its bases resolve.
+        Parents are skipped, since a node does not take its enabled state from
+        its parent.
+        """
+        for n in comp_node.__mro__[1:]:
+            if n in (object, SpecNode, Node):
+                continue
+            opinion = n.__dict__.get(INTERNAL_ATTRS.ENABLED)
+            if opinion is None:
+                continue
+            p = get_node_path(n)
+            if p != node_path and nxt_path.is_ancestor(node_path, p):
+                continue
+            return opinion
+        return None
+
+    @staticmethod
     def set_node_enabled(spec_node, state, comp_layer):
         """Sets the enabled state of the given node. And updates the comp
         to accurately reflect the change without building a new comp layer.
@@ -4456,28 +4475,22 @@ class Stage:
         """
         node_path = get_node_path(spec_node)
         comp_node = comp_layer.lookup(node_path)
-        dirties = []
         if not comp_node:
-            return dirties
-        update_it = True
-        for n in comp_node.__mro__[1:]:
-            # Ignore parents, self, and abstract base classes
-            if n in (spec_node, comp_node, object, SpecNode, Node):
+            return []
+        # The spec node already holds the new state. Each node is given what
+        # its strongest opinion now says, rather than the new state outright:
+        # a stronger layer can still override it, and an instance of it can
+        # have an opinion of its own. A local opinion used to lose to the
+        # node it is an instance of, so the comp kept the old state until a
+        # full recomp.
+        dirties = [p for p in comp_layer.get_node_dirties(node_path)
+                   if p != node_path]
+        for path in [node_path] + dirties:
+            node = comp_layer.lookup(path)
+            if node is None:
                 continue
-            p = get_node_path(n)
-            if p in node_path:
-                continue
-            influencer_opinion = getattr(n, INTERNAL_ATTRS.ENABLED)
-            if influencer_opinion is None:
-                influencer_opinion = state
-            if influencer_opinion != state:
-                update_it = False
-        if update_it:
-            setattr(comp_node, INTERNAL_ATTRS.ENABLED, state)
-            for dnp in comp_layer.get_node_dirties(node_path):
-                dirties += [dnp]
-                dirty_node = comp_layer.lookup(dnp)
-                setattr(dirty_node, INTERNAL_ATTRS.ENABLED, state)
+            setattr(node, INTERNAL_ATTRS.ENABLED,
+                    Stage._comped_enabled(node, path))
         return dirties
 
     @staticmethod
