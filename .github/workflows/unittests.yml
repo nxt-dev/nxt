@@ -21,9 +21,9 @@ jobs:
       QT_DEPENDENCIES: ${{ inputs.QT_DEPENDENCIES }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
         python-version: ['3.9', '3.10', '3.11', '3.14']
-      fail-fast: true
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
