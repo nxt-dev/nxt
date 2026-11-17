@@ -157,7 +157,9 @@ class EnvFile(object):
         :rtype: EnvFile
         """
         env_file = cls(path)
-        with open(env_file.path, 'r') as file_object:
+        # UTF-8 like every file nxt reads; -sig drops the byte order mark
+        # some Windows editors put first.
+        with open(env_file.path, 'r', encoding='utf-8-sig') as file_object:
             try:
                 data = json.load(file_object, object_pairs_hook=OrderedDict)
             except ValueError as error:
@@ -230,8 +232,9 @@ class EnvFile(object):
         folder = os.path.dirname(self.path)
         if folder and not os.path.isdir(folder):
             os.makedirs(folder)
-        with open(self.path, 'w') as file_object:
-            json.dump(self.as_data(), file_object, indent=4)
+        with open(self.path, 'w', encoding='utf-8') as file_object:
+            json.dump(self.as_data(), file_object, indent=4,
+                      ensure_ascii=False)
             file_object.write('\n')
 
     def expand(self, text, unset=None):

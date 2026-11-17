@@ -337,5 +337,29 @@ class SavingAFile(EnvFilesCase):
                          list(loaded.variables.items()))
 
 
+class AnyLanguage(EnvFilesCase):
+    """An env file is UTF-8, whatever the system's own encoding is."""
+
+    def test_a_utf8_file_with_a_byte_order_mark_is_read(self):
+        env = self.path('env.json')
+        with open(env, 'w', encoding='utf-8-sig') as file_object:
+            file_object.write('{"variables": {"NXT_T_A": "/グラフ/'
+                              'réseau"}}')
+        env_files.apply([env])
+        self.assertEqual('/グラフ/réseau',
+                         os.environ['NXT_T_A'])
+
+    def test_saved_as_utf8_and_loads_the_same(self):
+        env_file = env_files.EnvFile(self.path('env.json'))
+        env_file.variables['NXT_T_A'] = '/グラフ/réseau'
+        env_file.save()
+        with open(env_file.path, 'rb') as file_object:
+            raw = file_object.read()
+        self.assertIn('グラフ'.encode('utf-8'), raw)
+        loaded = env_files.EnvFile.load(env_file.path)
+        self.assertEqual('/グラフ/réseau',
+                         loaded.variables['NXT_T_A'])
+
+
 if __name__ == '__main__':
     unittest.main()
