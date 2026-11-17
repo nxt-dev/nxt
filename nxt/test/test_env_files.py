@@ -41,9 +41,15 @@ class EnvFilesCase(unittest.TestCase):
         environ = mock.patch.dict(os.environ, clear=False)
         environ.start()
         self.addCleanup(environ.stop)
-        applied = mock.patch.object(env_files, '_applied', {})
-        applied.start()
-        self.addCleanup(applied.stop)
+        # And temporary user and site files, never the real ones.
+        for patch in (mock.patch.object(env_files, '_applied', {}),
+                      mock.patch.object(env_files, '_declared', []),
+                      mock.patch.object(env_files, 'USER_ENV_FILE',
+                                        self.path('user/env.json')),
+                      mock.patch.object(env_files, 'SITE_ENV_FILE',
+                                        self.path('site/env.json'))):
+            patch.start()
+            self.addCleanup(patch.stop)
         for name in ('NXT_T_A', 'NXT_T_B', 'NXT_T_ROOTS',
                      env_files.ENV_FILES_ENV_VAR):
             os.environ.pop(name, None)
@@ -208,6 +214,113 @@ class FilesThatCannotBeUsed(EnvFilesCase):
         _, problems = env_files.apply([newer])
         self.assertNotIn('NXT_T_A', os.environ)
         self.assertEqual(1, len(problems))
+
+
+class VariableNames(EnvFilesCase):
+
+    def test_a_longer_name_is_another_variable(self):
+        # $NXT_ENV_FILE_DIRX is not the file's folder with an X after it.
+        os.environ['NXT_T_B'] = 'b'
+        env = write(self.path('env.json'), {
+            'NXT_T_A': '$NXT_ENV_FILE_DIRX/a; ${NXT_ENV_FILE_DIR}X; '
+                       '$NXT_T_Bc; $NXT_T_B/c'})
+        with self.assertLogs(env_files.logger, 'WARNING'):
+            env_files.apply([env])
+        self.assertEqual('$NXT_ENV_FILE_DIRX/a; {}X; $NXT_T_Bc; b/c'
+                         ''.format(self.directory()),
+                         os.environ['NXT_T_A'])
+
+    def test_an_unset_variable_is_kept_and_said(self):
+        env = write(self.path('env.json'), {'NXT_T_A': '$NXT_T_NOT_SET/b'})
+        with self.assertLogs(env_files.logger, 'WARNING') as logs:
+            env_files.apply([env])
+        self.assertEqual('$NXT_T_NOT_SET/b', os.environ['NXT_T_A'])
+        said = '\n'.join(logs.output)
+        self.assertIn('NXT_T_NOT_SET', said)
+        self.assertIn('NXT_T_A', said)
+        self.assertIn(os.path.abspath(env), said)
+
+    def test_an_unset_variable_in_an_include_is_said(self):
+        env = write(self.path('env.json'), {'NXT_T_A': 'x'},
+                    include=['$NXT_T_NOT_SET/shared.json'])
+        with self.assertLogs(env_files.logger, 'WARNING') as logs:
+            env_files.apply([env])
+        self.assertEqual('x', os.environ['NXT_T_A'])
+        self.assertIn('NXT_T_NOT_SET', '\n'.join(logs.output))
+
+    def test_percent_is_only_a_variable_on_windows(self):
+        os.environ['NXT_T_B'] = 'b'
+        env = write(self.path('env.json'), {
+            'NXT_T_A': '%NXT_T_B%/%NXT_ENV_FILE_DIR%'})
+        env_files.apply([env])
+        first = 'b' if os.name == 'nt' else '%NXT_T_B%'
+        self.assertEqual(first + '/' + self.directory(),
+                         os.environ['NXT_T_A'])
+
+    def test_what_decides_the_files_cannot_come_from_one(self):
+        for name in env_files.NOT_FROM_A_FILE:
+            os.environ.pop(name, None)
+        env = write(self.path('env.json'), {
+            'NXT_USER_DIR': self.path('u'), 'NXT_SITE_DIR': self.path('s'),
+            'NXT_ENV_FILES': self.path('more.json'), 'NXT_T_A': 'a'})
+        with self.assertLogs(env_files.logger, 'WARNING') as logs:
+            result, _ = env_files.apply([env])
+        for name in env_files.NOT_FROM_A_FILE:
+            self.assertNotIn(name, os.environ)
+            self.assertNotIn(name, result)
+            self.assertIn(name, '\n'.join(logs.output))
+        self.assertEqual('a', os.environ['NXT_T_A'])
+        self.assertEqual(['NXT_T_A'], env_files._declared)
+
+    @unittest.skipUnless(os.name == 'nt', 'names only ignore case on '
+                                          'Windows')
+    def test_case_is_ignored_on_windows(self):
+        first = write(self.path('first.json'), {'nxt_t_a': 'first'})
+        second = write(self.path('second.json'), {'NXT_T_A': 'second',
+                                                  'NXT_T_B': '$nxt_t_a'})
+        env_files.apply([first, second])
+        # One variable, so the later file wins, as it would spelled alike.
+        self.assertEqual('second', os.environ['NXT_T_A'])
+        self.assertEqual('second', os.environ['NXT_T_B'])
+        self.assertTrue(env_files.is_applied('nxt_t_a'))
+        self.assertEqual(1, len([name for name in env_files._declared
+                                 if name.upper() == 'NXT_T_A']))
+        write(second, {})
+        write(first, {})
+        env_files.apply([first, second])
+        self.assertNotIn('NXT_T_A', os.environ)
+
+    @unittest.skipIf(os.name == 'nt', 'names ignore case on Windows')
+    def test_case_counts_elsewhere(self):
+        env = write(self.path('env.json'), {'nxt_t_a': 'lower',
+                                            'NXT_T_A': 'upper'})
+        env_files.apply([env])
+        self.assertEqual('lower', os.environ['nxt_t_a'])
+        self.assertEqual('upper', os.environ['NXT_T_A'])
+
+
+class WhatWasApplied(EnvFilesCase):
+
+    def test_a_copy_of_what_the_files_set(self):
+        os.environ['NXT_T_B'] = 'from the launcher'
+        env = write(self.path('env.json'), {'NXT_T_A': 'a',
+                                            'NXT_T_B': 'b'})
+        env_files.apply([env])
+        applied = env_files.applied()
+        self.assertEqual({'NXT_T_A': 'a'}, applied)
+        applied['NXT_T_A'] = 'changed'
+        self.assertEqual('a', env_files.applied()['NXT_T_A'])
+
+    def test_is_applied(self):
+        os.environ['NXT_T_B'] = 'from the launcher'
+        env = write(self.path('env.json'), {'NXT_T_A': 'a',
+                                            'NXT_T_B': 'b'})
+        env_files.apply([env])
+        self.assertTrue(env_files.is_applied('NXT_T_A'))
+        self.assertFalse(env_files.is_applied('NXT_T_B'))
+        self.assertFalse(env_files.is_applied('NXT_T_ROOTS'))
+        os.environ['NXT_T_A'] = 'set by a node'
+        self.assertFalse(env_files.is_applied('NXT_T_A'))
 
 
 class SavingAFile(EnvFilesCase):

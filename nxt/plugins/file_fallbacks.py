@@ -325,16 +325,10 @@ def file_root_compact(filepath):
         under, or an empty string when it is under none
     :rtype: str
     """
-    real_path = os.path.realpath(filepath)
     for root in iter_env_roots():
-        try:
-            relative = os.path.relpath(real_path, os.path.realpath(root))
-        except ValueError:
-            # Different drive on Windows.
-            continue
-        if relative.startswith('..') or os.path.isabs(relative):
-            continue
-        return relative.replace(os.path.sep, '/')
+        relative = nxt_io.relative_path_under(filepath, root)
+        if relative:
+            return relative
     return ''
 
 
