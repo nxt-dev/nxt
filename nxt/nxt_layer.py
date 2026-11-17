@@ -795,6 +795,13 @@ class SpecLayer(object):
                 if not match:
                     continue
                 prev_root_path = self.get_node_path(root)
+                if prev_root_path in exec_order:
+                    cycle = exec_order + [prev_root_path]
+                    logger.error('Circular execute in: {}. Stopping before '
+                                 '{} runs again.'.format(' -> '.join(cycle),
+                                                         prev_root_path),
+                                 links=[prev_root_path])
+                    return exec_order
                 exec_order += [prev_root_path]
                 break  # for loop
             else:

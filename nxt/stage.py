@@ -1929,6 +1929,8 @@ class Stage:
             (target_layer.real_path, node_path),
         )
         if comp_layer and not unchanged:
+            if self.break_instance_cycles(comp_layer, [node_path]):
+                return list(set(dirty_nodes + [node_path]))
             proxy_map = self.targeted_comp_proxies(comp_node, node_path, comp_layer)
             dirty_nodes += self.targeted_comp_post_proxies(proxy_map, comp_layer)
         return list(set(dirty_nodes))
@@ -3513,6 +3515,7 @@ class Stage:
             loops += 1
             added_inst_count = 0
             to_do = []
+            self.break_instance_cycles(comp_layer)
             instance_sorted = self.sort_instances(comp_layer, deep_sort=True)
             for _, comp_node in instance_sorted:
                 node_path = comp_layer.get_node_path(comp_node)
@@ -3767,6 +3770,80 @@ class Stage:
             )
             return
         return real_inst_path
+
+    @staticmethod
+    def find_instance_cycle(node_path, comp_node, comp_layer):
+        """Follows the instance chain of the given node and returns it as a
+        list of node paths if it leads back to the node or to one of its
+        ancestors. Such a node would have to contain itself, so comping it
+        either never ends or fails to build an inheritance order.
+        A node directly instancing its own ancestor is left to the ancestor
+        check in `discover_proxies`.
+        :param node_path: String of node path
+        :param comp_node: CompNode
+        :param comp_layer: CompLayer
+        :return: List of node paths ending in the repeated path, or None
+        """
+        _expand = nxt_path.expand_relative_node_path
+        chain = [node_path]
+        node, path = comp_node, node_path
+        while True:
+            inst_path = getattr(node, INTERNAL_ATTRS.INSTANCE_PATH, None)
+            if not inst_path or inst_path is nxt_path.WORLD:
+                return None
+            inst_path = _expand(inst_path, path)
+            closes = (inst_path == node_path or
+                      nxt_path.is_ancestor(node_path, inst_path))
+            if closes and len(chain) == 1 and inst_path != node_path:
+                return None
+            if closes:
+                return chain + [inst_path]
+            if inst_path in chain:
+                # A cycle that does not pass through this node, it is
+                # reported when its own members are checked.
+                return None
+            node = comp_layer.lookup(inst_path)
+            if node is None:
+                return None
+            chain += [inst_path]
+            path = inst_path
+
+    def break_instance_cycles(self, comp_layer, node_paths=None):
+        """Finds nodes whose instance chain leads back to themselves or to
+        one of their ancestors, logs the cycle and ignores the instance
+        path on the node the cycle was found from, so comping can go on.
+        Only the comp node is changed, the saved instance path is kept.
+        :param comp_layer: CompLayer
+        :param node_paths: Optional list of node paths whose instance may be
+        ignored, any cycle that runs through one of them breaks there. When
+        omitted every node is checked and breaks its own cycle.
+        :return: List of node paths whose instance was ignored
+        """
+        broken = []
+        for _, comp_node in list(comp_layer._node_table):
+            if not getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None):
+                continue
+            node_path = comp_layer.get_node_path(comp_node)
+            chain = self.find_instance_cycle(node_path, comp_node, comp_layer)
+            if not chain:
+                continue
+            if node_paths is None:
+                break_path = node_path
+            else:
+                break_path = None
+                for path in chain[:-1]:
+                    if path in node_paths:
+                        break_path = path
+                        break
+                if break_path is None:
+                    continue
+            msg = "Circular instance: {}. Ignoring the instance path on {}."
+            logger.error(msg.format(" -> ".join(chain), break_path),
+                         links=[break_path])
+            break_node = comp_layer.lookup(break_path)
+            setattr(break_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
+            broken += [break_path]
+        return broken
 
     @staticmethod
     def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
