@@ -37,6 +37,42 @@ logger = logging.getLogger(__name__)
 plugin_expanders = []
 
 
+class NewerFileError(IOError):
+    """A file saved by a newer nxt than this one, which may hold things
+    this one does not understand. Still an IOError, as it always was.
+    """
+    def __init__(self, message, version=None, path=None):
+        super(NewerFileError, self).__init__(message)
+        #: The version the file was saved with, as written in it.
+        self.version = version
+        #: The file.
+        self.path = path
+
+
+# How many allow_newer_files blocks are open, see there.
+_allow_newer = [0]
+
+
+class allow_newer_files(object):
+    """Open files saved by a newer nxt anyway, inside this block::
+
+        with nxt_io.allow_newer_files():
+            stage = session.load_file(path)
+
+    Everything loaded inside it counts, references included. A newer file
+    may hold things this nxt does not understand, which are dropped, and
+    saving it then writes it without them. Each one opened is warned
+    about in the log.
+    """
+    def __enter__(self):
+        _allow_newer[0] += 1
+        return self
+
+    def __exit__(self, *exc_info):
+        _allow_newer[0] -= 1
+        return False
+
+
 def register_reference_path_expander(expander):
     """Register a method to expand reference paths. An expander is a callable \
     that takes exactly 1 argument, a filepath.
@@ -318,12 +354,19 @@ def load_file_data(filepath, layer_dir=None):
                     (major_version == GRAPH_VERSION.MAJOR
                      and minor_version > GRAPH_VERSION.MINOR))
     if file_too_new:
-        raise IOError('You are attempting to open a file saved with a newer '
-                      'version of nxt ({}). '
-                      'Please update nxt!'.format(file_version))
-    if major_version == 0 or minor_version < GRAPH_VERSION.MINOR:
+        if not _allow_newer[0]:
+            raise NewerFileError('You are attempting to open a file saved '
+                                 'with a newer version of nxt ({}). '
+                                 'Please update nxt!'.format(file_version),
+                                 version=file_version, path=real_path)
+        logger.warning('Opening "{}", saved with a newer version of nxt '
+                       '({}). Anything this version does not understand is '
+                       'lost if it is saved.'.format(real_path, file_version))
+    if not file_too_new and (major_version == 0 or
+                             minor_version < GRAPH_VERSION.MINOR):
         # Calls a legacy check if the full version number doesn't match the
-        # current version
+        # current version. Not for a newer file opened anyway, whose minor
+        # version can be lower under a higher major one.
         start = time.time()
         template = (file_data.get(SAVE_KEY.VERSION),
                     GRAPH_VERSION.VERSION_STR, str(round(time.time() - start, 3)))
