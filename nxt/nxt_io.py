@@ -196,7 +196,7 @@ def load_file_data(filepath, layer_dir=None):
                 file_data = pickle.load(file_object)
     else:
         file_data = json.loads(read_text(real_path),
-                               object_hook=clean_json._byteify)
+                               object_pairs_hook=warn_duplicates(filepath))
     file_version = file_data.get(SAVE_KEY.VERSION)
     if not file_version:
         file_version = GRAPH_VERSION.VERSION_STR
@@ -231,6 +231,29 @@ def load_file_data(filepath, layer_dir=None):
     name_from_file = os.path.splitext(os.path.basename(filepath))[0]
     file_data[SAVE_KEY.NAME] = file_data.get(SAVE_KEY.NAME, name_from_file)
     return file_data
+
+
+def warn_duplicates(filepath):
+    """Makes a json object_pairs_hook that warns about keys given more than
+    once in the same object, which json would otherwise drop silently,
+    keeping the last. The editor never writes them, a hand edit or a bad
+    merge can.
+
+    :param filepath: file being loaded, named in the warning
+    :type filepath: str
+    :return: callable for json.load's object_pairs_hook
+    """
+    def hook(pairs):
+        data = {}
+        for key, value in pairs:
+            if key in data:
+                is_path = key.startswith(nxt_path.NODE_SEP)
+                kind = 'node path' if is_path else 'key'
+                logger.warning('Duplicate {} "{}" in {}, only the last one is '
+                               'kept.'.format(kind, key, filepath))
+            data[key] = value
+        return clean_json._byteify(data)
+    return hook
 
 
 def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
