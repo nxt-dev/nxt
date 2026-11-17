@@ -4733,6 +4733,8 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     skip = INTERNAL_ATTRS.PROTECTED + (INTERNAL_ATTRS.CACHED_CODE,)
     console = runtime_layer._console
     graph_globals = console.globals
+    world_node = runtime_layer.lookup(nxt_path.WORLD)
+    world_classes = set(world_node.__mro__) if world_node else set()
     for attr in dir(rt_node):
         if attr in skip:
             continue
@@ -4742,6 +4744,13 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         real = stage.get_attr_as_real_data_type(
             rt_node, attr, runtime_layer, _globals=graph_globals
         )
+        if _attr_owner(rt_node, attr) in world_classes:
+            # The world node's attrs are shared by the whole graph, just as
+            # they are through STAGE, so they are not copied. Copying a large
+            # one cost every node that ran after it was made.
+            pre_run_cache[attr] = real
+            setattr(frame_node, attr, real)
+            continue
         try:
             pre_run_cache[attr] = copy.deepcopy(real)
             setattr(frame_node, attr, copy.deepcopy(real))
@@ -4773,7 +4782,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         clean_globals(lines, good_keys, console.globals)
     for attr_name, pre_run_val in pre_run_cache.items():
         post_run_val = getattr(frame_node, attr_name)
-        if pre_run_val == post_run_val:
+        if pre_run_val is post_run_val or pre_run_val == post_run_val:
             continue
         # Push only changed values back to rt_node, which represents
         # what is inherited by children/instances
@@ -4781,6 +4790,14 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     if exit_exception:
         raise exit_exception
     return console.globals
+
+
+def _attr_owner(node, attr):
+    """Returns the class in the node's mro that holds the given attr."""
+    for cls in node.__mro__:
+        if attr in cls.__dict__:
+            return cls
+    return None
 
 
 def clean_globals(code_lines, good_keys, global_dict):
