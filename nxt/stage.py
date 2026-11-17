@@ -1509,6 +1509,52 @@ class Stage:
             idx += 1
         return result_paths
 
+    def retarget_instance_paths(self, moved_paths, layer):
+        """Updates the instance paths in the given layer after nodes moved,
+        say from `parent_nodes`, so they keep pointing at the same nodes.
+        An instance of a moved node or of one of its descendants follows
+        it, and a relative instance path on a node that moved without its
+        source is rewritten so it still lands there. Relative paths stay
+        relative, absolute ones stay absolute.
+        :param moved_paths: Dict of {old node path: new node path}, as
+        returned by `parent_nodes`. Descendants are understood to have moved
+        with them.
+        :param layer: SpecLayer the nodes moved in, its instance paths are
+        the ones updated
+        :return: List of tuples (node_path, INTERNAL_ATTRS.INSTANCE_PATH,
+        old_value, new_value), node paths being where the nodes are now.
+        Undo with `apply_attr_ref_changes(changes, layer, revert=True)`
+        before moving the nodes back.
+        """
+        def move(path, moves):
+            for old, new in moves:
+                if path == old or nxt_path.is_ancestor(path, old):
+                    return nxt_path.replace_ancestor(path, old, new)
+            return path
+
+        forward = list(moved_paths.items())
+        backward = [(new, old) for old, new in forward]
+        _expand = nxt_path.expand_relative_node_path
+        changes = []
+        returns = layer.RETURNS.NodeTable
+        for node_path, node in layer.descendants(return_type=returns):
+            inst_path, has = get_opinion(node, INTERNAL_ATTRS.INSTANCE_PATH)
+            if not has or not inst_path or inst_path == nxt_path.WORLD:
+                continue
+            old_node_path = move(node_path, backward)
+            target = move(_expand(inst_path, old_node_path), forward)
+            if _expand(inst_path, node_path) == target:
+                continue
+            if inst_path.startswith(nxt_path.NODE_SEP):
+                new_inst_path = target
+            else:
+                new_inst_path = nxt_path.relative_node_path(target,
+                                                            node_path)
+            setattr(node, INTERNAL_ATTRS.INSTANCE_PATH, new_inst_path)
+            changes += [(node_path, INTERNAL_ATTRS.INSTANCE_PATH, inst_path,
+                         new_inst_path)]
+        return changes
+
     def add_node_attr(self, node, attr, attr_data, layer, tracked=True):
         # TODO default values for args? If so, fix test_tokens.py
         node_path = layer.get_node_path(node)
@@ -1663,9 +1709,10 @@ class Stage:
 
     @staticmethod
     def apply_attr_ref_changes(changes, layer, revert=False):
-        """Sets the values from `get_attr_ref_changes` on the layer's nodes.
-        Only the spec layer is changed, the comp has to be rebuilt after.
-        :param changes: List of tuples from `get_attr_ref_changes`
+        """Sets the values from `get_attr_ref_changes` or
+        `retarget_instance_paths` on the layer's nodes. Only the spec layer
+        is changed, the comp has to be rebuilt after.
+        :param changes: List of (node_path, attr_name, old_value, new_value)
         :param layer: SpecLayer the changes were found in
         :param revert: If True the old values are put back
         :return: None
