@@ -10,6 +10,15 @@ else:
     from . import nxt_log
 nxt_log.initial_setup()
 
+# Environment variables from env files, before anything below reads them.
+# A problem in a file is logged by apply, and anything else is caught here:
+# importing nxt must not fail over a file somebody else maintains.
+from . import env_files
+try:
+    env_files.apply()
+except Exception:
+    logging.getLogger('nxt').exception('Could not apply the nxt env files')
+
 # Internal
 if sys.version_info[0] == 2:
     import plugin_loader
