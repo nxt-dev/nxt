@@ -111,6 +111,23 @@ class VariableReferences(unittest.TestCase):
         self.assertEqual(picked.replace(os.sep, '/'),
                          nxt_io.stored_reference_path(picked, self.project))
 
+    def test_picked_through_a_link_keeps_the_link(self):
+        from nxt.test.test_root_relative_references import link_folder
+        os.makedirs(os.path.join(self.common, 'v12'))
+        self.write(os.path.join(self.common, 'v12'), 'rig.nxt')
+        link_folder(os.path.join(self.common, 'v12'),
+                    os.path.join(self.common, 'current'))
+        self.declare(NXT_T_COMMON=self.common)
+        picked = os.path.join(self.common, 'current', 'rig.nxt')
+        self.assertEqual('$NXT_T_COMMON/current/rig.nxt',
+                         nxt_io.stored_reference_path(picked, self.project))
+
+    def test_a_name_that_starts_with_two_dots(self):
+        self.declare(NXT_T_COMMON=self.common)
+        picked = self.write(self.common, '..odd.nxt')
+        self.assertEqual('$NXT_T_COMMON/..odd.nxt',
+                         nxt_io.stored_reference_path(picked, self.project))
+
     def test_a_root_is_tried_first(self):
         os.environ[file_fallbacks.NXT_FILE_ROOTS] = self.common
         file_fallbacks._ENV_ROOTS_CACHE.clear()

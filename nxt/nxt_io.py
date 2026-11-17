@@ -103,6 +103,55 @@ def is_absolute(filepath):
     return os.path.isabs(os.path.expanduser(expanded))
 
 
+def _same_place(path):
+    return os.path.normcase(os.path.realpath(path))
+
+
+def _inside(relative):
+    """A relative path, if it stays inside the folder it starts from."""
+    if os.path.isabs(relative) or os.pardir in relative.split(os.sep):
+        return ''
+    return relative.replace(os.sep, '/')
+
+
+def relative_path_under(path, folder):
+    """A path written relative to a folder it is under.
+
+    Worked out from the path as it was picked, not from where its symlinks
+    lead. Picked as `root/current/rig.nxt`, with `current` a link to `v12`,
+    it is `current/rig.nxt`, which keeps meaning the newest version after
+    `current` moves on. Links are only followed to tell whether two
+    spellings are the same folder, so a folder reached by another name,
+    /var and /private/var on macOS say, still counts. A path that only gets
+    into the folder through a link is written from where the link lands.
+
+    :param path: the file as it was picked
+    :type path: str
+    :param folder: the folder it may be under
+    :type folder: str
+    :return: forward slashed path relative to the folder, never with `..`
+        in it, or an empty string when the file is not under the folder
+    :rtype: str
+    """
+    picked = os.path.normpath(os.path.abspath(path))
+    target = _same_place(folder)
+    ancestor = os.path.dirname(picked)
+    while True:
+        if _same_place(ancestor) == target:
+            return _inside(os.path.relpath(picked, ancestor))
+        parent = os.path.dirname(ancestor)
+        if parent == ancestor:
+            break
+        ancestor = parent
+    try:
+        relative = os.path.relpath(os.path.realpath(picked),
+                                   os.path.realpath(folder))
+    except ValueError:
+        # Different drive on Windows.
+        return ''
+    return _inside(relative)
+
+
 plugin_compactors = []
 
 
@@ -166,10 +215,12 @@ def stored_reference_path(path, layer_dir):
     portable. Failing that, the way a plugin offers to write it: a file
     under one of NXT_FILE_ROOTS is stored relative to that root, which is
     how it would have been typed, and loads from whichever root holds it on
-    another machine. Anything else is stored whole: making a path relative
+    another machine. This is so for anyone with NXT_FILE_ROOTS set, whether
+    or not they use env files: a file picked from under a root used to be
+    stored whole. Anything else is stored whole: making a path relative
     across drives or out of the layer's folder would be worse than being
-    explicit. Symlinks are resolved on both sides first, so a file reached
-    by another name for the same folder still counts as beside it.
+    explicit. The relative path is the one the file was picked by, see
+    relative_path_under.
 
     :param path: the file to reference
     :type path: str
@@ -181,18 +232,11 @@ def stored_reference_path(path, layer_dir):
     :rtype: str
     """
     path = path.replace(os.path.sep, '/')
-    if not layer_dir:
-        return compact_reference_path(path)
-    try:
-        relative = os.path.relpath(os.path.realpath(path),
-                                   os.path.realpath(layer_dir))
-    except ValueError:
-        # Different drive on Windows.
-        return compact_reference_path(path, layer_dir)
-    relative = relative.replace(os.path.sep, '/')
-    if relative.startswith('..'):
-        return compact_reference_path(path, layer_dir)
-    return relative
+    if layer_dir:
+        relative = relative_path_under(path, layer_dir)
+        if relative:
+            return relative
+    return compact_reference_path(path, layer_dir)
 
 
 

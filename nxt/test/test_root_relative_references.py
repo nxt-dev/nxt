@@ -131,6 +131,67 @@ class WhatStaysAsItWas(RootRelativeCase):
                          nxt_io.stored_reference_path(picked, self.project))
 
 
+def link_folder(target, link):
+    """A symlink to a folder, or a junction where Windows will not let a
+    symlink be made. Skips the test when neither can be."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+        return link
+    except (OSError, NotImplementedError):
+        pass
+    if os.name == 'nt':
+        try:
+            import _winapi
+            _winapi.CreateJunction(target, link)
+            return link
+        except (ImportError, AttributeError, OSError):
+            pass
+    raise unittest.SkipTest('cannot link folders here')
+
+
+class PickedThroughALink(RootRelativeCase):
+    """A path picked through a link keeps the link. `current` is the point
+    of `root/current/rig.nxt`: it moves on to the next version."""
+
+    def setUp(self):
+        super(PickedThroughALink, self).setUp()
+        self.write(os.path.join(self.first_root, 'v12'), 'rig.nxt')
+        link_folder(os.path.join(self.first_root, 'v12'),
+                    os.path.join(self.first_root, 'current'))
+
+    def test_under_a_root(self):
+        picked = os.path.join(self.first_root, 'current', 'rig.nxt')
+        self.assertEqual('current/rig.nxt', nxt_io.stored_reference_path(
+            picked, self.project))
+
+    def test_beside_the_layer(self):
+        os.environ.pop(file_fallbacks.NXT_FILE_ROOTS)
+        file_fallbacks._ENV_ROOTS_CACHE.clear()
+        picked = os.path.join(self.first_root, 'current', 'rig.nxt')
+        self.assertEqual('current/rig.nxt', nxt_io.stored_reference_path(
+            picked, self.first_root))
+
+    def test_a_root_reached_by_another_name(self):
+        # The root is set as the link, the file picked from the real folder.
+        self.set_roots(os.path.join(self.first_root, 'current'))
+        picked = os.path.join(self.first_root, 'v12', 'rig.nxt')
+        self.assertEqual('rig.nxt', nxt_io.stored_reference_path(
+            picked, self.project))
+
+
+class OddNames(RootRelativeCase):
+
+    def test_a_name_that_starts_with_two_dots(self):
+        picked = self.write(self.first_root, '..odd.nxt')
+        self.assertEqual('..odd.nxt', nxt_io.stored_reference_path(
+            picked, self.project))
+
+    def test_beside_the_layer_too(self):
+        picked = self.write(self.project, '..odd.nxt')
+        self.assertEqual('..odd.nxt', nxt_io.stored_reference_path(
+            picked, self.project))
+
+
 class Compactors(RootRelativeCase):
 
     def test_one_that_raises_is_passed_over(self):

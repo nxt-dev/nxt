@@ -35,18 +35,24 @@ Which files are read, in this order, later ones winning:
 
 A variable that is already set when nxt starts is left alone: whoever
 launched the process has the last word, as with a .env file. The files are
-read before plugins load, so a plugin sees what they set. NXT_USER_DIR and
-NXT_SITE_DIR decide where the files are looked for, so they cannot be set
-from one.
+read before plugins load, so a plugin sees what they set. NXT_USER_DIR,
+NXT_SITE_DIR and NXT_ENV_FILES decide which files are read, so a file that
+sets one of them is logged and the variable is passed over.
+
+A `$NAME` that is not set is left in the value as written, and logged with
+the file and the variable it is in. Names are matched the way the
+environment matches them: ignoring case on Windows, exactly elsewhere.
 """
 # Builtin
 import json
 import logging
 import os
+import re
 from collections import OrderedDict
 
 # Internal
-from .constants import USER_CONFIG_DIR, SITE_CONFIG_DIR
+from .constants import (USER_CONFIG_DIR, SITE_CONFIG_DIR, USER_DIR_ENV_VAR,
+                        SITE_DIR_ENV_VAR)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +62,16 @@ ENV_FILE_NAME = 'env.json'
 FORMAT_VERSION = 1
 USER_ENV_FILE = os.path.join(USER_CONFIG_DIR, ENV_FILE_NAME)
 SITE_ENV_FILE = os.path.join(SITE_CONFIG_DIR, ENV_FILE_NAME)
+#: Read before any env file is, to decide which files are read, so one set
+#: from a file would come too late to mean anything.
+NOT_FROM_A_FILE = (USER_DIR_ENV_VAR, SITE_DIR_ENV_VAR, ENV_FILES_ENV_VAR)
+
+#: `${NAME}`, `$NAME` and `%NAME%`. A name ends at the first character that
+#: cannot be in one, so `$NXT_ENV_FILE_DIRX` is a variable of its own.
+_NAME = r'[A-Za-z_][A-Za-z0-9_]*'
+_REFERENCE = re.compile(r'\$\{(?P<braced>' + _NAME + r')\}|'
+                        r'\$(?P<bare>' + _NAME + r')|'
+                        r'%(?P<percent>' + _NAME + r')%')
 
 
 class KEYS(object):
@@ -82,6 +98,37 @@ class EnvFileError(ValueError):
 def _identity(path):
     """One spelling for a file, however it was reached."""
     return os.path.normcase(os.path.realpath(path))
+
+
+def _key(name):
+    """One spelling for a variable name, compared the way the environment
+    compares them: Windows ignores case in names, everywhere else does not.
+    """
+    return name.upper() if os.name == 'nt' else name
+
+
+def applied():
+    """What the env files have put in the environment.
+
+    :return: a copy of {name: value}, names spelled as the environment
+        compares them
+    :rtype: dict
+    """
+    return dict(_applied)
+
+
+def is_applied(name):
+    """Whether a variable holds the value an env file gave it.
+
+    False for one set outside nxt, which the files leave alone, and for one
+    that something changed after nxt set it.
+
+    :param name: the variable, spelled any way the environment accepts
+    :type name: str
+    :rtype: bool
+    """
+    key = _key(name)
+    return key in _applied and os.environ.get(name) == _applied[key]
 
 
 class EnvFile(object):
@@ -187,39 +234,74 @@ class EnvFile(object):
             json.dump(self.as_data(), file_object, indent=4)
             file_object.write('\n')
 
-    def expand(self, text):
+    def expand(self, text, unset=None):
         """Fill in the file's own folder, then the environment's variables.
 
+        A variable that is not set is left as written, as a shell would.
+        `%NAME%` is only a variable on Windows, where that is how one is
+        written, apart from `%NXT_ENV_FILE_DIR%`, the file's folder
+        everywhere.
+
         :param text: a value or an include path, as written in the file
+        :param unset: a list that gets the name of each variable that is
+            not set
+        :type unset: list | None
         :rtype: str
         """
-        for spelling in ('${%s}' % FILE_DIR_VAR, '$' + FILE_DIR_VAR,
-                         '%' + FILE_DIR_VAR + '%'):
-            text = text.replace(spelling, self.directory)
-        return os.path.expandvars(text)
+        file_dir = _key(FILE_DIR_VAR)
 
-    def include_paths(self):
+        def fill(match):
+            name = (match.group('braced') or match.group('bare') or
+                    match.group('percent'))
+            if _key(name) == file_dir:
+                return self.directory
+            if match.group('percent') and os.name != 'nt':
+                return match.group(0)
+            if name in os.environ:
+                return os.environ[name]
+            if unset is not None and name not in unset:
+                unset.append(name)
+            return match.group(0)
+
+        return _REFERENCE.sub(fill, text)
+
+    def include_paths(self, unset=None):
         """The files this one includes, as absolute paths.
 
+        :param unset: a list that gets the name of each variable that is
+            not set
+        :type unset: list | None
         :rtype: list
         """
         paths = []
         for written in self.include:
-            path = self.expand(written)
+            path = self.expand(written, unset)
             if not os.path.isabs(path):
                 path = os.path.join(self.directory, path)
             paths.append(os.path.normpath(path))
         return paths
 
-    def resolve(self, name):
+    def resolve(self, name, unset=None):
         """The text one variable is set to, in the environment as it is.
 
+        :param unset: a list that gets the name of each variable that is
+            not set
+        :type unset: list | None
         :rtype: str
         """
         value = self.variables[name]
         if isinstance(value, list):
-            return os.pathsep.join(self.expand(item) for item in value)
-        return self.expand(value)
+            return os.pathsep.join(self.expand(item, unset)
+                                   for item in value)
+        return self.expand(value, unset)
+
+
+def _warn_unset(env_file, unset, where):
+    """Say which variables a file uses that are not set. Left as written,
+    `$PROJECT/graphs` quietly becomes a folder nobody has."""
+    for name in unset:
+        logger.warning('{}: ${} in {} is not set, so it is left as written'
+                       ''.format(env_file.path, name, where))
 
 
 def start_files():
@@ -272,7 +354,10 @@ def read_files(paths=None, problems=None):
         except (EnvFileError, OSError) as error:
             problems.append((path, str(error)))
             return
-        for include in env_file.include_paths():
+        unset = []
+        includes = env_file.include_paths(unset)
+        _warn_unset(env_file, unset, '"{}"'.format(KEYS.INCLUDE))
+        for include in includes:
             visit(include, env_file.path)
         loaded.append(env_file)
 
@@ -290,34 +375,47 @@ def apply(paths=None):
 
     :param paths: the files to start from, start_files() by default
     :return: {name: (value, path of the file that set it)} for what is now
-        set from files, and a list of (path, message) problems
+        set from files, names spelled as the environment compares them,
+        and a list of (path, message) problems
     :rtype: (OrderedDict, list)
     """
     environ = os.environ
     applied = _applied
     problems = []
     result = OrderedDict()
+    declared = set()
+    refused = set(_key(name) for name in NOT_FROM_A_FILE)
     del _declared[:]
     for env_file in read_files(paths, problems):
         for name in env_file.variables:
-            if name not in _declared:
+            key = _key(name)
+            if key in refused:
+                logger.warning('{}: {} cannot be set from an env file, it '
+                               'decides which env files are read. Set it '
+                               'before nxt starts.'.format(env_file.path,
+                                                           name))
+                continue
+            if key not in declared:
+                declared.add(key)
                 _declared.append(name)
-            ours = name in applied and environ.get(name) == applied[name]
-            if name in environ and not ours and name not in result:
+            ours = key in applied and environ.get(name) == applied[key]
+            if name in environ and not ours and key not in result:
                 logger.debug('{} is already set, {} does not change it'
                              ''.format(name, env_file.path))
                 continue
-            value = env_file.resolve(name)
+            unset = []
+            value = env_file.resolve(name, unset)
+            _warn_unset(env_file, unset, name)
             environ[name] = value
-            applied[name] = value
-            result.pop(name, None)
-            result[name] = (value, env_file.path)
-    for name in list(applied):
-        if name in result:
+            applied[key] = value
+            result.pop(key, None)
+            result[key] = (value, env_file.path)
+    for key in list(applied):
+        if key in result:
             continue
-        if environ.get(name) == applied[name]:
-            del environ[name]
-        del applied[name]
+        if environ.get(key) == applied[key]:
+            del environ[key]
+        del applied[key]
     for path, message in problems:
         logger.warning('Env file skipped: {} ({})'.format(path, message))
     return result, problems
@@ -340,23 +438,18 @@ def variable_compact(filepath):
     :return: forward slashed `$NAME/relative/path`, or an empty string
     :rtype: str
     """
-    real_path = os.path.realpath(filepath)
+    from .nxt_io import relative_path_under
     best = ''
     best_depth = -1
     for name in _declared:
         folder = os.environ.get(name, '')
         if not folder or os.pathsep in folder or not os.path.isdir(folder):
             continue
-        real_folder = os.path.realpath(folder)
-        try:
-            relative = os.path.relpath(real_path, real_folder)
-        except ValueError:
-            # Different drive on Windows.
+        relative = relative_path_under(filepath, folder)
+        if not relative:
             continue
-        if relative.startswith('..') or os.path.isabs(relative):
-            continue
-        depth = len(real_folder)
+        depth = len(os.path.realpath(folder))
         if depth > best_depth:
             best_depth = depth
-            best = '${}/{}'.format(name, relative.replace(os.sep, '/'))
+            best = '${}/{}'.format(name, relative)
     return best
