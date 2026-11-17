@@ -2302,6 +2302,11 @@ class Stage:
             node_path = layer.get_node_path(node)
             source_path = nxt_path.expand_relative_node_path(source_path, node_path)
             resolve_source_node = layer.lookup(source_path)
+            if attr_name == INTERNAL_ATTRS.COMPUTE and resolve_source_node:
+                # Code is kept as a list of lines, substitute it as text
+                return self.get_node_code_string(
+                    resolve_source_node, layer, data_state=DATA_STATE.RESOLVED
+                )
             return self.get_node_attr_value(
                 resolve_source_node, attr_name=attr_name, layer=layer, resolved=True
             )
