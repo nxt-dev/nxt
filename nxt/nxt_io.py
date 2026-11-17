@@ -102,36 +102,94 @@ def is_absolute(filepath):
     return os.path.isabs(os.path.expanduser(expanded))
 
 
+plugin_compactors = []
+
+
+def register_reference_path_compactor(compactor):
+    """Register a way to write a referenced file shorter than its whole path.
+
+    The other half of an expander. An expander finds the file a partial
+    path means; a compactor says which partial path means a given file, so
+    a file picked from under a root can be stored the way someone would
+    have typed it.
+
+    :param compactor: takes the path of an existing file and returns a
+        partial path its expander resolves back to that file, or an empty
+        string when it has nothing to offer
+    :type compactor: callable
+    """
+    global plugin_compactors
+    msg = 'Registered reference path compactor from ' + str(
+        compactor.__module__)
+    logger.info(msg)
+    plugin_compactors += [compactor]
+
+
+def compact_reference_path(path, layer_dir=None):
+    """A partial path a plugin offers for a file, if it leads back to it.
+
+    Whatever a compactor offers is resolved the way loading would resolve
+    it, and only used if that lands on the same file. A file of the same
+    name under an earlier root would otherwise be loaded in its place.
+
+    :param path: the file to reference
+    :type path: str
+    :param layer_dir: folder of the layer that holds the reference
+    :type layer_dir: str | None
+    :return: forward slashed partial path, or the path as given
+    :rtype: str
+    """
+    for compactor in plugin_compactors:
+        try:
+            written = compactor(path)
+        except Exception:
+            logger.exception('A reference path compactor failed on '
+                             '{}'.format(path))
+            continue
+        if not written or is_absolute(written):
+            continue
+        found, exists = expand_reference_path(written, layer_dir)
+        try:
+            if exists and os.path.samefile(found, path):
+                return written.replace(os.path.sep, '/')
+        except OSError:
+            continue
+    return path
+
+
 def stored_reference_path(path, layer_dir):
     """How a file is written into a layer as a reference.
 
     Relative to the layer when it sits alongside it, which keeps a graph
-    portable. Anything else is stored whole: making a path relative across
-    drives or out of the layer's folder would be worse than being explicit,
-    and would get in the way of NXT_FILE_ROOTS. Symlinks are resolved on
-    both sides first, so a file reached by another name for the same folder
-    still counts as beside it.
+    portable. Failing that, the way a plugin offers to write it: a file
+    under one of NXT_FILE_ROOTS is stored relative to that root, which is
+    how it would have been typed, and loads from whichever root holds it on
+    another machine. Anything else is stored whole: making a path relative
+    across drives or out of the layer's folder would be worse than being
+    explicit. Symlinks are resolved on both sides first, so a file reached
+    by another name for the same folder still counts as beside it.
 
     :param path: the file to reference
     :type path: str
     :param layer_dir: folder of the layer that holds the reference, or None
         when it has never been saved
     :type layer_dir: str | None
-    :return: forward slashed path, relative when the file is beside the layer
+    :return: forward slashed path, relative when the file is beside the
+        layer or under a root
     :rtype: str
     """
     path = path.replace(os.path.sep, '/')
     if not layer_dir:
-        return path
+        return compact_reference_path(path)
     try:
         relative = os.path.relpath(os.path.realpath(path),
                                    os.path.realpath(layer_dir))
     except ValueError:
         # Different drive on Windows.
-        return path
+        return compact_reference_path(path, layer_dir)
     relative = relative.replace(os.path.sep, '/')
     if relative.startswith('..'):
-        return path
+        return compact_reference_path(path, layer_dir)
     return relative
 
 
