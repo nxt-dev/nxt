@@ -147,7 +147,8 @@ def compact_reference_path(path, layer_dir=None):
             logger.exception('A reference path compactor failed on '
                              '{}'.format(path))
             continue
-        if not written or is_absolute(written):
+        if not written or os.path.isabs(written):
+            # Nothing offered, or the whole path again.
             continue
         found, exists = expand_reference_path(written, layer_dir)
         try:
