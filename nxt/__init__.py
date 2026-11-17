@@ -39,6 +39,11 @@ else:
 # Load plugins
 plugin_loader.load_plugins()
 
+# After the plugins, so a file root is tried before a declared variable when
+# a picked reference is written down.
+from . import nxt_io
+nxt_io.register_reference_path_compactor(env_files.variable_compact)
+
 logger = logging.getLogger('nxt')
 
 

@@ -70,6 +70,10 @@ class KEYS(object):
 #: else's value.
 _applied = {}
 
+#: The names the env files declare, in the order read, whether or not nxt
+#: was the one to set them.
+_declared = []
+
 
 class EnvFileError(ValueError):
     """An env file that cannot be used, and why."""
@@ -293,8 +297,11 @@ def apply(paths=None):
     applied = _applied
     problems = []
     result = OrderedDict()
+    del _declared[:]
     for env_file in read_files(paths, problems):
         for name in env_file.variables:
+            if name not in _declared:
+                _declared.append(name)
             ours = name in applied and environ.get(name) == applied[name]
             if name in environ and not ours and name not in result:
                 logger.debug('{} is already set, {} does not change it'
@@ -314,3 +321,42 @@ def apply(paths=None):
     for path, message in problems:
         logger.warning('Env file skipped: {} ({})'.format(path, message))
     return result, problems
+
+
+def variable_compact(filepath):
+    """A file under a folder an env file variable names, written from it.
+
+    A reference compactor, see nxt_io.register_reference_path_compactor.
+    With PROJECT_GRAPHS declared in an env file, a file picked from that
+    folder is stored as `$PROJECT_GRAPHS/rig.nxt`, the way it would have
+    been typed, instead of the whole path it has on this machine.
+
+    Only variables an env file declares are considered, whoever set their
+    value: a project names those on purpose, which cannot be said of
+    whatever else is in the environment. The deepest folder wins.
+
+    :param filepath: path of an existing file
+    :type filepath: str
+    :return: forward slashed `$NAME/relative/path`, or an empty string
+    :rtype: str
+    """
+    real_path = os.path.realpath(filepath)
+    best = ''
+    best_depth = -1
+    for name in _declared:
+        folder = os.environ.get(name, '')
+        if not folder or os.pathsep in folder or not os.path.isdir(folder):
+            continue
+        real_folder = os.path.realpath(folder)
+        try:
+            relative = os.path.relpath(real_path, real_folder)
+        except ValueError:
+            # Different drive on Windows.
+            continue
+        if relative.startswith('..') or os.path.isabs(relative):
+            continue
+        depth = len(real_folder)
+        if depth > best_depth:
+            best_depth = depth
+            best = '${}/{}'.format(name, relative.replace(os.sep, '/'))
+    return best
