@@ -1544,13 +1544,38 @@ class Stage:
         delattr(node, attr_name)
         return True
 
-    def rename_node_attr(self, node, attr_name, new_attr_name, layer):
+    def rename_node_attr(self, node, attr_name, new_attr_name, layer,
+                         refactor=False, comp_layer=None):
+        """Renames a local attr of the given node in the given layer.
+        :param node: Node object
+        :param attr_name: Current attr name
+        :param new_attr_name: Desired attr name, made unique if taken
+        :param layer: SpecLayer to rename in
+        :param refactor: If True the attr ref tokens in the layer that
+        resolve to the renamed attr are updated to the new name, see
+        `get_attr_ref_changes`.
+        :param comp_layer: CompLayer from before the rename, used to tell
+        which tokens resolve to the attr. Built if not given and needed.
+        :return: List of token changes made, empty unless refactoring. Give
+        it to `apply_attr_ref_changes` with revert=True to undo them.
+        """
         node = self.get_node_spec(node)
         node_path = layer.get_node_path(node)
         # get valid new name
         new_name = self.get_unique_attr_name(node_path, layer, attr_name=new_attr_name)
+        changes = []
         # rename
         if attr_name in get_node_local_attr_names(node_path, [layer]):
+            if refactor:
+                # Found before renaming, the comp shares the spec nodes
+                comp_layer = comp_layer or self.build_stage()
+                changes = self.get_attr_ref_changes(node_path, attr_name,
+                                                    new_name, layer,
+                                                    comp_layer)
+                # The renamed attr's own value moves with it
+                for i, (path, attr, old, new) in enumerate(changes):
+                    if (path, attr) == (node_path, attr_name):
+                        changes[i] = (path, new_name, old, new)
             setattr(node, new_name, getattr(node, attr_name))
             delattr(node, attr_name)
             for meta_attr_suffix in self.meta_attrs:
@@ -1559,6 +1584,97 @@ class Stage:
                     new_meta_attr_name = new_name + meta_attr_suffix
                     setattr(node, new_meta_attr_name, getattr(node, meta_attr))
                     delattr(node, meta_attr)
+            self.apply_attr_ref_changes(changes, layer)
+        return changes
+
+    def get_attr_ref_changes(self, node_path, attr_name, new_attr_name,
+                             layer, comp_layer):
+        """Finds the attr ref tokens in the given layer that resolve to
+        `attr_name` on the node at `node_path`, and what they become if
+        the attr is called `new_attr_name`. That covers `${attr}` in the node
+        itself and in nodes that inherit the attr from it (descendants and
+        instances that do not have their own), plus `${/path.attr}` and
+        relative `${../path.attr}` tokens anywhere in the layer that land on
+        one of those nodes. Code and attr values are both searched.
+        Nothing is returned if another layer still gives the node the attr,
+        since then the tokens still resolve.
+        :param node_path: String of node path the attr is renamed on
+        :param attr_name: String of the attr name tokens use now
+        :param new_attr_name: String of the attr name they should use
+        :param layer: SpecLayer to search
+        :param comp_layer: CompLayer from before the rename
+        :return: List of tuples (node_path, attr_name, old_value, new_value)
+        where attr_name is INTERNAL_ATTRS.COMPUTE for code.
+        """
+        others = [l for l in get_active_layers(self._sub_layers)
+                  if l is not layer]
+        if others and self.get_layers_with_opinion(node_path, others,
+                                                   attr_name):
+            logger.info('{} still has {} from another layer, its tokens are '
+                        'left as they are.'.format(node_path, attr_name))
+            return []
+
+        def refers_to_attr(token, from_path):
+            content = tokens.get_token_content(token)
+            if self.determine_token_type(content) != TOKENTYPE.ATTR:
+                return None
+            ref_path, ref_attr = nxt_path.path_attr_partition(content)
+            if not ref_attr:
+                ref_path, ref_attr = None, content
+            if ref_attr != attr_name:
+                return None
+            target_path = from_path
+            if ref_path:
+                target_path = nxt_path.expand_relative_node_path(ref_path,
+                                                                 from_path)
+            target = comp_layer.lookup(target_path)
+            if target is None:
+                return None
+            _, source_path = self.get_node_attr_source(target, attr_name)
+            if source_path != node_path:
+                return None
+            new_content = content[:len(content) - len(attr_name)]
+            return tokens.make_token_str(new_content + new_attr_name)
+
+        def refactored(text, from_path):
+            if not isinstance(text, str):
+                return text
+            for token in self.get_tokens_from(text):
+                new_token = refers_to_attr(token, from_path)
+                if new_token:
+                    text = text.replace(token, new_token)
+            return text
+
+        changes = []
+        returns = layer.RETURNS.NodeTable
+        for spec_path, spec_node in layer.descendants(return_type=returns):
+            code, has_code = get_opinion(spec_node, INTERNAL_ATTRS.COMPUTE)
+            if has_code and code:
+                new_code = [refactored(line, spec_path) for line in code]
+                if new_code != code:
+                    changes += [(spec_path, INTERNAL_ATTRS.COMPUTE, code,
+                                 new_code)]
+            for attr in get_node_local_attr_names(spec_path, [layer]):
+                value = getattr(spec_node, attr)
+                new_value = refactored(value, spec_path)
+                if new_value != value:
+                    changes += [(spec_path, attr, value, new_value)]
+        return changes
+
+    @staticmethod
+    def apply_attr_ref_changes(changes, layer, revert=False):
+        """Sets the values from `get_attr_ref_changes` on the layer's nodes.
+        Only the spec layer is changed, the comp has to be rebuilt after.
+        :param changes: List of tuples from `get_attr_ref_changes`
+        :param layer: SpecLayer the changes were found in
+        :param revert: If True the old values are put back
+        :return: None
+        """
+        for node_path, attr, old_value, new_value in changes:
+            spec_node = layer.lookup(node_path)
+            if spec_node is None:
+                continue
+            setattr(spec_node, attr, old_value if revert else new_value)
 
     def can_rename_targeted(self, old_path, new_path, layer, comp_layer):
         """Whether a rename can be composited in place, without a rebuild.
