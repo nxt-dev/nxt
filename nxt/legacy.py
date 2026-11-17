@@ -582,7 +582,7 @@ def cli_file_convert(file_path, replace=False):
     """Simple logic for converting files from the CLI"""
     file_path = os.path.realpath(os.path.expanduser(file_path))
     logger.info("Trying to convert: " + file_path)
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         json_data = json.load(f, object_hook=clean_json._byteify)
         old_file_data = clean_json.load(json_data)
     file_data = FileConverter.get_converted_data(old_file_data)
@@ -595,7 +595,7 @@ def cli_file_convert(file_path, replace=False):
     out_file_name = out_file_name + ending + ext
     out_file_dir = os.path.dirname(file_path)
     out_file_path = os.path.join(out_file_dir, out_file_name)
-    with open(out_file_path, 'w') as out_file:
+    with open(out_file_path, 'w', encoding='utf-8') as out_file:
         json.dump(file_data, out_file, indent=4, sort_keys=False,
                   separators=(',', ': '))
         logger.info('Successfully saved "' + out_file_path + '"')

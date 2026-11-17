@@ -12,7 +12,7 @@ def get_running_server_address(as_str=True):
     server_info_filepath = get_server_info_filepath()
     valid_data = False
     if os.path.isfile(server_info_filepath):
-        with open(server_info_filepath, 'r') as fp:
+        with open(server_info_filepath, 'r', encoding='utf-8') as fp:
             lines = fp.readlines()
             if len(lines) == 2:
                 _, port = lines

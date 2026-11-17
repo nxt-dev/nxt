@@ -90,7 +90,7 @@ def create_context(custom_name, interpreter_exe=sys.executable,
     default_c_path = default_c_path.replace(os.sep, '/')
     template_path = os.path.join(os.path.dirname(__file__),
                                  'remote/remote_context_template.py')
-    with open(template_path, 'r') as fp:
+    with open(template_path, 'r', encoding='utf-8') as fp:
         py_str = fp.read()
 
     context_py_file = 'custom_{name}_context.py'.format(name=custom_name)
@@ -132,7 +132,7 @@ def create_context(custom_name, interpreter_exe=sys.executable,
 
     py_str = py_str.format(name=custom_name, interpreter_exe=interpreter_exe,
                            context_graph=context_graph, args=exe_script_args)
-    with open(context_py_filepath, 'w+') as fp:
+    with open(context_py_filepath, 'w+', encoding='utf-8') as fp:
         fp.write(py_str)
     exec(py_str)
     return custom_name

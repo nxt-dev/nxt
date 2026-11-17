@@ -655,7 +655,7 @@ class Stage:
     @staticmethod
     def legalize_name(name):
         r"""Returns given `name` without leading numeral, and matching
-        `\w` regex: (a-z, A-Z, 0-9, _)
+        `\w` regex: letters and digits in any language, and _.
         Replaces illegal characters with underscore.
         """
         if name[0].isdigit():
@@ -2374,8 +2374,7 @@ class Stage:
         """
         file_path = self.resolve(node, text, layer)
         try:
-            with open(file_path) as fp:
-                contents = fp.read()
+            contents = nxt_io.read_text(file_path)
         except IOError:
             logger.error("Failed to get contents of {}".format(file_path))
             return ""

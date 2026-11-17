@@ -2,6 +2,7 @@
 """
 # Builtin
 import json
+import locale
 import logging
 import os
 import time
@@ -135,6 +136,34 @@ def stored_reference_path(path, layer_dir):
     return relative
 
 
+
+def read_text(path):
+    """The text of a file nxt reads: a graph, a parameters file, a file a
+    token pulls in.
+
+    Read as UTF-8, which is what nxt writes, whatever the system's own
+    encoding is. A file that is not UTF-8, saved by some other tool in the
+    system's encoding, is read in that instead, so a file that opened before
+    still opens.
+
+    :param path: the file
+    :type path: str
+    :rtype: str
+    """
+    with open(path, 'rb') as file_object:
+        raw = file_object.read()
+    try:
+        # -sig drops the byte order mark some Windows editors put first.
+        text = raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        encoding = locale.getpreferredencoding(False)
+        logger.warning('{} is not UTF-8, reading it as {}'.format(path,
+                                                                  encoding))
+        text = raw.decode(encoding, errors='replace')
+    # Line endings as a text mode read gives them, whichever system wrote it.
+    return text.replace('\r\n', '\n').replace('\r', '\n')
+
+
 def load_file_data(filepath, layer_dir=None):
     """Given a file path this function determines if its a known nxt save
     format and attempts to open it. If the file is out of date it is passed
@@ -166,8 +195,8 @@ def load_file_data(filepath, layer_dir=None):
         with open(real_path, 'rb') as file_object:
                 file_data = pickle.load(file_object)
     else:
-        with open(real_path, 'r') as file_object:
-            file_data = json.load(file_object, object_hook=clean_json._byteify)
+        file_data = json.loads(read_text(real_path),
+                               object_hook=clean_json._byteify)
     file_version = file_data.get(SAVE_KEY.VERSION)
     if not file_version:
         file_version = GRAPH_VERSION.VERSION_STR
@@ -232,7 +261,7 @@ def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
             pickle.dump(save_data, out_file, protocol=-1)
         gc.enable()
     else:
-        with open(filepath, 'w') as out_file:
+        with open(filepath, 'w', encoding='utf-8') as out_file:
             json.dump(save_data, out_file, indent=4, sort_keys=False,
                       separators=(',', ': '))
     logger.info('Successfully saved "' + filepath + '"')
