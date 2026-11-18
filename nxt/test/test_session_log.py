@@ -13,6 +13,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 # Internal
 import nxt
@@ -21,6 +22,7 @@ from nxt.session import Session
 from nxt.test import get_test_file_path
 
 RUN_COUNT = 3
+SAME_SECOND = 1700000000.25
 
 
 class SessionLog(unittest.TestCase):
@@ -140,6 +142,68 @@ class SessionLog(unittest.TestCase):
         # Neither a second call nor an unknown file is an error.
         nxt_log.stop_session_log(session.log_file)
         nxt_log.stop_session_log(os.path.join(self.tmp, 'not_a_log.log'))
+        self.assert_nothing_left()
+
+    def lines_logged(self, log_file, text):
+        for handler in self.made_handlers:
+            handler.flush()
+        with open(log_file, 'r') as file_object:
+            return file_object.read().count(text)
+
+    def test_sessions_made_in_the_same_second(self):
+        # The log is named after the second it was made in.
+        with mock.patch.object(nxt_log.time, 'time',
+                               return_value=SAME_SECOND):
+            first = Session()
+            second = Session()
+        self.assertNotEqual(first.log_file, second.log_file)
+        first_handler, second_handler = self.made_handlers
+        self.assertIsNot(first_handler, second_handler)
+        # Both are still named after that second, in the order made.
+        prefix = 'nxt_session_{}'.format(int(SAME_SECOND))
+        names = [os.path.basename(first.log_file),
+                 os.path.basename(second.log_file)]
+        self.assertEqual(prefix + '.log', names[0])
+        self.assertTrue(names[1].startswith(prefix + '_'), names[1])
+        self.assertTrue(names[1].endswith('.log'), names[1])
+        self.assertEqual(names, sorted(names))
+        # Each file gets a line once.
+        self.nxt_logger.error('written while both are open')
+        for session in (first, second):
+            self.assertEqual(1, self.lines_logged(session.log_file,
+                                                  'written while both'))
+        # Closing one takes its own handler off, and only that one.
+        first.close()
+        self.assertNotIn(first_handler, self.nxt_logger.handlers)
+        self.assertIsNone(first_handler.stream)
+        self.assertNotIn(first.log_file, nxt_log.SESSION_LOG_HANDLERS)
+        self.assertIn(second_handler, self.nxt_logger.handlers)
+        self.assertIs(second_handler,
+                      nxt_log.SESSION_LOG_HANDLERS[second.log_file])
+        self.nxt_logger.error('written after the first closed')
+        self.assertEqual(0, self.lines_logged(first.log_file,
+                                              'written after the first'))
+        self.assertEqual(1, self.lines_logged(second.log_file,
+                                              'written after the first'))
+        second.close()
+        self.assert_nothing_left()
+
+    def test_log_of_another_process_is_not_shared(self):
+        # A log file that is already there belongs to someone else, an nxt
+        # in another process that started in the same second for instance.
+        os.makedirs(nxt_log.LOG_DIR)
+        taken = os.path.join(nxt_log.LOG_DIR,
+                             'nxt_session_{}.log'.format(int(SAME_SECOND)))
+        with open(taken, 'w') as file_object:
+            file_object.write('theirs')
+        with mock.patch.object(nxt_log.time, 'time',
+                               return_value=SAME_SECOND):
+            session = Session()
+        self.assertNotEqual(os.path.normcase(taken),
+                            os.path.normcase(session.log_file))
+        session.close()
+        with open(taken, 'r') as file_object:
+            self.assertEqual('theirs', file_object.read())
         self.assert_nothing_left()
 
 
