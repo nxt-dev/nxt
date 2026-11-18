@@ -263,16 +263,18 @@ def get_new_session_log_filename():
 
 
 def stop_session_log(filename):
-    """Stops outputting log to given filename.
+    """Stops outputting log to given filename and closes the file. Safe to
+    call more than once, or with a file that is not being logged to.
 
     :param filename: filename to stop outputting to.
     :type filename: str, required
     """
-    handler = SESSION_LOG_HANDLERS.get(filename)
+    handler = SESSION_LOG_HANDLERS.pop(filename, None)
     if not handler:
         return
     root_logger = logging.getLogger('nxt')
     root_logger.removeHandler(handler)
+    handler.close()
 
 
 def make_link(value):
