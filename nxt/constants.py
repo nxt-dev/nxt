@@ -6,7 +6,7 @@ version_file = os.path.join(os.path.dirname(__file__), 'version.json')
 
 
 class API_VERSION(object):
-    with open(version_file, 'r') as f:
+    with open(version_file, 'r', encoding='utf-8') as f:
         version_data = json.load(f)
     api_v_data = version_data['API']
     MAJOR = api_v_data['MAJOR']
@@ -18,7 +18,7 @@ class API_VERSION(object):
 
 
 class GRAPH_VERSION(object):
-    with open(version_file, 'r') as f:
+    with open(version_file, 'r', encoding='utf-8') as f:
         version_data = json.load(f)
     api_v_data = version_data['GRAPH']
     MAJOR = api_v_data['MAJOR']

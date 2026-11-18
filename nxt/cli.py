@@ -123,7 +123,7 @@ def execute(args):
         if not os.path.isfile(param_path):
             msg = 'Single parameter passed, expected it to be valid parameters file. However, "{}" does not exist'.format(param_path)
             raise IOError(msg)
-        with open(param_path, 'r') as fp:
+        with open(param_path, 'r', encoding='utf-8-sig') as fp:
             parameters = json.load(fp)
     elif param_arg_count % 2 != 0:
         raise Exception('Invalid parameters supplied, must be 1 file path or '

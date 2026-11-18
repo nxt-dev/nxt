@@ -110,7 +110,7 @@ def track_log_file(path):
 
     existing_logs = []
     try:
-        with open(meta_log_location, 'r') as meta_log_file:
+        with open(meta_log_location, 'r', encoding='utf-8') as meta_log_file:
             # stripping of trailing newlines
             existing_logs = [line.rstrip() for line in meta_log_file.readlines()]
     except IOError:
@@ -143,7 +143,7 @@ def track_log_file(path):
     # add given log and write meta log
     existing_logs.append(path)
     try:
-        with open(meta_log_location, 'w') as meta_log_file:
+        with open(meta_log_location, 'w', encoding='utf-8') as meta_log_file:
             # add trailing newlines to make meta log human readable.
             meta_log_file.writelines([line + '\n' for line in existing_logs])
     except IOError:
@@ -230,7 +230,7 @@ def make_session_log(filename=None):
     logger = logging.getLogger(__name__)
     if not filename:
         filename = get_new_session_log_filename()
-    file_handler = logging.FileHandler(filename)
+    file_handler = logging.FileHandler(filename, encoding='utf-8')
     file_handler.setFormatter(nxt_formatter)
     root_logger = logging.getLogger('nxt')
     root_logger.addHandler(file_handler)

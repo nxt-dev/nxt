@@ -10,6 +10,15 @@ else:
     from . import nxt_log
 nxt_log.initial_setup()
 
+# Environment variables from env files, before anything below reads them.
+# A problem in a file is logged by apply, and anything else is caught here:
+# importing nxt must not fail over a file somebody else maintains.
+from . import env_files
+try:
+    env_files.apply()
+except Exception:
+    logging.getLogger('nxt').exception('Could not apply the nxt env files')
+
 # Internal
 if sys.version_info[0] == 2:
     import plugin_loader
@@ -29,6 +38,11 @@ else:
 
 # Load plugins
 plugin_loader.load_plugins()
+
+# After the plugins, so a file root is tried before a declared variable when
+# a picked reference is written down.
+from . import nxt_io
+nxt_io.register_reference_path_compactor(env_files.variable_compact)
 
 logger = logging.getLogger('nxt')
 
@@ -90,7 +104,7 @@ def create_context(custom_name, interpreter_exe=sys.executable,
     default_c_path = default_c_path.replace(os.sep, '/')
     template_path = os.path.join(os.path.dirname(__file__),
                                  'remote/remote_context_template.py')
-    with open(template_path, 'r') as fp:
+    with open(template_path, 'r', encoding='utf-8') as fp:
         py_str = fp.read()
 
     context_py_file = 'custom_{name}_context.py'.format(name=custom_name)
@@ -132,7 +146,7 @@ def create_context(custom_name, interpreter_exe=sys.executable,
 
     py_str = py_str.format(name=custom_name, interpreter_exe=interpreter_exe,
                            context_graph=context_graph, args=exe_script_args)
-    with open(context_py_filepath, 'w+') as fp:
+    with open(context_py_filepath, 'w+', encoding='utf-8') as fp:
         fp.write(py_str)
     exec(py_str)
     return custom_name

@@ -2,6 +2,7 @@
 """
 # Builtin
 import json
+import locale
 import logging
 import os
 import time
@@ -34,6 +35,42 @@ os.environ[BUILTIN_GRAPHS_ENV_VAR] = BUILTIN_GRAPHS_DIR
 logger = logging.getLogger(__name__)
 
 plugin_expanders = []
+
+
+class NewerFileError(IOError):
+    """A file saved by a newer nxt than this one, which may hold things
+    this one does not understand. Still an IOError, as it always was.
+    """
+    def __init__(self, message, version=None, path=None):
+        super(NewerFileError, self).__init__(message)
+        #: The version the file was saved with, as written in it.
+        self.version = version
+        #: The file.
+        self.path = path
+
+
+# How many allow_newer_files blocks are open, see there.
+_allow_newer = [0]
+
+
+class allow_newer_files(object):
+    """Open files saved by a newer nxt anyway, inside this block::
+
+        with nxt_io.allow_newer_files():
+            stage = session.load_file(path)
+
+    Everything loaded inside it counts, references included. A newer file
+    may hold things this nxt does not understand, which are dropped, and
+    saving it then writes it without them. Each one opened is warned
+    about in the log.
+    """
+    def __enter__(self):
+        _allow_newer[0] += 1
+        return self
+
+    def __exit__(self, *exc_info):
+        _allow_newer[0] -= 1
+        return False
 
 
 def register_reference_path_expander(expander):
@@ -102,37 +139,168 @@ def is_absolute(filepath):
     return os.path.isabs(os.path.expanduser(expanded))
 
 
+def _same_place(path):
+    return os.path.normcase(os.path.realpath(path))
+
+
+def _inside(relative):
+    """A relative path, if it stays inside the folder it starts from."""
+    if os.path.isabs(relative) or os.pardir in relative.split(os.sep):
+        return ''
+    return relative.replace(os.sep, '/')
+
+
+def relative_path_under(path, folder):
+    """A path written relative to a folder it is under.
+
+    Worked out from the path as it was picked, not from where its symlinks
+    lead. Picked as `root/current/rig.nxt`, with `current` a link to `v12`,
+    it is `current/rig.nxt`, which keeps meaning the newest version after
+    `current` moves on. Links are only followed to tell whether two
+    spellings are the same folder, so a folder reached by another name,
+    /var and /private/var on macOS say, still counts. A path that only gets
+    into the folder through a link is written from where the link lands.
+
+    :param path: the file as it was picked
+    :type path: str
+    :param folder: the folder it may be under
+    :type folder: str
+    :return: forward slashed path relative to the folder, never with `..`
+        in it, or an empty string when the file is not under the folder
+    :rtype: str
+    """
+    picked = os.path.normpath(os.path.abspath(path))
+    target = _same_place(folder)
+    ancestor = os.path.dirname(picked)
+    while True:
+        if _same_place(ancestor) == target:
+            return _inside(os.path.relpath(picked, ancestor))
+        parent = os.path.dirname(ancestor)
+        if parent == ancestor:
+            break
+        ancestor = parent
+    try:
+        relative = os.path.relpath(os.path.realpath(picked),
+                                   os.path.realpath(folder))
+    except ValueError:
+        # Different drive on Windows.
+        return ''
+    return _inside(relative)
+
+
+plugin_compactors = []
+
+
+def register_reference_path_compactor(compactor):
+    """Register a way to write a referenced file shorter than its whole path.
+
+    The other half of an expander. An expander finds the file a partial
+    path means; a compactor says which partial path means a given file, so
+    a file picked from under a root can be stored the way someone would
+    have typed it.
+
+    :param compactor: takes the path of an existing file and returns a
+        partial path its expander resolves back to that file, or an empty
+        string when it has nothing to offer
+    :type compactor: callable
+    """
+    global plugin_compactors
+    msg = 'Registered reference path compactor from ' + str(
+        compactor.__module__)
+    logger.info(msg)
+    plugin_compactors += [compactor]
+
+
+def compact_reference_path(path, layer_dir=None):
+    """A partial path a plugin offers for a file, if it leads back to it.
+
+    Whatever a compactor offers is resolved the way loading would resolve
+    it, and only used if that lands on the same file. A file of the same
+    name under an earlier root would otherwise be loaded in its place.
+
+    :param path: the file to reference
+    :type path: str
+    :param layer_dir: folder of the layer that holds the reference
+    :type layer_dir: str | None
+    :return: forward slashed partial path, or the path as given
+    :rtype: str
+    """
+    for compactor in plugin_compactors:
+        try:
+            written = compactor(path)
+        except Exception:
+            logger.exception('A reference path compactor failed on '
+                             '{}'.format(path))
+            continue
+        if not written or os.path.isabs(written):
+            # Nothing offered, or the whole path again.
+            continue
+        found, exists = expand_reference_path(written, layer_dir)
+        try:
+            if exists and os.path.samefile(found, path):
+                return written.replace(os.path.sep, '/')
+        except OSError:
+            continue
+    return path
+
+
 def stored_reference_path(path, layer_dir):
     """How a file is written into a layer as a reference.
 
     Relative to the layer when it sits alongside it, which keeps a graph
-    portable. Anything else is stored whole: making a path relative across
-    drives or out of the layer's folder would be worse than being explicit,
-    and would get in the way of NXT_FILE_ROOTS. Symlinks are resolved on
-    both sides first, so a file reached by another name for the same folder
-    still counts as beside it.
+    portable. Failing that, the way a plugin offers to write it: a file
+    under one of NXT_FILE_ROOTS is stored relative to that root, which is
+    how it would have been typed, and loads from whichever root holds it on
+    another machine. This is so for anyone with NXT_FILE_ROOTS set, whether
+    or not they use env files: a file picked from under a root used to be
+    stored whole. Anything else is stored whole: making a path relative
+    across drives or out of the layer's folder would be worse than being
+    explicit. The relative path is the one the file was picked by, see
+    relative_path_under.
 
     :param path: the file to reference
     :type path: str
     :param layer_dir: folder of the layer that holds the reference, or None
         when it has never been saved
     :type layer_dir: str | None
-    :return: forward slashed path, relative when the file is beside the layer
+    :return: forward slashed path, relative when the file is beside the
+        layer or under a root
     :rtype: str
     """
     path = path.replace(os.path.sep, '/')
-    if not layer_dir:
-        return path
+    if layer_dir:
+        relative = relative_path_under(path, layer_dir)
+        if relative:
+            return relative
+    return compact_reference_path(path, layer_dir)
+
+
+
+def read_text(path):
+    """The text of a file nxt reads: a graph, a parameters file, a file a
+    token pulls in.
+
+    Read as UTF-8, which is what nxt writes, whatever the system's own
+    encoding is. A file that is not UTF-8, saved by some other tool in the
+    system's encoding, is read in that instead, so a file that opened before
+    still opens.
+
+    :param path: the file
+    :type path: str
+    :rtype: str
+    """
+    with open(path, 'rb') as file_object:
+        raw = file_object.read()
     try:
-        relative = os.path.relpath(os.path.realpath(path),
-                                   os.path.realpath(layer_dir))
-    except ValueError:
-        # Different drive on Windows.
-        return path
-    relative = relative.replace(os.path.sep, '/')
-    if relative.startswith('..'):
-        return path
-    return relative
+        # -sig drops the byte order mark some Windows editors put first.
+        text = raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        encoding = locale.getpreferredencoding(False)
+        logger.warning('{} is not UTF-8, reading it as {}'.format(path,
+                                                                  encoding))
+        text = raw.decode(encoding, errors='replace')
+    # Line endings as a text mode read gives them, whichever system wrote it.
+    return text.replace('\r\n', '\n').replace('\r', '\n')
 
 
 def load_file_data(filepath, layer_dir=None):
@@ -166,8 +334,8 @@ def load_file_data(filepath, layer_dir=None):
         with open(real_path, 'rb') as file_object:
                 file_data = pickle.load(file_object)
     else:
-        with open(real_path, 'r') as file_object:
-            file_data = json.load(file_object, object_hook=clean_json._byteify)
+        file_data = json.loads(read_text(real_path),
+                               object_pairs_hook=warn_duplicates(filepath))
     file_version = file_data.get(SAVE_KEY.VERSION)
     if not file_version:
         file_version = GRAPH_VERSION.VERSION_STR
@@ -186,12 +354,19 @@ def load_file_data(filepath, layer_dir=None):
                     (major_version == GRAPH_VERSION.MAJOR
                      and minor_version > GRAPH_VERSION.MINOR))
     if file_too_new:
-        raise IOError('You are attempting to open a file saved with a newer '
-                      'version of nxt ({}). '
-                      'Please update nxt!'.format(file_version))
-    if major_version == 0 or minor_version < GRAPH_VERSION.MINOR:
+        if not _allow_newer[0]:
+            raise NewerFileError('You are attempting to open a file saved '
+                                 'with a newer version of nxt ({}). '
+                                 'Please update nxt!'.format(file_version),
+                                 version=file_version, path=real_path)
+        logger.warning('Opening "{}", saved with a newer version of nxt '
+                       '({}). Anything this version does not understand is '
+                       'lost if it is saved.'.format(real_path, file_version))
+    if not file_too_new and (major_version == 0 or
+                             minor_version < GRAPH_VERSION.MINOR):
         # Calls a legacy check if the full version number doesn't match the
-        # current version
+        # current version. Not for a newer file opened anyway, whose minor
+        # version can be lower under a higher major one.
         start = time.time()
         template = (file_data.get(SAVE_KEY.VERSION),
                     GRAPH_VERSION.VERSION_STR, str(round(time.time() - start, 3)))
@@ -202,6 +377,29 @@ def load_file_data(filepath, layer_dir=None):
     name_from_file = os.path.splitext(os.path.basename(filepath))[0]
     file_data[SAVE_KEY.NAME] = file_data.get(SAVE_KEY.NAME, name_from_file)
     return file_data
+
+
+def warn_duplicates(filepath):
+    """Makes a json object_pairs_hook that warns about keys given more than
+    once in the same object, which json would otherwise drop silently,
+    keeping the last. The editor never writes them, a hand edit or a bad
+    merge can.
+
+    :param filepath: file being loaded, named in the warning
+    :type filepath: str
+    :return: callable for json.load's object_pairs_hook
+    """
+    def hook(pairs):
+        data = {}
+        for key, value in pairs:
+            if key in data:
+                is_path = key.startswith(nxt_path.NODE_SEP)
+                kind = 'node path' if is_path else 'key'
+                logger.warning('Duplicate {} "{}" in {}, only the last one is '
+                               'kept.'.format(kind, key, filepath))
+            data[key] = value
+        return clean_json._byteify(data)
+    return hook
 
 
 def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
@@ -232,7 +430,7 @@ def save_file_data(save_data, filepath=None, file_format=FILE_FORMAT.ASCII):
             pickle.dump(save_data, out_file, protocol=-1)
         gc.enable()
     else:
-        with open(filepath, 'w') as out_file:
+        with open(filepath, 'w', encoding='utf-8') as out_file:
             json.dump(save_data, out_file, indent=4, sort_keys=False,
                       separators=(',', ': '))
     logger.info('Successfully saved "' + filepath + '"')

@@ -121,7 +121,7 @@ class SocketClientModel(object):
             return False
         parameters = {}
         if os.path.isfile(self.param_filepath or ''):
-            with open(self.param_filepath, 'r') as fp:
+            with open(self.param_filepath, 'r', encoding='utf-8-sig') as fp:
                 parameters = json.load(fp)
         if not self.runtime_layer:
             self._rebuild_comp()

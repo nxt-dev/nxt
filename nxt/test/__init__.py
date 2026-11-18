@@ -2,6 +2,14 @@
 import os
 import inspect
 
+# Internal
+from nxt import env_files
+
+# Importing nxt applied the env files of whoever runs the tests, from their
+# own config dir. Take back everything they set, so a test only ever sees
+# the environment it was started in and the files it writes itself.
+env_files.apply([])
+
 # NOTE: the behavior of inspect.currentframe() likely requires cpython.
 # https://docs.python.org/2.7/library/inspect.html#inspect.currentframe
 _this_file = inspect.getframeinfo(inspect.currentframe()).filename

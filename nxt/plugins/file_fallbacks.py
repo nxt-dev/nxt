@@ -313,6 +313,28 @@ def file_root_fallback(filepath, layer_dir=None):
     return ''
 
 
+def file_root_compact(filepath):
+    """A file under one of NXT_FILE_ROOTS, written relative to that root.
+
+    What file_root_fallback undoes: the path this returns is found again
+    from any machine whose roots hold the file, wherever they are.
+
+    :param filepath: path of an existing file
+    :type filepath: str
+    :return: forward slashed path relative to the first root the file is
+        under, or an empty string when it is under none
+    :rtype: str
+    """
+    for root in iter_env_roots():
+        relative = nxt_io.relative_path_under(filepath, root)
+        if relative:
+            return relative
+    return ''
+
+
+nxt_io.register_reference_path_compactor(file_root_compact)
+
+
 nxt_io.register_reference_path_expander(file_root_fallback)
 
 

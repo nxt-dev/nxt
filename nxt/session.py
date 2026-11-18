@@ -324,7 +324,8 @@ class RPCServerProcess(object):
                 _ext = '.nxtlog'
                 self.server_log_file = nxt_io.generate_temp_file(suffix=_ext)
                 nxt_log.track_log_file(self.server_log_file)
-            server_log_handle = open(self.server_log_file, 'w')
+            server_log_handle = open(self.server_log_file, 'w',
+                                     encoding='utf-8')
             nxt_log.startup_log_socket(stream_handler=self.stream_handler)
         else:
             server_log_handle = None

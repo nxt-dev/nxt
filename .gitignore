@@ -11,3 +11,4 @@ docs/build/
 build/
 site/
 nxt/ui/resources.py
+.rez_build/

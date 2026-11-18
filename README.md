@@ -1,22 +1,18 @@
 <div align="center">
 
-[![Release](https://github.com/nxt-dev/nxt/actions/workflows/release.yml/badge.svg?branch=release)](https://github.com/nxt-dev/nxt/actions/workflows/release.yml)
-[![Unittests](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)](https://github.com/nxt-dev/nxt/actions/workflows/unittests.yml?query=branch%3Adev)
+[![Unittests](https://github.com/squarebit-studios/nxt/actions/workflows/unittests.yml/badge.svg?branch=dev)](https://github.com/squarebit-studios/nxt/actions/workflows/unittests.yml?query=branch%3Adev)
+[![Rez Release](https://github.com/squarebit-studios/nxt/actions/workflows/rez_release.yml/badge.svg?branch=release)](https://github.com/squarebit-studios/nxt/actions/workflows/rez_release.yml)
 
-[![Version](https://img.shields.io/badge/version-0.21.2-green?logo=rocket&logoColor=green)](https://github.com/nxt-dev/nxt/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.22.0-green?logo=rocket&logoColor=green)](https://github.com/squarebit-studios/nxt/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)&nbsp;&nbsp;
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat)
 
-![Python37](https://img.shields.io/badge/python-3.7-3776AB.svg?logo=python&logoColor=3776AB)
-![Python38](https://img.shields.io/badge/python-3.8-3776AB.svg?logo=python&logoColor=3776AB)
-![Python39](https://img.shields.io/badge/python-3.9-3776AB.svg?logo=python&logoColor=3776AB)
 ![Python310](https://img.shields.io/badge/python-3.10-3776AB.svg?logo=python&logoColor=3776AB)
 ![Python311](https://img.shields.io/badge/python-3.11-3776AB.svg?logo=python&logoColor=3776AB)
 ![Python312](https://img.shields.io/badge/python-3.12-3776AB.svg?logo=python&logoColor=3776AB)
 ![Python313](https://img.shields.io/badge/python-3.13-3776AB.svg?logo=python&logoColor=3776AB)
-![Python314](https://img.shields.io/badge/python-3.14-3776AB.svg?logo=python&logoColor=3776AB)
 
 # NXT Python Core
 
@@ -28,7 +24,7 @@
 
 # Installation/Usage
 
-**This repo is the nxt core, it does not come with a UI. If you're looking for the UI, please see [the nxt editor](https://github.com/nxt-dev/nxt_editor).**
+**This repo is the nxt core, it does not come with a UI. If you're looking for the UI, please see [the nxt editor](https://github.com/squarebit-studios/nxt_editor).**
 This package is designed for headless execution of graphs in a render farm or other headless environment.  
 Only clone this repo if you're contributing to the NXT codebase.
 
@@ -36,7 +32,7 @@ Only clone this repo if you're contributing to the NXT codebase.
 
 #### Requirements
 
-- Python [3.7](https://www.python.org/downloads/release/python-370/) to [3.14](https://www.python.org/downloads/release/python-3140/)
+- Python [3.10](https://www.python.org/downloads/release/python-3100/) to [3.13](https://www.python.org/downloads/release/python-3130/)
 - We strongly recommend using a Python [virtual environment](https://docs.python.org/3/library/venv.html)
 
 *[Requirements for contributors](CONTRIBUTING.md#python-environment)*  
@@ -44,6 +40,10 @@ Only clone this repo if you're contributing to the NXT codebase.
 ### NXT Python Core
 
 Our releases are hosted on [PyPi](https://pypi.org/project/nxt-core/).
+
+> **This is the Square Bit fork.** It is distributed internally as the
+> `nxt_core` rez package, not from PyPI. Use the rez package inside the
+> studio; it is tested against the python versions our hosts use.
 
 **Install:**  
 `pip install nxt-core`

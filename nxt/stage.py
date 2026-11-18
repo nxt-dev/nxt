@@ -655,7 +655,7 @@ class Stage:
     @staticmethod
     def legalize_name(name):
         r"""Returns given `name` without leading numeral, and matching
-        `\w` regex: (a-z, A-Z, 0-9, _)
+        `\w` regex: letters and digits in any language, and _.
         Replaces illegal characters with underscore.
         """
         if name[0].isdigit():
@@ -1509,6 +1509,52 @@ class Stage:
             idx += 1
         return result_paths
 
+    def retarget_instance_paths(self, moved_paths, layer):
+        """Updates the instance paths in the given layer after nodes moved,
+        say from `parent_nodes`, so they keep pointing at the same nodes.
+        An instance of a moved node or of one of its descendants follows
+        it, and a relative instance path on a node that moved without its
+        source is rewritten so it still lands there. Relative paths stay
+        relative, absolute ones stay absolute.
+        :param moved_paths: Dict of {old node path: new node path}, as
+        returned by `parent_nodes`. Descendants are understood to have moved
+        with them.
+        :param layer: SpecLayer the nodes moved in, its instance paths are
+        the ones updated
+        :return: List of tuples (node_path, INTERNAL_ATTRS.INSTANCE_PATH,
+        old_value, new_value), node paths being where the nodes are now.
+        Undo with `apply_attr_ref_changes(changes, layer, revert=True)`
+        before moving the nodes back.
+        """
+        def move(path, moves):
+            for old, new in moves:
+                if path == old or nxt_path.is_ancestor(path, old):
+                    return nxt_path.replace_ancestor(path, old, new)
+            return path
+
+        forward = list(moved_paths.items())
+        backward = [(new, old) for old, new in forward]
+        _expand = nxt_path.expand_relative_node_path
+        changes = []
+        returns = layer.RETURNS.NodeTable
+        for node_path, node in layer.descendants(return_type=returns):
+            inst_path, has = get_opinion(node, INTERNAL_ATTRS.INSTANCE_PATH)
+            if not has or not inst_path or inst_path == nxt_path.WORLD:
+                continue
+            old_node_path = move(node_path, backward)
+            target = move(_expand(inst_path, old_node_path), forward)
+            if _expand(inst_path, node_path) == target:
+                continue
+            if inst_path.startswith(nxt_path.NODE_SEP):
+                new_inst_path = target
+            else:
+                new_inst_path = nxt_path.relative_node_path(target,
+                                                            node_path)
+            setattr(node, INTERNAL_ATTRS.INSTANCE_PATH, new_inst_path)
+            changes += [(node_path, INTERNAL_ATTRS.INSTANCE_PATH, inst_path,
+                         new_inst_path)]
+        return changes
+
     def add_node_attr(self, node, attr, attr_data, layer, tracked=True):
         # TODO default values for args? If so, fix test_tokens.py
         node_path = layer.get_node_path(node)
@@ -1544,13 +1590,38 @@ class Stage:
         delattr(node, attr_name)
         return True
 
-    def rename_node_attr(self, node, attr_name, new_attr_name, layer):
+    def rename_node_attr(self, node, attr_name, new_attr_name, layer,
+                         refactor=False, comp_layer=None):
+        """Renames a local attr of the given node in the given layer.
+        :param node: Node object
+        :param attr_name: Current attr name
+        :param new_attr_name: Desired attr name, made unique if taken
+        :param layer: SpecLayer to rename in
+        :param refactor: If True the attr ref tokens in the layer that
+        resolve to the renamed attr are updated to the new name, see
+        `get_attr_ref_changes`.
+        :param comp_layer: CompLayer from before the rename, used to tell
+        which tokens resolve to the attr. Built if not given and needed.
+        :return: List of token changes made, empty unless refactoring. Give
+        it to `apply_attr_ref_changes` with revert=True to undo them.
+        """
         node = self.get_node_spec(node)
         node_path = layer.get_node_path(node)
         # get valid new name
         new_name = self.get_unique_attr_name(node_path, layer, attr_name=new_attr_name)
+        changes = []
         # rename
         if attr_name in get_node_local_attr_names(node_path, [layer]):
+            if refactor:
+                # Found before renaming, the comp shares the spec nodes
+                comp_layer = comp_layer or self.build_stage()
+                changes = self.get_attr_ref_changes(node_path, attr_name,
+                                                    new_name, layer,
+                                                    comp_layer)
+                # The renamed attr's own value moves with it
+                for i, (path, attr, old, new) in enumerate(changes):
+                    if (path, attr) == (node_path, attr_name):
+                        changes[i] = (path, new_name, old, new)
             setattr(node, new_name, getattr(node, attr_name))
             delattr(node, attr_name)
             for meta_attr_suffix in self.meta_attrs:
@@ -1559,6 +1630,98 @@ class Stage:
                     new_meta_attr_name = new_name + meta_attr_suffix
                     setattr(node, new_meta_attr_name, getattr(node, meta_attr))
                     delattr(node, meta_attr)
+            self.apply_attr_ref_changes(changes, layer)
+        return changes
+
+    def get_attr_ref_changes(self, node_path, attr_name, new_attr_name,
+                             layer, comp_layer):
+        """Finds the attr ref tokens in the given layer that resolve to
+        `attr_name` on the node at `node_path`, and what they become if
+        the attr is called `new_attr_name`. That covers `${attr}` in the node
+        itself and in nodes that inherit the attr from it (descendants and
+        instances that do not have their own), plus `${/path.attr}` and
+        relative `${../path.attr}` tokens anywhere in the layer that land on
+        one of those nodes. Code and attr values are both searched.
+        Nothing is returned if another layer still gives the node the attr,
+        since then the tokens still resolve.
+        :param node_path: String of node path the attr is renamed on
+        :param attr_name: String of the attr name tokens use now
+        :param new_attr_name: String of the attr name they should use
+        :param layer: SpecLayer to search
+        :param comp_layer: CompLayer from before the rename
+        :return: List of tuples (node_path, attr_name, old_value, new_value)
+        where attr_name is INTERNAL_ATTRS.COMPUTE for code.
+        """
+        others = [l for l in get_active_layers(self._sub_layers)
+                  if l is not layer]
+        if others and self.get_layers_with_opinion(node_path, others,
+                                                   attr_name):
+            logger.info('{} still has {} from another layer, its tokens are '
+                        'left as they are.'.format(node_path, attr_name))
+            return []
+
+        def refers_to_attr(token, from_path):
+            content = tokens.get_token_content(token)
+            if self.determine_token_type(content) != TOKENTYPE.ATTR:
+                return None
+            ref_path, ref_attr = nxt_path.path_attr_partition(content)
+            if not ref_attr:
+                ref_path, ref_attr = None, content
+            if ref_attr != attr_name:
+                return None
+            target_path = from_path
+            if ref_path:
+                target_path = nxt_path.expand_relative_node_path(ref_path,
+                                                                 from_path)
+            target = comp_layer.lookup(target_path)
+            if target is None:
+                return None
+            _, source_path = self.get_node_attr_source(target, attr_name)
+            if source_path != node_path:
+                return None
+            new_content = content[:len(content) - len(attr_name)]
+            return tokens.make_token_str(new_content + new_attr_name)
+
+        def refactored(text, from_path):
+            if not isinstance(text, str):
+                return text
+            for token in self.get_tokens_from(text):
+                new_token = refers_to_attr(token, from_path)
+                if new_token:
+                    text = text.replace(token, new_token)
+            return text
+
+        changes = []
+        returns = layer.RETURNS.NodeTable
+        for spec_path, spec_node in layer.descendants(return_type=returns):
+            code, has_code = get_opinion(spec_node, INTERNAL_ATTRS.COMPUTE)
+            if has_code and code:
+                new_code = [refactored(line, spec_path) for line in code]
+                if new_code != code:
+                    changes += [(spec_path, INTERNAL_ATTRS.COMPUTE, code,
+                                 new_code)]
+            for attr in get_node_local_attr_names(spec_path, [layer]):
+                value = getattr(spec_node, attr)
+                new_value = refactored(value, spec_path)
+                if new_value != value:
+                    changes += [(spec_path, attr, value, new_value)]
+        return changes
+
+    @staticmethod
+    def apply_attr_ref_changes(changes, layer, revert=False):
+        """Sets the values from `get_attr_ref_changes` or
+        `retarget_instance_paths` on the layer's nodes. Only the spec layer
+        is changed, the comp has to be rebuilt after.
+        :param changes: List of (node_path, attr_name, old_value, new_value)
+        :param layer: SpecLayer the changes were found in
+        :param revert: If True the old values are put back
+        :return: None
+        """
+        for node_path, attr, old_value, new_value in changes:
+            spec_node = layer.lookup(node_path)
+            if spec_node is None:
+                continue
+            setattr(spec_node, attr, old_value if revert else new_value)
 
     def can_rename_targeted(self, old_path, new_path, layer, comp_layer):
         """Whether a rename can be composited in place, without a rebuild.
@@ -1929,6 +2092,8 @@ class Stage:
             (target_layer.real_path, node_path),
         )
         if comp_layer and not unchanged:
+            if self.break_instance_cycles(comp_layer, [node_path]):
+                return list(set(dirty_nodes + [node_path]))
             proxy_map = self.targeted_comp_proxies(comp_node, node_path, comp_layer)
             dirty_nodes += self.targeted_comp_post_proxies(proxy_map, comp_layer)
         return list(set(dirty_nodes))
@@ -2300,6 +2465,11 @@ class Stage:
             node_path = layer.get_node_path(node)
             source_path = nxt_path.expand_relative_node_path(source_path, node_path)
             resolve_source_node = layer.lookup(source_path)
+            if attr_name == INTERNAL_ATTRS.COMPUTE and resolve_source_node:
+                # Code is kept as a list of lines, substitute it as text
+                return self.get_node_code_string(
+                    resolve_source_node, layer, data_state=DATA_STATE.RESOLVED
+                )
             return self.get_node_attr_value(
                 resolve_source_node, attr_name=attr_name, layer=layer, resolved=True
             )
@@ -2374,8 +2544,7 @@ class Stage:
         """
         file_path = self.resolve(node, text, layer)
         try:
-            with open(file_path) as fp:
-                contents = fp.read()
+            contents = nxt_io.read_text(file_path)
         except IOError:
             logger.error("Failed to get contents of {}".format(file_path))
             return ""
@@ -3514,6 +3683,7 @@ class Stage:
             loops += 1
             added_inst_count = 0
             to_do = []
+            self.break_instance_cycles(comp_layer)
             instance_sorted = self.sort_instances(comp_layer, deep_sort=True)
             for _, comp_node in instance_sorted:
                 node_path = comp_layer.get_node_path(comp_node)
@@ -3768,6 +3938,80 @@ class Stage:
             )
             return
         return real_inst_path
+
+    @staticmethod
+    def find_instance_cycle(node_path, comp_node, comp_layer):
+        """Follows the instance chain of the given node and returns it as a
+        list of node paths if it leads back to the node or to one of its
+        ancestors. Such a node would have to contain itself, so comping it
+        either never ends or fails to build an inheritance order.
+        A node directly instancing its own ancestor is left to the ancestor
+        check in `discover_proxies`.
+        :param node_path: String of node path
+        :param comp_node: CompNode
+        :param comp_layer: CompLayer
+        :return: List of node paths ending in the repeated path, or None
+        """
+        _expand = nxt_path.expand_relative_node_path
+        chain = [node_path]
+        node, path = comp_node, node_path
+        while True:
+            inst_path = getattr(node, INTERNAL_ATTRS.INSTANCE_PATH, None)
+            if not inst_path or inst_path is nxt_path.WORLD:
+                return None
+            inst_path = _expand(inst_path, path)
+            closes = (inst_path == node_path or
+                      nxt_path.is_ancestor(node_path, inst_path))
+            if closes and len(chain) == 1 and inst_path != node_path:
+                return None
+            if closes:
+                return chain + [inst_path]
+            if inst_path in chain:
+                # A cycle that does not pass through this node, it is
+                # reported when its own members are checked.
+                return None
+            node = comp_layer.lookup(inst_path)
+            if node is None:
+                return None
+            chain += [inst_path]
+            path = inst_path
+
+    def break_instance_cycles(self, comp_layer, node_paths=None):
+        """Finds nodes whose instance chain leads back to themselves or to
+        one of their ancestors, logs the cycle and ignores the instance
+        path on the node the cycle was found from, so comping can go on.
+        Only the comp node is changed, the saved instance path is kept.
+        :param comp_layer: CompLayer
+        :param node_paths: Optional list of node paths whose instance may be
+        ignored, any cycle that runs through one of them breaks there. When
+        omitted every node is checked and breaks its own cycle.
+        :return: List of node paths whose instance was ignored
+        """
+        broken = []
+        for _, comp_node in list(comp_layer._node_table):
+            if not getattr(comp_node, INTERNAL_ATTRS.INSTANCE_PATH, None):
+                continue
+            node_path = comp_layer.get_node_path(comp_node)
+            chain = self.find_instance_cycle(node_path, comp_node, comp_layer)
+            if not chain:
+                continue
+            if node_paths is None:
+                break_path = node_path
+            else:
+                break_path = None
+                for path in chain[:-1]:
+                    if path in node_paths:
+                        break_path = path
+                        break
+                if break_path is None:
+                    continue
+            msg = "Circular instance: {}. Ignoring the instance path on {}."
+            logger.error(msg.format(" -> ".join(chain), break_path),
+                         links=[break_path])
+            break_node = comp_layer.lookup(break_path)
+            setattr(break_node, INTERNAL_ATTRS.INSTANCE_PATH, None)
+            broken += [break_path]
+        return broken
 
     @staticmethod
     def update_inherited_attrs(comp_node, comp_layer, arcs=CompArc.ALL_ARCS):
@@ -4657,6 +4901,8 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     skip = INTERNAL_ATTRS.PROTECTED + (INTERNAL_ATTRS.CACHED_CODE,)
     console = runtime_layer._console
     graph_globals = console.globals
+    world_node = runtime_layer.lookup(nxt_path.WORLD)
+    world_classes = set(world_node.__mro__) if world_node else set()
     for attr in dir(rt_node):
         if attr in skip:
             continue
@@ -4666,6 +4912,13 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         real = stage.get_attr_as_real_data_type(
             rt_node, attr, runtime_layer, _globals=graph_globals
         )
+        if _attr_owner(rt_node, attr) in world_classes:
+            # The world node's attrs are shared by the whole graph, just as
+            # they are through STAGE, so they are not copied. Copying a large
+            # one cost every node that ran after it was made.
+            pre_run_cache[attr] = real
+            setattr(frame_node, attr, real)
+            continue
         try:
             pre_run_cache[attr] = copy.deepcopy(real)
             setattr(frame_node, attr, copy.deepcopy(real))
@@ -4697,7 +4950,7 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
         clean_globals(lines, good_keys, console.globals)
     for attr_name, pre_run_val in pre_run_cache.items():
         post_run_val = getattr(frame_node, attr_name)
-        if pre_run_val == post_run_val:
+        if pre_run_val is post_run_val or pre_run_val == post_run_val:
             continue
         # Push only changed values back to rt_node, which represents
         # what is inherited by children/instances
@@ -4705,6 +4958,14 @@ def run(runtime_layer, stage=None, rt_node=None, custom_code=None):
     if exit_exception:
         raise exit_exception
     return console.globals
+
+
+def _attr_owner(node, attr):
+    """Returns the class in the node's mro that holds the given attr."""
+    for cls in node.__mro__:
+        if attr in cls.__dict__:
+            return cls
+    return None
 
 
 def clean_globals(code_lines, good_keys, global_dict):

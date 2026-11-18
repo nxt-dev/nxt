@@ -104,7 +104,7 @@ class ServerFunctions(object):
         if parameters:
             parameters_file = nxt_io.generate_temp_file()
             parameters_file = parameters_file.replace(os.sep, '/')
-            with open(parameters_file, 'w+') as fp:
+            with open(parameters_file, 'w+', encoding='utf-8') as fp:
                 json.dump(parameters, fp, separators=(',', ': '))
         else:
             parameters_file = ''
@@ -178,7 +178,7 @@ def secure_address():
     s.bind(('', 0))
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     _, port = s.getsockname()
-    with open(server_info_filepath, 'w+') as fp:
+    with open(server_info_filepath, 'w+', encoding='utf-8') as fp:
         fp.write('localhost' + '\n')
         fp.write(str(port))
     return 'localhost', port

@@ -195,6 +195,31 @@ def expand_relative_node_path(rel_path, start_node_path):
     return current_path
 
 
+def relative_node_path(node_path, start_node_path):
+    """The opposite of `expand_relative_node_path`, gives the path that
+    expands to `node_path` from `start_node_path`.
+
+    >>> nxt_path.relative_node_path('/base/src', '/base/tgt')
+    '../src'
+
+    :param node_path: node path to point at
+    :type node_path: str
+    :param start_node_path: node the relative path starts from
+    :type start_node_path: str
+    :return: relative node path
+    :rtype: str
+    """
+    target = str_path_to_node_namespace(node_path)
+    start = str_path_to_node_namespace(start_node_path)
+    common = 0
+    for target_name, start_name in zip(target, start):
+        if target_name != start_name:
+            break
+        common += 1
+    parts = ['..'] * (len(start) - common) + target[common:]
+    return NODE_SEP.join(parts) or '.'
+
+
 def path_attr_partition(str_path):
     """Returns a tuple of the node path and attribute name from the given path.
 
