@@ -9,6 +9,14 @@
             "/_maya_standalone_graph": [
                 0.0,
                 40.0
+            ],
+            "/_blender_background_graph": [
+                0.0,
+                120.0
+            ],
+            "/_unreal_headless_graph": [
+                0.0,
+                200.0
             ]
         }
     },
@@ -95,6 +103,161 @@
                 "if ${_wait}:",
                 "    process.wait()"
             ]
+        },
+        "/_blender_background_graph": {
+            "comment": "Runs an nxt graph in Blender in the background, without its UI. See integration/blender/run_blender_graph.py.",
+            "code": [
+                "import nxt_editor.constants as constants",
+                "# The parameters go on the command line as JSON.",
+                "parameters = ${_parameters}",
+                "if isinstance(parameters, dict):",
+                "    parameters = json.dumps(parameters)",
+                "",
+                "command = ${_blender_exe} + ['--background']",
+                "# A .blend to open first, if any.",
+                "blend_file = ${_blend_file}",
+                "if blend_file:",
+                "    command += [blend_file]",
+                "# Blender leaves everything after -- to the script.",
+                "command += ['--python', ${_blender_run_command}, '--',",
+                "            '-g', ${_graph_path}, '-p', parameters]",
+                "start_node = ${_start_node}",
+                "if start_node:",
+                "    command += ['-s', start_node]",
+                "process = subprocess.Popen(command, shell=${_use_shell})",
+                "",
+                "# if _wait is set to True, this node will not continue the build",
+                "# until Blender is done",
+                "if ${_wait}:",
+                "    process.wait()"
+            ],
+            "attrs": {
+                "_BLENDER_LOCATION": {
+                    "comment": "Where Blender is installed",
+                    "type": "raw",
+                    "value": "${file::C:/Program Files/Blender Foundation/Blender ${_blender_version}}"
+                },
+                "_blend_file": {
+                    "comment": "A .blend file to open before the graph runs, or None for a new scene.",
+                    "type": "NoneType",
+                    "value": "None"
+                },
+                "_blender_exe": {
+                    "comment": "The Blender executable",
+                    "type": "list",
+                    "value": "[\"${_BLENDER_LOCATION}/blender.exe\"]"
+                },
+                "_blender_run_command": {
+                    "comment": "The script Blender runs the graph with",
+                    "type": "raw",
+                    "value": "os.path.join(constants.EDITOR_DIR, \"integration/blender/run_blender_graph.py\")"
+                },
+                "_blender_version": {
+                    "comment": "Which version of Blender to use. This helps construct _BLENDER_LOCATION",
+                    "type": "float",
+                    "value": "5.1"
+                },
+                "_graph_path": {
+                    "comment": "The path to the nxt graph you want to run.",
+                    "type": "str",
+                    "value": "\"\""
+                },
+                "_parameters": {
+                    "comment": "Values to set before the graph runs, keyed by attribute path, eg {'/.name': 'test'}",
+                    "type": "dict",
+                    "value": "{}"
+                },
+                "_start_node": {
+                    "comment": "The node to start from, as a string such as '/build'. None runs from the graph's own start point.",
+                    "type": "NoneType",
+                    "value": "None"
+                },
+                "_use_shell": {
+                    "type": "bool",
+                    "value": "False"
+                },
+                "_wait": {
+                    "comment": "Whether to wait for the run to finish before the build continues",
+                    "type": "bool",
+                    "value": "False"
+                }
+            }
+        },
+        "/_unreal_headless_graph": {
+            "comment": "Runs an nxt graph in Unreal without its UI, in a project that has the nxt plugin enabled. See the plugin's Content/Python/run_unreal_graph.py.",
+            "code": [
+                "# Unreal splits -script at every space, so the arguments go to the",
+                "# runner in NXT_RUN_GRAPH_ARGS, and any path works.",
+                "parameters = ${_parameters}",
+                "if isinstance(parameters, dict):",
+                "    parameters = json.dumps(parameters)",
+                "args = ['-g', ${_graph_path}, '-p', parameters]",
+                "start_node = ${_start_node}",
+                "if start_node:",
+                "    args += ['-s', start_node]",
+                "env = dict(os.environ, NXT_RUN_GRAPH_ARGS=json.dumps(args))",
+                "",
+                "command = ${_unreal_cmd_exe} + [${_project}, '-run=pythonscript',",
+                "                                '-script=run_unreal_graph.py']",
+                "command += ${_unreal_args}",
+                "process = subprocess.Popen(command, shell=${_use_shell}, env=env)",
+                "",
+                "# if _wait is set to True, this node will not continue the build",
+                "# until Unreal is done",
+                "if ${_wait}:",
+                "    process.wait()"
+            ],
+            "attrs": {
+                "_UNREAL_LOCATION": {
+                    "comment": "Where the engine is installed",
+                    "type": "raw",
+                    "value": "${file::C:/Program Files/Epic Games/UE_${_unreal_version}}"
+                },
+                "_project": {
+                    "comment": "The .uproject to run in. It must have the nxt plugin and the Python Editor Script Plugin enabled.",
+                    "type": "str",
+                    "value": "\"\""
+                },
+                "_unreal_args": {
+                    "comment": "More arguments for Unreal",
+                    "type": "list",
+                    "value": "[\"-unattended\", \"-nosplash\", \"-nullrhi\"]"
+                },
+                "_unreal_cmd_exe": {
+                    "comment": "The engine's command line editor",
+                    "type": "list",
+                    "value": "[\"${_UNREAL_LOCATION}/Engine/Binaries/Win64/UnrealEditor-Cmd.exe\"]"
+                },
+                "_unreal_version": {
+                    "comment": "Which version of the engine to use. This helps construct _UNREAL_LOCATION",
+                    "type": "float",
+                    "value": "5.4"
+                },
+                "_graph_path": {
+                    "comment": "The path to the nxt graph you want to run.",
+                    "type": "str",
+                    "value": "\"\""
+                },
+                "_parameters": {
+                    "comment": "Values to set before the graph runs, keyed by attribute path, eg {'/.name': 'test'}",
+                    "type": "dict",
+                    "value": "{}"
+                },
+                "_start_node": {
+                    "comment": "The node to start from, as a string such as '/build'. None runs from the graph's own start point.",
+                    "type": "NoneType",
+                    "value": "None"
+                },
+                "_use_shell": {
+                    "type": "bool",
+                    "value": "False"
+                },
+                "_wait": {
+                    "comment": "Whether to wait for the run to finish before the build continues",
+                    "type": "bool",
+                    "value": "False"
+                }
+            }
         },
         "/_sub_graph": {
             "attrs": {
