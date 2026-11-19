@@ -27,6 +27,18 @@ class Session(object):
         self.log_file = nxt_log.make_session_log()
         self.rpc_server = None
 
+    def close(self):
+        """Let go of what this session holds outside of itself: its rpc
+        server, if it owns one, and its log file. Call it when you are done
+        with a session, otherwise the session keeps logging to its file for
+        as long as the interpreter lives. Safe to call more than once.
+
+        :return: None
+        """
+        if self.rpc_server:
+            self.shutdown_rpc_server()
+        nxt_log.stop_session_log(self.log_file)
+
     @property
     def loaded_files(self):
         return self._loaded_files

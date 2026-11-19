@@ -69,9 +69,12 @@ def execute_graph(filepath, start=None, parameters=None, context=None):
                     '{}'.format(list(contexts.iter_context_names())))
         raise NameError('Unknown context: "{}"'.format(context))
     one_shot_session = Session()
-    one_shot_session.execute_graph(filepath,
-                                   start=start, parameters=parameters,
-                                   context=context)
+    try:
+        one_shot_session.execute_graph(filepath,
+                                       start=start, parameters=parameters,
+                                       context=context)
+    finally:
+        one_shot_session.close()
 
 
 def create_context(custom_name, interpreter_exe=sys.executable,

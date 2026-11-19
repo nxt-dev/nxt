@@ -245,6 +245,11 @@ def get_new_session_log_filename():
     """Get a new log filename for an nxt session inside the default logs directory.
     Attempts to create logs directory.
 
+    The file is named after the second it is asked for in. When that name is
+    taken, by a session of this interpreter or by a file that is already
+    there, a counter is added: `nxt_session_<seconds>_1.log`, `_2` and so
+    on. The empty file is created here, so the name is taken from then on.
+
     :return: filename to use for session log.
     :rtype: str
     """
@@ -258,21 +263,39 @@ def get_new_session_log_filename():
         else:
             raise
     log_filename_template = "nxt_session_{time}.log"
-    log_filename = log_filename_template.format(time=str(int(time.time())))
-    return os.path.join(LOG_DIR, log_filename)
+    seconds = str(int(time.time()))
+    count = 0
+    while True:
+        stamp = '{}_{}'.format(seconds, count) if count else seconds
+        log_filename = log_filename_template.format(time=stamp)
+        log_filepath = os.path.join(LOG_DIR, log_filename)
+        count += 1
+        if log_filepath in SESSION_LOG_HANDLERS:
+            continue
+        try:
+            # Fails if the file is there, so two sessions never get the same.
+            os.close(os.open(log_filepath,
+                             os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except OSError as err:
+            if err.errno == errno.EEXIST:
+                continue
+            raise
+        return log_filepath
 
 
 def stop_session_log(filename):
-    """Stops outputting log to given filename.
+    """Stops outputting log to given filename and closes the file. Safe to
+    call more than once, or with a file that is not being logged to.
 
     :param filename: filename to stop outputting to.
     :type filename: str, required
     """
-    handler = SESSION_LOG_HANDLERS.get(filename)
+    handler = SESSION_LOG_HANDLERS.pop(filename, None)
     if not handler:
         return
     root_logger = logging.getLogger('nxt')
     root_logger.removeHandler(handler)
+    handler.close()
 
 
 def make_link(value):
