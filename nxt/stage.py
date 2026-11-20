@@ -3727,6 +3727,9 @@ class Stage:
         instance_sorted_nodes = self.sort_instances(comp_layer)
         for arc in CompArc.POST_PROXY_ARCS:
             overload_attrs = CompArc.INHERITANCE_MAP[arc]
+            # (node path, node, parent) for every node the parent arc gives a
+            # base to. See _add_parent_bases.
+            parent_bases = []
             for _, comp_node in instance_sorted_nodes:
                 base_path = None
                 node_path = comp_layer.get_node_path(comp_node)
@@ -3788,7 +3791,7 @@ class Stage:
                 if arc == CompArc.INSTANCE:
                     self._safe_mro_add_base_class(comp_node, base)
                 else:
-                    self._add_base_class(comp_node, base)
+                    parent_bases += [(node_path, comp_node, base)]
                 # Assemble roots and node count
                 parent_path = getattr(comp_node, INTERNAL_ATTRS.PARENT_PATH)
                 no_parent = parent_path is nxt_path.WORLD
@@ -3798,8 +3801,26 @@ class Stage:
                 if arc_idx == 0:
                     total_count += 1
                 del base, node_path, comp_node
+            self._add_parent_bases(parent_bases)
             arc_idx += 1
         return root_count, total_count
+
+    def _add_parent_bases(self, parent_bases):
+        """Give each node its parent as a base, parents before children.
+
+        The parent arc copies no attrs, so each node ends up with the same
+        bases whatever order they are added in. Setting a class's bases has
+        Python work out the MRO again for every class already inheriting
+        from it, so adding them top down, when nothing inherits from a node
+        yet, saves redoing it for each node's whole subtree.
+
+        :param parent_bases: (node path, comp node, parent comp node) tuples
+        :type parent_bases: list
+        """
+        depth = nxt_path.get_path_depth
+        parent_bases.sort(key=lambda item: depth(item[0]))
+        for _, comp_node, base in parent_bases:
+            self._add_base_class(comp_node, base)
 
     def targeted_comp_post_proxies(self, proxy_map, comp_layer=None):
         """Given a proxy map, this function finishes the compositing of nodes
