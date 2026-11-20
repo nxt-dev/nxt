@@ -39,6 +39,7 @@ setuptools.setup(
         # Covers builtin, and full depth of test graphs/files
         "nxt": ["version.json",
                 "builtin/*",
+                "_bin/*/*",
                 "test/*",
                 "test/spec_graphs/*",
                 "test/legacy/*",
