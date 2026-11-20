@@ -12,3 +12,7 @@ build/
 site/
 nxt/ui/resources.py
 .rez_build/
+
+# Native speedups: build output, and the binaries CI puts in releases.
+native/target/
+nxt/_bin/

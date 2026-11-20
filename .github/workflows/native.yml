@@ -1,0 +1,116 @@
+name: Native
+
+# Builds nxt's optional native speedups (native/) for every OS nxt supports,
+# then tests that each build gives what the Python code gives.
+#
+# Each build is for Python's stable ABI (abi3), so one per OS serves every
+# Python from 3.10 up, including the ones in Maya, Blender and Unreal. The
+# builds are collected into one artifact laid out as nxt/_bin/<platform>/,
+# which a release copies into the package. nxt runs without them, using the
+# same code in Python.
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths: [ 'native/**', 'nxt/native.py', 'nxt/tokens.py',
+             '.github/workflows/native.yml' ]
+  push:
+    branches: [ dev, release ]
+    paths: [ 'native/**', 'nxt/native.py', 'nxt/tokens.py',
+             '.github/workflows/native.yml' ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            tag: windows_x86_64
+            target: x86_64-pc-windows-msvc
+          - os: macos-14
+            tag: macos_universal
+            target: universal2-apple-darwin
+          - os: ubuntu-24.04
+            tag: linux_x86_64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            tag: linux_arm64
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: native
+          target: ${{ matrix.target }}
+          # Old enough glibc for the Linux versions studios run hosts on.
+          manylinux: '2014'
+          args: --release --out dist
+
+      - name: Take the module out of the wheel
+        shell: bash
+        run: |
+          mkdir -p "out/nxt/_bin/${{ matrix.tag }}"
+          cd native/dist
+          python -m zipfile -e *.whl wheel
+          built=$(find wheel -name '_nxt_native*.pyd' -o -name '_nxt_native*.so' | head -1)
+          case "$built" in
+            *.pyd) name=_nxt_native.pyd ;;
+            *) name=_nxt_native.so ;;
+          esac
+          cp "$built" "../../out/nxt/_bin/${{ matrix.tag }}/$name"
+          ls -l "../../out/nxt/_bin/${{ matrix.tag }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.tag }}
+          path: out
+
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14, macos-13, ubuntu-24.04, ubuntu-24.04-arm]
+        python-version: ['3.10', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+
+      - name: The native module loads, and matches the Python code
+        shell: bash
+        run: |
+          pip install pytest
+          python -c "from nxt import native; assert native.lib, native.platform_tag(); print(native.platform_tag(), native.lib.__file__)"
+          python -m pytest -q -p no:cacheprovider nxt/test/test_native.py nxt/test/test_tokens.py
+
+  bundle:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: bundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native
+          path: bundle

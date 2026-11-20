@@ -1,0 +1,20 @@
+[package]
+name = "nxt_native"
+version = "0.1.0"
+edition = "2021"
+description = "Optional native speedups for nxt. Every function has a pure Python twin in nxt that gives the same result."
+license = "MIT"
+publish = false
+
+[lib]
+name = "_nxt_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+# abi3: one build per OS serves every Python from 3.10 up, including the
+# ones inside Maya, Blender and Unreal.
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+
+[profile.release]
+lto = true
+codegen-units = 1

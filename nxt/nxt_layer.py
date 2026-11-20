@@ -784,28 +784,31 @@ class SpecLayer(object):
 
     def get_root_exec_order(self, start_root_path):
         exec_order = [start_root_path]
+        # The root that runs after each root, found in one pass over the
+        # roots. Looking for it among every root at each step made a long
+        # chain quadratic. The first root naming one wins, as before.
+        next_roots = {}
+        exec_in_attr = nxt_node.INTERNAL_ATTRS.EXECUTE_IN
+        for root in self.children():
+            exec_in = getattr(root, exec_in_attr, None)
+            if exec_in is not None and exec_in not in next_roots:
+                next_roots[exec_in] = root
+        seen = {start_root_path}
         prev_root_path = start_root_path
         while True:
-            for root in self.children():
-                try:
-                    exec_in = getattr(root, nxt_node.INTERNAL_ATTRS.EXECUTE_IN)
-                    match = exec_in == prev_root_path
-                except AttributeError:
-                    continue
-                if not match:
-                    continue
-                prev_root_path = self.get_node_path(root)
-                if prev_root_path in exec_order:
-                    cycle = exec_order + [prev_root_path]
-                    logger.error('Circular execute in: {}. Stopping before '
-                                 '{} runs again.'.format(' -> '.join(cycle),
-                                                         prev_root_path),
-                                 links=[prev_root_path])
-                    return exec_order
-                exec_order += [prev_root_path]
-                break  # for loop
-            else:
-                break  # while loop
+            root = next_roots.get(prev_root_path)
+            if root is None:
+                break
+            prev_root_path = self.get_node_path(root)
+            if prev_root_path in seen:
+                cycle = exec_order + [prev_root_path]
+                logger.error('Circular execute in: {}. Stopping before '
+                             '{} runs again.'.format(' -> '.join(cycle),
+                                                     prev_root_path),
+                             links=[prev_root_path])
+                return exec_order
+            seen.add(prev_root_path)
+            exec_order += [prev_root_path]
         return exec_order
 
     def get_muted(self, local=False):

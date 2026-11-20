@@ -58,6 +58,13 @@ nxt.execute_graph('path/to/graph.nxt')
 **Update:**  
 `pip install -U nxt-core`
 
+**Native speedups:**  
+Releases carry a compiled module for Windows, macOS and Linux that makes
+some of nxt's work faster. nxt gives the same results without it, so it
+runs anywhere, and `NXT_NO_NATIVE=1` turns it off. In a checkout, build it
+for your machine with [Rust](https://rustup.rs) installed:
+`python native/build.py`
+
 <br>
 
 ## Special Thanks

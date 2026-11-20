@@ -5,6 +5,8 @@ import logging
 import sys
 from collections import namedtuple
 
+from nxt import native
+
 logger = logging.getLogger('nxt.tokens')
 
 TOKEN_PREFIX = '${'
@@ -96,8 +98,13 @@ def get_standalone_tokens(raw_value, token_types=None):
     else:
         if not raw_value or not isinstance(raw_value, str):
             return []
+    if TOKEN_PREFIX not in raw_value:
+        return []
     if token_types is None:
         token_types = TOKENTYPE.ALL
+    if native.lib:
+        return native.lib.standalone_tokens(
+            raw_value, [t.prefix for t in token_types])
     i = 0
     bounds = []
     starts = 0
