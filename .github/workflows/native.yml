@@ -28,7 +28,7 @@ jobs:
           - os: windows-latest
             tag: windows_x86_64
             target: x86_64-pc-windows-msvc
-          - os: macos-14
+          - os: macos-latest
             tag: macos_universal
             target: universal2-apple-darwin
           - os: ubuntu-24.04
@@ -58,15 +58,17 @@ jobs:
         shell: bash
         run: |
           mkdir -p "out/nxt/_bin/${{ matrix.tag }}"
-          cd native/dist
-          python -m zipfile -e *.whl wheel
-          built=$(find wheel -name '_nxt_native*.pyd' -o -name '_nxt_native*.so' | head -1)
+          # Outside dist, which the Linux build container leaves owned by
+          # root.
+          wheel="$RUNNER_TEMP/wheel"
+          python -m zipfile -e native/dist/*.whl "$wheel"
+          built=$(find "$wheel" -name '_nxt_native*.pyd' -o -name '_nxt_native*.so' | head -1)
           case "$built" in
             *.pyd) name=_nxt_native.pyd ;;
             *) name=_nxt_native.so ;;
           esac
-          cp "$built" "../../out/nxt/_bin/${{ matrix.tag }}/$name"
-          ls -l "../../out/nxt/_bin/${{ matrix.tag }}"
+          cp "$built" "out/nxt/_bin/${{ matrix.tag }}/$name"
+          ls -l "out/nxt/_bin/${{ matrix.tag }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -78,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-14, macos-13, ubuntu-24.04, ubuntu-24.04-arm]
+        os: [windows-latest, macos-latest, ubuntu-24.04, ubuntu-24.04-arm]
         python-version: ['3.10', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
