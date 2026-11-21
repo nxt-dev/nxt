@@ -305,7 +305,9 @@ class Plan(object):
             entry['paths'] += [path]
             entry['table'] += [[path, node]]
             entry['names'][self.name(node)] = node
-        self.cached_children = cache
+        # As CompLayer._build_child_cache: only paths with no entry yet.
+        for path, entry in cache.items():
+            self.cached_children.setdefault(path, entry)
         self.bulk_valid = True
 
     def _build_implied_index(self):
@@ -1011,6 +1013,9 @@ class Plan(object):
 
 
 ENGINE_ENV_VAR = 'NXT_COMP_ENGINE'
+# The native module's VERSION that composites as this file does. An older
+# build, left in place by an update, is not used.
+NATIVE_VERSION = 4
 
 # The attrs the native plan knows, in INTERNAL_ATTRS.ALL order, then the
 # source metas of the tracked ones. native/src/comp.rs numbers them so.
@@ -1055,6 +1060,8 @@ def native_build(stage, comp_layer, strict=False):
     from nxt.nxt_node import Node
     if native.lib is None or not hasattr(native.lib, 'comp_plan'):
         raise Fallback('no native comp')
+    if getattr(native.lib, 'VERSION', 0) != NATIVE_VERSION:
+        raise Fallback('the native module is another version')
     if comp_layer.real_path is None:
         raise Fallback('a comp layer without a path')
     specs = []

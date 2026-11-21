@@ -100,7 +100,7 @@ jobs:
         run: |
           pip install pytest
           python -c "from nxt import native; assert native.lib, native.platform_tag(); print(native.platform_tag(), native.lib.__file__)"
-          python -m pytest -q -p no:cacheprovider nxt/test/test_native.py nxt/test/test_tokens.py nxt/test/test_comp_engines.py
+          python -m pytest -q -p no:cacheprovider nxt/test/test_native.py nxt/test/test_tokens.py nxt/test/test_comp_engines.py nxt/test/test_runtime_copy.py
 
   bundle:
     needs: test

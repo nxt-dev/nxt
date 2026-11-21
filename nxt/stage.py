@@ -4601,6 +4601,8 @@ class Stage:
         :return: a runtime CompLayer object
         :rtype: CompLayer
         """
+        # A comp made here is made for this run, so it is run in.
+        use_layer = not layer
         if not layer:
             layer = self.build_stage(from_idx=0)
 
@@ -4626,9 +4628,11 @@ class Stage:
                         )
 
         exec_order = layer.get_exec_order(start_path)
-        return self.execute_nodes(exec_order, layer, parameters)
+        return self.execute_nodes(exec_order, layer, parameters,
+                                  use_layer=use_layer)
 
-    def execute_nodes(self, node_paths, layer, parameters=None):
+    def execute_nodes(self, node_paths, layer, parameters=None,
+                      use_layer=False):
         """Execute nodes at given `node_paths` using given `layer`. Returns
         runtime layer object that if passed as layer argument to successive
         calls will "continue" execution with the same cached values.
@@ -4642,6 +4646,12 @@ class Stage:
         :param parameters: Optional dict of {'/node.attr': value} to be
         applied before execution begins.
         :type parameters: dict
+        :param use_layer: True when layer, a comp layer that is not a
+            runtime layer, was composited for this run and the stage is
+            unchanged since: it is run in, rather than composited again.
+            Left False, layer is left as it is, and the run is in a new
+            comp of the stage as it is now.
+        :type use_layer: bool
         :raises ValueError: When layer argument has invalid value;
         GraphError: For any exception raised by a node's compute.
         :return: Runtime CompLayer that can be used for continued execution.
@@ -4654,7 +4664,10 @@ class Stage:
         nxt_path.clear_file_expand_cache()
         self._inferred_comp_cache = {}
         if not layer.runtime:
-            dup_comp = self.build_stage(layer.layer_idx())
+            if use_layer:
+                dup_comp = layer
+            else:
+                dup_comp = self.build_stage(layer.layer_idx())
             runtime_layer = self.setup_runtime_layer(dup_comp, parameters=parameters)
         else:
             runtime_layer = layer
@@ -4833,8 +4846,17 @@ class Stage:
         runtime_layer = comp_layer
         runtime_layer.runtime = True
         return_type = runtime_layer.RETURNS.NodeTable
-        for path, node in runtime_layer.descendants(return_type=return_type):
-            setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
+        # The many small lists made here set off the collector, which walks
+        # every class of the comp each time, as in build_stage.
+        collecting = gc.isenabled()
+        gc.disable()
+        try:
+            for path, node in runtime_layer.descendants(
+                    return_type=return_type):
+                setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
+        finally:
+            if collecting:
+                gc.enable()
         # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:

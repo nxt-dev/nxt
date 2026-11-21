@@ -162,7 +162,7 @@ fn comp_plan(
 
 #[pymodule]
 fn _nxt_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add("VERSION", 3)?;
+    m.add("VERSION", 4)?;
     m.add_function(wrap_pyfunction!(standalone_tokens, m)?)?;
     m.add_function(wrap_pyfunction!(comp_plan, m)?)?;
     Ok(())

@@ -419,6 +419,9 @@ impl<K: std::hash::Hash + Eq + Clone, T> OMap<K, T> {
     fn iter(&self) -> impl Iterator<Item = (&K, &T)> {
         self.items.iter().filter_map(|e| e.as_ref().map(|(k, v)| (k, v)))
     }
+    fn into_items(self) -> impl Iterator<Item = (K, T)> {
+        self.items.into_iter().flatten()
+    }
 }
 
 impl<T> OMap<S, T> {
@@ -1136,7 +1139,12 @@ impl Plan {
             entry.table.push((path.clone(), *node));
             entry.names.insert(name, *node);
         }
-        self.cached_children = cache;
+        // As CompLayer._build_child_cache: only paths with no entry yet.
+        for (path, entry) in cache.into_items() {
+            if !self.cached_children.contains_str(&path) {
+                self.cached_children.insert(path, entry);
+            }
+        }
         self.bulk_valid = true;
         Ok(())
     }
