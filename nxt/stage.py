@@ -31,6 +31,7 @@ from .nxt_node import (
     META_ATTRS,
     INTERNAL_ATTRS,
 )
+from . import comp_plan
 from .nxt_layer import (
     SpecLayer,
     CompLayer,
@@ -3259,21 +3260,27 @@ class Stage:
         if not comp_layer._sublayer_node_tables:
             logger.compinfo("No nodes found!")
             return comp_layer
-        """Pre proxy comp"""
-        node_count = self.comp_pre_proxies(comp_layer=comp_layer)
-        """Proxy comp"""
-        proxy_count, loops = self.comp_proxies(
-            comp_layer=comp_layer, node_count=node_count
-        )
-        """Post proxy comp"""
-        try:
-            root_count, total_count = self.post_proxy_comp(comp_layer)
+        planned = comp_plan.build(self, comp_layer)
+        if planned is not None:
+            node_count, proxy_count, loops, root_count, total_count = planned
             logger.compinfo(("Number of nodes -->", total_count))
             logger.compinfo(("Number of roots --> ", root_count))
-        except Exception as e:
-            logger.debug(e)
-            logger.critical("The comp encounter a critical error")
-            comp_layer.failure = traceback.format_exc()
+        else:
+            """Pre proxy comp"""
+            node_count = self.comp_pre_proxies(comp_layer=comp_layer)
+            """Proxy comp"""
+            proxy_count, loops = self.comp_proxies(
+                comp_layer=comp_layer, node_count=node_count
+            )
+            """Post proxy comp"""
+            try:
+                root_count, total_count = self.post_proxy_comp(comp_layer)
+                logger.compinfo(("Number of nodes -->", total_count))
+                logger.compinfo(("Number of roots --> ", root_count))
+            except Exception as e:
+                logger.debug(e)
+                logger.critical("The comp encounter a critical error")
+                comp_layer.failure = traceback.format_exc()
 
         logger.compinfo(("Number of instances created --> ", proxy_count))
         logger.compinfo(("Number of layers --> ", active_layer_count))

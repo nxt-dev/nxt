@@ -191,6 +191,13 @@ class CompNode(object):
             attrs = {}
         return type(cls.__name__, bases, attrs)
 
+    @classmethod
+    def new_with_bases(cls, bases, attrs=None):
+        """A comp node made with all its bases at once, see comp_plan."""
+        if attrs is None:
+            attrs = {}
+        return type(cls.__name__, tuple(bases), attrs)
+
 
 def get_node_attr(node_object, attr, default=None):
     return getattr(node_object, attr, default)
