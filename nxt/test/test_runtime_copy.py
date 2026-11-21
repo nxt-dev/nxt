@@ -16,7 +16,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from nxt import nxt_path
+from nxt import nxt_layer, nxt_path
 from nxt.nxt_layer import LayerReturnTypes, comp_differences
 from nxt.session import Session
 from nxt.stage import Stage
@@ -106,6 +106,53 @@ class Copy(unittest.TestCase):
         found = comp_differences(copied, comp)
         self.assertEqual(1, len(found))
         self.assertIn('/inst', found[0])
+
+
+class ChangedNodes(unittest.TestCase):
+    """What a view of an old comp has to draw again for a new one."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp(prefix='nxt_changed_nodes_')
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.stage = Session().load_file(write_graph(self.folder, {
+            '/src': {'attrs': {'v': {'value': 'x'}}},
+            '/inst': {'instance': '/src'},
+            '/other': {},
+        }))
+
+    def test_none_between_two_comps_of_the_same_layers(self):
+        self.assertEqual([], nxt_layer.changed_nodes(
+            self.stage.build_stage(), self.stage.build_stage()))
+
+    def test_a_changed_node_and_what_inherits_from_it(self):
+        old = self.stage.build_stage()
+        new = self.stage.build_stage()
+        new.lookup('/src').v = 'changed'
+        self.assertEqual({'/src', '/inst'},
+                         set(nxt_layer.changed_nodes(old, new)))
+
+    def test_added_and_removed_nodes(self):
+        old = self.stage.build_stage()
+        self.stage.add_node(name='added', layer=self.stage.top_layer)
+        self.stage.delete_node(self.stage.top_layer.lookup('/other'),
+                               self.stage.top_layer)
+        new = self.stage.build_stage()
+        self.assertEqual({'/added', '/other'},
+                         set(nxt_layer.changed_nodes(old, new)))
+
+
+class InstanceCycle(unittest.TestCase):
+
+    def test_instancing_its_own_child_in_place_leaves_it_out(self):
+        folder = tempfile.mkdtemp(prefix='nxt_instance_cycle_')
+        self.addCleanup(shutil.rmtree, folder, True)
+        stage = Session().load_file(write_graph(folder, {'/a': {},
+                                                         '/a/b': {}}))
+        comp = stage.build_stage()
+        layer = stage.top_layer
+        stage.set_node_instance_path(layer.lookup('/a'), '/a/b', layer,
+                                     comp)
+        self.assertNotIn(comp.lookup('/a/b'), comp.lookup('/a').__mro__)
 
 
 class OneComp(unittest.TestCase):

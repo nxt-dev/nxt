@@ -4102,6 +4102,11 @@ class Stage:
         if not base:
             logger.error("Invalid baseclass provided!")
             return
+        if comp_node in base.__mro__:
+            # It would inherit from itself, see _replace_base_classes.
+            logger.debug('Left out a base of {} that inherits from it'
+                         ''.format(comp_node))
+            return
         comp_node.__bases__ += (base,)
 
     @staticmethod
@@ -4112,6 +4117,15 @@ class Stage:
             if not bases:
                 logger.critical("No valid bases found in the bases tuple!")
                 return
+        # A node instancing its own descendant, or anything inheriting from
+        # it, would inherit from itself. A comp leaves that instance out,
+        # so this does too. Assigning it raised inside the editor's undo
+        # stack, which took the whole application down.
+        acyclic = tuple(b for b in bases if comp_node not in b.__mro__)
+        if len(acyclic) != len(bases):
+            logger.debug('Left out a base of {} that inherits from it'
+                         ''.format(comp_node))
+            bases = acyclic or comp_node.__bases__
         if bases != comp_node.__bases__:
             comp_node.__bases__ = bases
         return

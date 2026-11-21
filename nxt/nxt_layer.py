@@ -1214,6 +1214,124 @@ class SpecLayer(object):
             setattr(node, nxt_node.INTERNAL_ATTRS.SOURCE_LAYER, self.real_path)
 
 
+class _Described(object):
+    """Describes the nodes of two comps of the same layers so they can be
+    compared: a node class by the path it is at, a spec layer's node by
+    itself, as every comp of the layer shares it, and a class the comp
+    made for a proxy by what it has."""
+
+    def __init__(self, comp, other):
+        self.names = ({}, {})
+        self.spec = set()
+        for layer, names in zip((comp, other), self.names):
+            for path, node in layer._nodes_path_as_key.items():
+                names[node] = path
+            for table in layer._sublayer_node_tables:
+                for _path, node in table:
+                    self.spec.add(node)
+        # What is worked out for a class is kept, per comp.
+        self.keys = ({}, {})
+
+    def key(self, cls, side):
+        memo = self.keys[side]
+        found = memo.get(cls)
+        if found is not None:
+            return found
+        names = self.names[side]
+        if cls in names:
+            found = ('node', names[cls])
+        elif cls is object or cls is nxt_node.Node:
+            found = cls.__name__
+        elif cls in self.spec:
+            found = ('spec', id(cls))
+        else:
+            # Its name stands in for it while that is worked out.
+            memo[cls] = ('made', cls.__name__)
+            found = ('made', cls.__name__, tuple(
+                (k, self.value(v, side)) for k, v in cls.__dict__.items()
+                if k not in _CLASS_OWN),
+                tuple(self.key(b, side) for b in cls.__bases__))
+        memo[cls] = found
+        return found
+
+    def value(self, v, side):
+        if isinstance(v, type):
+            return self.key(v, side)
+        if isinstance(v, (list, tuple)):
+            return (type(v).__name__,
+                    tuple(self.value(x, side) for x in v))
+        if isinstance(v, dict):
+            return ('dict', tuple((k, self.value(x, side))
+                                  for k, x in v.items()))
+        return v
+
+    def own(self, node, side):
+        return {k: self.value(v, side) for k, v in node.__dict__.items()
+                if k not in _CLASS_OWN}
+
+    def same_own(self, node, other):
+        """Whether node, of the first comp, and other, of the second, have
+        the same values of their own. Values that are equal as they are
+        are not described: only a class among them is a different object
+        in each comp."""
+        mine = node.__dict__
+        theirs = other.__dict__
+        if len(mine) != len(theirs):
+            return False
+        for (k, v), (other_k, other_v) in zip(mine.items(), theirs.items()):
+            if k != other_k:
+                return False
+            if v is other_v or k in _CLASS_OWN:
+                continue
+            try:
+                if v == other_v:
+                    continue
+            except Exception:
+                pass
+            if self.value(v, 0) != self.value(other_v, 1):
+                return False
+        return True
+
+    def same_class(self, cls, other, pairs):
+        """Whether cls, of the first comp, stands where other, of the
+        second, does: the node at the same path, the same spec node, or a
+        class the comp made with the same values and bases."""
+        key = (id(cls), id(other))
+        found = pairs.get(key)
+        if found is not None:
+            return found
+        names, other_names = self.names
+        if cls in names or other in other_names:
+            found = names.get(cls) == other_names.get(other)
+        elif cls is other:
+            found = True
+        elif (cls in self.spec or other in self.spec or
+                cls.__name__ != other.__name__ or
+                len(cls.__bases__) != len(other.__bases__)):
+            found = False
+        else:
+            # Taken as the same while its bases are looked at.
+            pairs[key] = True
+            found = (self.same_own(cls, other) and
+                     all(self.same_class(b, other_b, pairs) for b, other_b
+                         in zip(cls.__bases__, other.__bases__)))
+        pairs[key] = found
+        return found
+
+    def same_mro(self, node, other, pairs):
+        mro = node.__mro__
+        other_mro = other.__mro__
+        return len(mro) == len(other_mro) and all(
+            self.same_class(c, other_c, pairs)
+            for c, other_c in zip(mro, other_mro))
+
+    def bases(self, node, side):
+        return tuple(self.key(b, side) for b in node.__bases__)
+
+    def mro(self, node, side):
+        return tuple(self.key(b, side) for b in node.__mro__)
+
+
 def comp_differences(comp, other, limit=20):
     """How two comps of the same layers differ, as a run would see them:
     which nodes there are, each node's own values, its bases and the order
@@ -1231,59 +1349,7 @@ def comp_differences(comp, other, limit=20):
     :rtype: list
     """
     found = []
-    paths = {}
-    other_paths = {}
-    spec = set()
-    for layer, names in ((comp, paths), (other, other_paths)):
-        for path, node in layer._nodes_path_as_key.items():
-            names[node] = path
-        for table in layer._sublayer_node_tables:
-            for _path, node in table:
-                spec.add(node)
-
-    keys = {}
-
-    def key(cls, names):
-        # Each comp's classes are told apart by the comp's own names, so
-        # what is worked out for one is kept per comp.
-        memo = keys.setdefault(id(names), {})
-        found_key = memo.get(cls)
-        if found_key is not None:
-            return found_key
-        if cls in names:
-            found_key = ('node', names[cls])
-        elif cls is object or cls is nxt_node.Node:
-            found_key = cls.__name__
-        elif cls in spec:
-            # A spec layer's node, shared by every comp of it.
-            found_key = ('spec', id(cls))
-        else:
-            # Made by the comp, for a proxy: told by what it has. Its
-            # name stands in for it while that is worked out.
-            memo[cls] = ('made', cls.__name__)
-            found_key = ('made', cls.__name__, tuple(
-                (k, value(v, names)) for k, v in cls.__dict__.items()
-                if k not in _CLASS_OWN),
-                tuple(key(b, names) for b in cls.__bases__))
-        memo[cls] = found_key
-        return found_key
-
-    def value(v, names):
-        if isinstance(v, type):
-            return key(v, names)
-        if isinstance(v, (list, tuple)):
-            return (type(v).__name__, tuple(value(x, names) for x in v))
-        if isinstance(v, dict):
-            return ('dict', tuple((k, value(x, names))
-                                  for k, x in v.items()))
-        return v
-
-    def describe(node, names):
-        own = {k: value(v, names) for k, v in node.__dict__.items()
-               if k not in _CLASS_OWN}
-        return (own, tuple(key(b, names) for b in node.__bases__),
-                tuple(key(b, names) for b in node.__mro__))
-
+    described = _Described(comp, other)
     # Every child list is asked for below. Missing ones are filled in one
     # pass first, as asking for each would fill it, rather than a walk of
     # the whole comp for each.
@@ -1303,15 +1369,15 @@ def comp_differences(comp, other, limit=20):
         other_node = other._nodes_path_as_key.get(path)
         if other_node is None:
             continue
-        a = describe(node, paths)
-        b = describe(other_node, other_paths)
-        if a[0] != b[0]:
-            names = sorted(k for k in set(a[0]) | set(b[0])
-                           if a[0].get(k, _MISSING) != b[0].get(k, _MISSING))
+        a = described.own(node, 0)
+        b = described.own(other_node, 1)
+        if a != b:
+            names = sorted(k for k in set(a) | set(b)
+                           if a.get(k, _MISSING) != b.get(k, _MISSING))
             found.append('{}: values {}'.format(path, names))
-        if a[1] != b[1]:
+        if described.bases(node, 0) != described.bases(other_node, 1):
             found.append('{}: bases'.format(path))
-        elif a[2] != b[2]:
+        elif described.mro(node, 0) != described.mro(other_node, 1):
             found.append('{}: inherits in another order'.format(path))
         for ordered in (True, False):
             mine_children = comp.children(path, ordered=ordered,
@@ -1326,6 +1392,43 @@ def comp_differences(comp, other, limit=20):
                     path, ' in order' if ordered else ''))
                 break
     return found[:limit]
+
+
+def changed_nodes(old, new):
+    """The nodes that are not the same in a new comp of the layers as in an
+    old one: added, removed, with other values or bases of their own, and
+    any that inherit from one of those. A view of the old comp has only
+    these to bring up to date for the new one.
+
+    :param old: CompLayer
+    :param new: CompLayer
+    :return: node paths
+    :rtype: list
+    """
+    described = _Described(old, new)
+    old_nodes = old._nodes_path_as_key
+    new_nodes = new._nodes_path_as_key
+    changed = []
+    seen = set()
+    pairs = {}
+    for path, node in new_nodes.items():
+        before = old_nodes.get(path)
+        if (before is None or not described.same_own(before, node) or
+                not described.same_mro(before, node, pairs)):
+            changed.append(path)
+            seen.add(path)
+    for path in old_nodes:
+        if path not in new_nodes:
+            changed.append(path)
+            seen.add(path)
+    changed_classes = set(new_nodes[p] for p in changed if p in new_nodes)
+    if changed_classes:
+        for path, node in new_nodes.items():
+            if path in seen:
+                continue
+            if not changed_classes.isdisjoint(node.__mro__[1:]):
+                changed.append(path)
+    return changed
 
 
 _MISSING = object()
