@@ -1383,7 +1383,8 @@ class Stage:
 
         return dirty_nodes, deleted
 
-    def parent_nodes(self, nodes, parent_path, layer, check_names=True):
+    def parent_nodes(self, nodes, parent_path, layer, check_names=True,
+                     comp_layer=None):
         """Make the given parent path the parent of all the given nodes.
         :param nodes: Nodes that will become children of the parent.
         :type nodes: list | [tree.CompTreeNode]
@@ -1391,6 +1392,12 @@ class Stage:
         :type parent_path: comptree.CompTreeNode
         :param layer: Layer object
         :type layer: SpecLayer
+        :param comp_layer: a comp of every layer as they are now, which a
+            caller that keeps one up to date can give: the first node's new
+            name is checked against it, rather than a new comp of the
+            stage. Each node after the first is checked against a new comp,
+            which has the nodes moved before it where they went.
+        :type comp_layer: CompLayer
         :return: Dictionary of the changed children paths in the format
         {<old path> : <new path>}
         :rtype: dict
@@ -1417,7 +1424,7 @@ class Stage:
         if not parent_path_is_str:
             logger.error("Invalid parent path {}".format(parent_path))
             return result_paths
-        for node in nodes:
+        for i, node in enumerate(nodes):
             old_path = layer.get_node_path(node)
             node_parent_path = getattr(node, INTERNAL_ATTRS.PARENT_PATH)
             name = getattr(node, INTERNAL_ATTRS.NAME)
@@ -1442,8 +1449,11 @@ class Stage:
                             co.remove(child_name)
             new_parent_node = layer.lookup(parent_path)
             if check_names:
+                names_in = layer
+                if i == 0 and comp_layer is not None:
+                    names_in = comp_layer
                 new_name = self.get_unique_node_name(
-                    name=name, layer=layer, parent_path=parent_path
+                    name=name, layer=names_in, parent_path=parent_path
                 )
                 setattr(node, INTERNAL_ATTRS.NAME, new_name)
             else:
