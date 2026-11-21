@@ -1012,19 +1012,30 @@ class Plan(object):
 
 ENGINE_ENV_VAR = 'NXT_COMP_ENGINE'
 
+# The attrs the native plan knows, in INTERNAL_ATTRS.ALL order, then the
+# source metas of the tracked ones. native/src/comp.rs numbers them so.
+KEY_NAMES = list(INTERNAL_ATTRS.ALL)
+KEY_NAMES += [a + META_ATTRS.SOURCE for a in INTERNAL_ATTRS.TRACKED]
+assert KEY_NAMES[:6] == list(INTERNAL_ATTRS.TRACKED)
+_KEY_INDEX = {name: i for i, name in enumerate(KEY_NAMES)}
+
 
 def build(stage, comp_layer):
-    """Composite with a Plan if asked to, see ENGINE_ENV_VAR. Returns the
-    comp's counts, or None for the caller to composite the old way.
+    """Composite as data if asked to, see ENGINE_ENV_VAR: 'native' with the
+    native module, 'plan' in Python. Returns the comp's counts, or None for
+    the caller to composite the old way.
 
     :rtype: tuple | None
     """
     import os
-    if os.environ.get(ENGINE_ENV_VAR, '').strip().lower() != 'plan':
+    engine = os.environ.get(ENGINE_ENV_VAR, '').strip().lower()
+    if engine not in ('plan', 'native'):
         return None
-    plan = Plan(stage, comp_layer,
-                strict=os.environ.get('NXT_COMP_PLAN_STRICT') == '1')
+    strict = os.environ.get('NXT_COMP_PLAN_STRICT') == '1'
     try:
+        if engine == 'native':
+            return native_build(stage, comp_layer, strict=strict)
+        plan = Plan(stage, comp_layer, strict=strict)
         counts = plan.build(comp_layer._sublayer_node_tables)
     except Fallback as err:
         logger.debug('Compositing the old way: {}'.format(err))
@@ -1035,6 +1046,88 @@ def build(stage, comp_layer):
         return None
     plan.materialize()
     return counts
+
+
+def native_build(stage, comp_layer, strict=False):
+    """The comp, worked out by the native module. Raises Fallback when it
+    can't, or there is no native module."""
+    from nxt import native
+    from nxt.nxt_node import Node
+    if native.lib is None or not hasattr(native.lib, 'comp_plan'):
+        raise Fallback('no native comp')
+    if comp_layer.real_path is None:
+        raise Fallback('a comp layer without a path')
+    specs = []
+    spec_objects = []
+    spec_ids = {}
+    tables = []
+    source_layers = {comp_layer.real_path}
+    names = KEY_NAMES[:len(INTERNAL_ATTRS.ALL)]
+    for table in comp_layer._sublayer_node_tables:
+        rows = []
+        for ns, spec in table:
+            i = spec_ids.get(id(spec))
+            if i is None:
+                if type(spec) is not type or spec.__bases__ != (Node,):
+                    raise Fallback('a spec node of an unexpected kind')
+                i = len(specs)
+                spec_ids[id(spec)] = i
+                spec_objects.append(spec)
+                d = spec.__dict__
+                specs.append([(k, d[name]) for k, name in enumerate(names)
+                              if name in d])
+                layer = d.get(INTERNAL_ATTRS.SOURCE_LAYER)
+                if isinstance(layer, str):
+                    source_layers.add(layer)
+            rows.append((ns, i))
+        tables.append(rows)
+    node_dict = Node.__dict__
+    node_attrs = [(k, node_dict[name]) for k, name in enumerate(names)
+                  if name in node_dict]
+    layers = {}
+    for path in source_layers:
+        layer = stage.lookup_layer(path)
+        layers[path] = None if layer is None else layer.real_path
+    arcs = _arcs()
+    overload = list(set(arcs.INHERITANCE_MAP[arcs.REFERENCE] +
+                        INTERNAL_ATTRS.TRACKED))
+    R = LayerReturnTypes
+    # What the native plan makes the comp's objects with. Classes are made
+    # by type() with __module__ given, so they read as made in nxt_node.
+    make = (type, Node, spec_objects, CompNode.__module__, SpecNode.__name__,
+            CompNode.__name__, R.Node, R.Path, R.NodeTable, R.NameDict)
+    try:
+        result, counts = native.lib.comp_plan(
+            KEY_NAMES, node_attrs, specs, tables, comp_layer.real_path,
+            layers, [_KEY_INDEX[a] for a in overload], make, strict)
+    except ValueError as err:
+        raise Fallback(str(err))
+    _fill_native(stage, comp_layer, result)
+    return counts
+
+
+def _fill_native(stage, comp_layer, result):
+    (table, path_key, node_key, cache, implied, bulk, index, implied_valid,
+     implied_len, dirty, logs, calls) = result
+    comp_layer._node_table = table
+    comp_layer._nodes_path_as_key = path_key
+    comp_layer._nodes_node_as_key = node_key
+    comp_layer._cached_children = cache
+    comp_layer._cached_implied_children = implied
+    comp_layer._bulk_child_cache_valid = bulk
+    comp_layer._implied_index = index
+    comp_layer._implied_index_valid = implied_valid
+    comp_layer._implied_index_len = implied_len
+    comp_layer._dirty_map = dirty
+    for layer_path, path in calls:
+        layer = stage.lookup_layer(layer_path)
+        if layer is not None:
+            layer.clear_node_child_cache(path)
+    for level, msg, links in logs:
+        if links:
+            getattr(logger, level)(msg, links=list(links))
+        else:
+            getattr(logger, level)(msg)
 
 
 def _index_of(items, item):

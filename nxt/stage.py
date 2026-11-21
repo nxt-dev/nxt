@@ -1,5 +1,6 @@
 # Built-in
 import copy
+import gc
 import logging
 import os
 import re
@@ -3210,6 +3211,20 @@ class Stage:
         self.assign_layer_parents([layer])
 
     def build_stage(self, from_idx=0, node_paths=()):
+        # A comp makes tens of thousands of classes and lists, and Python's
+        # garbage collector, set off by that many new objects, walked every
+        # object in the session again and again: a third of a big comp's
+        # time. Nothing a comp makes is garbage until it is done, so the
+        # collector waits until then. A host that turned it off keeps it off.
+        collecting = gc.isenabled()
+        gc.disable()
+        try:
+            return self._build_stage(from_idx, node_paths)
+        finally:
+            if collecting:
+                gc.enable()
+
+    def _build_stage(self, from_idx=0, node_paths=()):
         if node_paths and list(node_paths) != [nxt_path.WORLD]:
             raise NotImplementedError(
                 "Only the world node path is supported " "at this time!"

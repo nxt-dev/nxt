@@ -65,6 +65,11 @@ runs anywhere, and `NXT_NO_NATIVE=1` turns it off. In a checkout, build it
 for your machine with [Rust](https://rustup.rs) installed:
 `python native/build.py`
 
+`NXT_COMP_ENGINE=native` composites graphs with the native module, two to
+three times faster on big graphs, leaving exactly what the usual way does.
+It is off by default while it is tried out. A comp it can't do, it hands
+back to the usual way.
+
 <br>
 
 ## Special Thanks

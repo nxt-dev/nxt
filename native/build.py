@@ -34,6 +34,17 @@ def main():
     out_dir = os.path.join(native.BIN_DIR, tag)
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, out_name)
+    for stale in os.listdir(out_dir):
+        if stale.startswith(out_name + '.old'):
+            try:
+                os.remove(os.path.join(out_dir, stale))
+            except OSError:
+                pass  # Still loaded somewhere.
+    if os.path.exists(out_path):
+        # Windows will not replace a module a running Python has loaded,
+        # but will let it be renamed out of the way.
+        aside = '{}.old{}'.format(out_path, os.getpid())
+        os.replace(out_path, aside)
     shutil.copyfile(os.path.join(release, built), out_path)
     print('Built ' + out_path)
 
