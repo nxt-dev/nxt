@@ -13,11 +13,11 @@ on:
   workflow_call:
   pull_request:
     paths: [ 'native/**', 'nxt/native.py', 'nxt/tokens.py',
-             '.github/workflows/native.yml' ]
+             'nxt/comp_plan.py', '.github/workflows/native.yml' ]
   push:
     branches: [ dev, release ]
     paths: [ 'native/**', 'nxt/native.py', 'nxt/tokens.py',
-             '.github/workflows/native.yml' ]
+             'nxt/comp_plan.py', '.github/workflows/native.yml' ]
 
 jobs:
   build:
@@ -101,6 +101,12 @@ jobs:
           pip install pytest
           python -c "from nxt import native; assert native.lib, native.platform_tag(); print(native.platform_tag(), native.lib.__file__)"
           python -m pytest -q -p no:cacheprovider nxt/test/test_native.py nxt/test/test_tokens.py nxt/test/test_comp_engines.py nxt/test/test_runtime_copy.py
+
+      # Graphs are composited by the native module by default, so the whole
+      # suite runs on it here, on every OS it is built for.
+      - name: Every test, composited natively
+        shell: bash
+        run: python -m pytest -q -p no:cacheprovider nxt/test
 
   bundle:
     needs: test
