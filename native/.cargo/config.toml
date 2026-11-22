@@ -1,0 +1,9 @@
+# A Python extension on macOS leaves Python's symbols to be found when it is
+# loaded, by whichever Python loads it, Maya's or Blender's included.
+# maturin, which CI builds with, says so itself; native/build.py runs cargo,
+# which needs telling.
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
