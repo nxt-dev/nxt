@@ -1037,6 +1037,7 @@ def build(stage, comp_layer):
     :rtype: tuple | None
     """
     import os
+    from nxt import native
     engine = (os.environ.get(ENGINE_ENV_VAR, '').strip().lower() or
               DEFAULT_ENGINE)
     if engine not in ('plan', 'native'):
@@ -1050,9 +1051,16 @@ def build(stage, comp_layer):
     except Fallback as err:
         logger.debug('Compositing the old way: {}'.format(err))
         return None
-    except Exception:
-        logger.debug('Compositing the old way, the plan failed:',
-                     exc_info=True)
+    except native.PASS_THROUGH:
+        raise
+    except BaseException:
+        # Nothing is changed until the plan is done, so the old way starts
+        # from where this did.
+        if engine == 'native':
+            native.disable('compositing')
+        else:
+            logger.debug('Compositing the old way, the plan failed:',
+                         exc_info=True)
         return None
     plan.materialize()
     return counts

@@ -103,8 +103,13 @@ def get_standalone_tokens(raw_value, token_types=None):
     if token_types is None:
         token_types = TOKENTYPE.ALL
     if native.lib:
-        return native.lib.standalone_tokens(
-            raw_value, [t.prefix for t in token_types])
+        try:
+            return native.lib.standalone_tokens(
+                raw_value, [t.prefix for t in token_types])
+        except native.PASS_THROUGH:
+            raise
+        except BaseException:
+            native.disable('finding tokens')
     i = 0
     bounds = []
     starts = 0

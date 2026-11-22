@@ -70,3 +70,21 @@ def _load():
 
 
 lib = _load()
+
+#: Not failures of the module, left to go where they were going.
+PASS_THROUGH = (KeyboardInterrupt, SystemExit, GeneratorExit)
+
+
+def disable(doing):
+    """Use the Python code from now on, the native module having failed
+    while doing what is named. Called from an except block; says why, once.
+
+    A failure is any exception, a Rust panic among them, which reaches
+    Python as a BaseException."""
+    global lib
+    if lib is None:
+        return
+    lib = None
+    logger.warning('The native speedups failed %s, so nxt uses its Python '
+                   'code from now on, which gives the same result.', doing,
+                   exc_info=True)

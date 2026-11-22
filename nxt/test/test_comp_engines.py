@@ -117,3 +117,70 @@ class DefaultEngine(unittest.TestCase):
     def test_python_when_asked(self):
         os.environ['NXT_COMP_ENGINE'] = 'python'
         self.assertEqual([], self.engine_used())
+
+
+class Panic(BaseException):
+    """What a Rust panic reaches Python as."""
+
+
+class BrokenModule(object):
+    """A native module that loads and then fails at everything."""
+
+    def __init__(self):
+        from nxt import comp_plan
+        self.VERSION = comp_plan.NATIVE_VERSION
+        self.calls = 0
+
+    def comp_plan(self, *args):
+        self.calls += 1
+        raise Panic('comp')
+
+    def standalone_tokens(self, *args):
+        self.calls += 1
+        raise Panic('tokens')
+
+
+class NativeFails(unittest.TestCase):
+    """A native module that fails, a panic included, leaves nxt working
+    the same in Python, says so once, and is not tried again."""
+
+    def setUp(self):
+        self.env = os.environ.pop('NXT_COMP_ENGINE', None)
+        self.lib = native.lib
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        native.lib = self.lib
+        os.environ.pop('NXT_COMP_ENGINE', None)
+        if self.env is not None:
+            os.environ['NXT_COMP_ENGINE'] = self.env
+
+    @staticmethod
+    def comp_paths():
+        from nxt.session import Session
+        path = os.path.join(HERE, 'StageInstanceTest.nxt')
+        stage = Session().load_file(path)
+        comp = stage.build_stage()
+        return sorted(comp._nodes_path_as_key)
+
+    def test_compositing_falls_back_to_python(self):
+        native.lib = None
+        expected = self.comp_paths()
+        broken = native.lib = BrokenModule()
+        with self.assertLogs('nxt', level='WARNING') as logs:
+            self.assertEqual(expected, self.comp_paths())
+            self.assertEqual(expected, self.comp_paths())
+        self.assertEqual(1, broken.calls)
+        self.assertEqual(1, len(logs.records))
+        self.assertIsNone(native.lib)
+
+    def test_finding_tokens_falls_back_to_python(self):
+        from nxt import tokens
+        value = 'a ${b} ${c:${d}} e'
+        native.lib = None
+        expected = tokens.get_standalone_tokens(value)
+        broken = native.lib = BrokenModule()
+        with self.assertLogs('nxt', level='WARNING'):
+            self.assertEqual(expected, tokens.get_standalone_tokens(value))
+        self.assertEqual(expected, tokens.get_standalone_tokens(value))
+        self.assertEqual(1, broken.calls)
