@@ -82,3 +82,38 @@ class EngineParity(object):
 @unittest.skipUnless(has_native_comp(), 'no native build for this platform')
 class NativeParity(EngineParity, unittest.TestCase):
     ENGINE = 'native'
+
+
+class DefaultEngine(unittest.TestCase):
+    """Graphs are composited the native way unless asked otherwise."""
+
+    def setUp(self):
+        self.env = os.environ.pop('NXT_COMP_ENGINE', None)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        os.environ.pop('NXT_COMP_ENGINE', None)
+        if self.env is not None:
+            os.environ['NXT_COMP_ENGINE'] = self.env
+
+    def engine_used(self):
+        from unittest import mock
+        from nxt import comp_plan
+        from nxt.session import Session
+        used = []
+        real = comp_plan.native_build
+
+        def native_build(*args, **kwargs):
+            used.append('native')
+            return real(*args, **kwargs)
+        path = os.path.join(HERE, 'StageInstanceTest.nxt')
+        with mock.patch.object(comp_plan, 'native_build', native_build):
+            Session().load_file(path).build_stage()
+        return used
+
+    def test_native_by_default(self):
+        self.assertEqual(['native'], self.engine_used())
+
+    def test_python_when_asked(self):
+        os.environ['NXT_COMP_ENGINE'] = 'python'
+        self.assertEqual([], self.engine_used())

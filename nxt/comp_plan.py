@@ -1013,6 +1013,9 @@ class Plan(object):
 
 
 ENGINE_ENV_VAR = 'NXT_COMP_ENGINE'
+# Composites with the native module where it loads. 'python' (or any name
+# that is not an engine) composites the old way, 'plan' as data in Python.
+DEFAULT_ENGINE = 'native'
 # The native module's VERSION that composites as this file does. An older
 # build, left in place by an update, is not used.
 NATIVE_VERSION = 4
@@ -1026,14 +1029,16 @@ _KEY_INDEX = {name: i for i, name in enumerate(KEY_NAMES)}
 
 
 def build(stage, comp_layer):
-    """Composite as data if asked to, see ENGINE_ENV_VAR: 'native' with the
-    native module, 'plan' in Python. Returns the comp's counts, or None for
-    the caller to composite the old way.
+    """Composite as data: 'native' with the native module, the default,
+    or 'plan' in Python, see ENGINE_ENV_VAR. Returns the comp's counts, or
+    None for the caller to composite the old way, as it does when asked to
+    or when there is no native module.
 
     :rtype: tuple | None
     """
     import os
-    engine = os.environ.get(ENGINE_ENV_VAR, '').strip().lower()
+    engine = (os.environ.get(ENGINE_ENV_VAR, '').strip().lower() or
+              DEFAULT_ENGINE)
     if engine not in ('plan', 'native'):
         return None
     strict = os.environ.get('NXT_COMP_PLAN_STRICT') == '1'
