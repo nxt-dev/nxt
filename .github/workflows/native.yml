@@ -103,10 +103,14 @@ jobs:
           python -m pytest -q -p no:cacheprovider nxt/test/test_native.py nxt/test/test_tokens.py nxt/test/test_comp_engines.py nxt/test/test_runtime_copy.py
 
       # Graphs are composited by the native module by default, so the whole
-      # suite runs on it here, on every OS it is built for.
+      # suite runs on it here, on every OS it is built for. Installed in
+      # place, so the tests that start nxt in a new process find it, and
+      # the module with it.
       - name: Every test, composited natively
         shell: bash
-        run: python -m pytest -q -p no:cacheprovider nxt/test
+        run: |
+          pip install -e .
+          python -m pytest -q -p no:cacheprovider nxt/test
 
   bundle:
     needs: test
