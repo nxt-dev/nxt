@@ -78,6 +78,9 @@ def get_version():
         version_str = 'API {av} | Editor {ev} |  Graph {gv}'
     else:
         version_str = 'API {av} | Graph {gv}'
+    # Which comp engine runs here, see comp_plan.
+    from nxt import comp_plan
+    version_str += ' | Comp {}'.format(comp_plan.engine_in_use())
     return version_str.format(av=api_v, ev=editor_v, gv=graph_v)
 
 

@@ -1028,6 +1028,30 @@ assert KEY_NAMES[:6] == list(INTERNAL_ATTRS.TRACKED)
 _KEY_INDEX = {name: i for i, name in enumerate(KEY_NAMES)}
 
 
+def engine_in_use():
+    """What composites here: 'native', 'plan' or 'python', and why when it
+    is not the default, for nxt --version.
+
+    :rtype: str
+    """
+    import os
+    from nxt import native
+    engine = (os.environ.get(ENGINE_ENV_VAR, '').strip().lower() or
+              DEFAULT_ENGINE)
+    if engine == 'plan':
+        return 'plan'
+    if engine != 'native':
+        return 'python ({}={})'.format(ENGINE_ENV_VAR, engine)
+    if native.lib is None:
+        if os.environ.get(native.NO_NATIVE_ENV_VAR, '').strip() not in (
+                '', '0'):
+            return 'python ({}=1)'.format(native.NO_NATIVE_ENV_VAR)
+        return 'python (no native build here)'
+    if getattr(native.lib, 'VERSION', 0) != NATIVE_VERSION:
+        return 'python (the native build is another version)'
+    return 'native'
+
+
 def build(stage, comp_layer):
     """Composite as data: 'native' with the native module, the default,
     or 'plan' in Python, see ENGINE_ENV_VAR. Returns the comp's counts, or

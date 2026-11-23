@@ -184,3 +184,40 @@ class NativeFails(unittest.TestCase):
             self.assertEqual(expected, tokens.get_standalone_tokens(value))
         self.assertEqual(expected, tokens.get_standalone_tokens(value))
         self.assertEqual(1, broken.calls)
+
+
+class EngineInUse(unittest.TestCase):
+    """nxt --version says which engine composites, see engine_in_use."""
+    def setUp(self):
+        self.env = os.environ.get('NXT_COMP_ENGINE')
+        self.lib = native.lib
+
+    def tearDown(self):
+        native.lib = self.lib
+        if self.env is None:
+            os.environ.pop('NXT_COMP_ENGINE', None)
+        else:
+            os.environ['NXT_COMP_ENGINE'] = self.env
+
+    def test_python_when_asked(self):
+        from nxt import comp_plan
+        os.environ['NXT_COMP_ENGINE'] = 'python'
+        self.assertEqual('python (NXT_COMP_ENGINE=python)',
+                         comp_plan.engine_in_use())
+
+    def test_python_without_a_native_build(self):
+        from nxt import comp_plan
+        os.environ.pop('NXT_COMP_ENGINE', None)
+        native.lib = None
+        self.assertTrue(comp_plan.engine_in_use().startswith('python ('))
+
+    @unittest.skipUnless(has_native_comp(), 'no native build here')
+    def test_native_by_default(self):
+        from nxt import comp_plan
+        os.environ.pop('NXT_COMP_ENGINE', None)
+        self.assertEqual('native', comp_plan.engine_in_use())
+
+    def test_the_version_says_it(self):
+        from nxt import cli, comp_plan
+        self.assertIn('| Comp ' + comp_plan.engine_in_use(),
+                      cli.get_version())

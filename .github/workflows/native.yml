@@ -8,6 +8,11 @@ name: Native
 # builds are collected into one artifact laid out as nxt/_bin/<platform>/,
 # which a release copies into the package. nxt runs without them, using the
 # same code in Python.
+#
+# Only outside squarebit-studios (nxt-dev), on hosted runners. In
+# squarebit-studios the studio's macOS runner builds all four whenever it
+# builds the rez package (rez_build.py, native/build_all.py), so Unittests
+# tests the package with them in it, and every release carries them.
 on:
   workflow_dispatch:
   workflow_call:
@@ -21,6 +26,7 @@ on:
 
 jobs:
   build:
+    if: github.repository_owner != 'squarebit-studios'
     strategy:
       fail-fast: false
       matrix:
@@ -76,6 +82,7 @@ jobs:
           path: out
 
   test:
+    if: github.repository_owner != 'squarebit-studios'
     needs: build
     strategy:
       fail-fast: false
@@ -113,6 +120,7 @@ jobs:
           python -m pytest -q -p no:cacheprovider nxt/test
 
   bundle:
+    if: github.repository_owner != 'squarebit-studios'
     needs: test
     runs-on: ubuntu-24.04
     steps:

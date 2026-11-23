@@ -49,6 +49,26 @@ class StandaloneTokens(unittest.TestCase):
 
 
 class Loader(unittest.TestCase):
+    def test_a_shipped_build_loads(self):
+        # A package carries a build for this platform that does not load,
+        # or is not the version the comp uses: nxt still works, slower, so
+        # nothing else would say.
+        import os
+        from nxt import comp_plan
+        tag = native.platform_tag()
+        name = '_nxt_native.so'
+        if tag and tag.startswith('windows'):
+            name = '_nxt_native.pyd'
+        if not tag or not os.path.isfile(
+                os.path.join(native.BIN_DIR, tag, name)):
+            self.skipTest('no native build here')
+        if os.environ.get(native.NO_NATIVE_ENV_VAR, '').strip() not in (
+                '', '0'):
+            self.skipTest('turned off')
+        lib = native._load()
+        self.assertIsNotNone(lib, 'the native build here did not load')
+        self.assertEqual(comp_plan.NATIVE_VERSION, lib.VERSION)
+
     def test_platform_tag_names_a_bin_folder(self):
         tag = native.platform_tag()
         if tag is not None:

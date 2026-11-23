@@ -12,8 +12,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # abi3: one build per OS serves every Python from 3.10 up, including the
-# ones inside Maya, Blender and Unreal.
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+# ones inside Maya, Blender and Unreal. generate-import-lib lets a Windows
+# build be made off Windows, see build_all.py.
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310",
+                                      "generate-import-lib"] }
 
 [profile.release]
 lto = true

@@ -7,6 +7,7 @@ developer can stage a build locally.
 """
 import os
 import shutil
+import subprocess
 import sys
 
 SOURCE = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +18,9 @@ PYTHON_DIRS = ["nxt"]
 ROOT_DIRS = ["bin"]
 
 IGNORE = shutil.ignore_patterns(
-    "__pycache__", "*.pyc", "*.pyo", ".mypy_cache", ".pytest_cache"
+    "__pycache__", "*.pyc", "*.pyo", ".mypy_cache", ".pytest_cache",
+    # Native modules native/build.py moved aside while they were loaded.
+    "_nxt_native.*.old*",
 )
 
 
@@ -43,9 +46,23 @@ def copy_tree(source, destination):
     print("  %s -> %s" % (os.path.basename(source), destination))
 
 
+def build_native():
+    """On CI, build the native speedups for every OS into nxt/_bin, so the
+    package carries them. Built on the macOS runner, which makes all four,
+    and a failure fails the build rather than shipping a package that is
+    quietly slower. A build on a working machine packages whatever
+    nxt/_bin already has.
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    script = os.path.join(SOURCE, "native", "build_all.py")
+    subprocess.check_call([sys.executable, script, "--all"])
+
+
 def main():
     root = destination_root()
     print("building into %s" % root)
+    build_native()
     for name in PYTHON_DIRS:
         copy_tree(os.path.join(SOURCE, name), os.path.join(root, "python", name))
     for name in ROOT_DIRS:
