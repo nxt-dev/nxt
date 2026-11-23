@@ -59,6 +59,30 @@ def build_native():
     subprocess.check_call([sys.executable, script, "--all"])
 
 
+# Run against the package just built: the native module for this machine
+# loads, and is the version nxt composites with.
+CHECK = (
+    "from nxt import native, comp_plan; "
+    "assert native.lib is not None, 'no native module loaded'; "
+    "assert native.lib.VERSION == comp_plan.NATIVE_VERSION, 'old module'; "
+    "print('native module ok: ' + native.lib.__file__)"
+)
+
+
+def check_native(root):
+    """On CI, load the package's native module and compare it with the
+    Python code, so a package that would quietly run slower fails here."""
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    python_dir = os.path.join(root, "python")
+    env = dict(os.environ, PYTHONPATH=python_dir)
+    subprocess.check_call([sys.executable, "-c", CHECK], env=env,
+                          cwd=python_dir)
+    subprocess.check_call([sys.executable, "-m", "unittest", "-v",
+                           "nxt.test.test_native", "nxt.test.test_tokens"],
+                          env=env, cwd=python_dir)
+
+
 def main():
     root = destination_root()
     print("building into %s" % root)
@@ -69,6 +93,7 @@ def main():
         source = os.path.join(SOURCE, name)
         if os.path.isdir(source):
             copy_tree(source, os.path.join(root, name))
+    check_native(root)
     return 0
 
 
