@@ -84,6 +84,24 @@ Conda is best installed via [miniconda](https://docs.conda.io/en/latest/minicond
     }
       ```
 
+## The native module
+
+`native/` holds the Rust module behind the faster comp engine, see the
+README. Each function has a Python twin in nxt that must give the same
+result, down to which objects are the same. A change to one is a change to
+both.
+
+- `python native/build.py` builds it for your machine into
+  `nxt/_bin/<platform>/`, which git ignores. It needs [Rust](https://rustup.rs).
+- `python native/build_all.py` builds every platform this machine can:
+  all four on macOS, all but macOS on Windows and Linux. It installs the
+  tools it needs into `~/.cache/nxt_native` the first time.
+- When `native/src` changes what it gives back, raise `VERSION` in
+  `native/src/lib.rs` and `NATIVE_VERSION` in `nxt/comp_plan.py`, so an
+  older build left in place is not used.
+- `nxt/test/test_native.py`, `test_tokens.py` and `test_comp_engines.py`
+  compare it with the Python code. They are skipped where there is no build.
+
 ## Dependencies
 
 - Python 2.7

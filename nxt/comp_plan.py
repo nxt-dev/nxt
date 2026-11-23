@@ -1013,6 +1013,9 @@ class Plan(object):
 
 
 ENGINE_ENV_VAR = 'NXT_COMP_ENGINE'
+# Composites with the native module where it loads. 'python' (or any name
+# that is not an engine) composites the old way, 'plan' as data in Python.
+DEFAULT_ENGINE = 'native'
 # The native module's VERSION that composites as this file does. An older
 # build, left in place by an update, is not used.
 NATIVE_VERSION = 4
@@ -1025,15 +1028,42 @@ assert KEY_NAMES[:6] == list(INTERNAL_ATTRS.TRACKED)
 _KEY_INDEX = {name: i for i, name in enumerate(KEY_NAMES)}
 
 
+def engine_in_use():
+    """What composites here: 'native', 'plan' or 'python', and why when it
+    is not the default, for nxt --version.
+
+    :rtype: str
+    """
+    import os
+    from nxt import native
+    engine = (os.environ.get(ENGINE_ENV_VAR, '').strip().lower() or
+              DEFAULT_ENGINE)
+    if engine == 'plan':
+        return 'plan'
+    if engine != 'native':
+        return 'python ({}={})'.format(ENGINE_ENV_VAR, engine)
+    if native.lib is None:
+        if os.environ.get(native.NO_NATIVE_ENV_VAR, '').strip() not in (
+                '', '0'):
+            return 'python ({}=1)'.format(native.NO_NATIVE_ENV_VAR)
+        return 'python (no native build here)'
+    if getattr(native.lib, 'VERSION', 0) != NATIVE_VERSION:
+        return 'python (the native build is another version)'
+    return 'native'
+
+
 def build(stage, comp_layer):
-    """Composite as data if asked to, see ENGINE_ENV_VAR: 'native' with the
-    native module, 'plan' in Python. Returns the comp's counts, or None for
-    the caller to composite the old way.
+    """Composite as data: 'native' with the native module, the default,
+    or 'plan' in Python, see ENGINE_ENV_VAR. Returns the comp's counts, or
+    None for the caller to composite the old way, as it does when asked to
+    or when there is no native module.
 
     :rtype: tuple | None
     """
     import os
-    engine = os.environ.get(ENGINE_ENV_VAR, '').strip().lower()
+    from nxt import native
+    engine = (os.environ.get(ENGINE_ENV_VAR, '').strip().lower() or
+              DEFAULT_ENGINE)
     if engine not in ('plan', 'native'):
         return None
     strict = os.environ.get('NXT_COMP_PLAN_STRICT') == '1'
@@ -1045,9 +1075,16 @@ def build(stage, comp_layer):
     except Fallback as err:
         logger.debug('Compositing the old way: {}'.format(err))
         return None
-    except Exception:
-        logger.debug('Compositing the old way, the plan failed:',
-                     exc_info=True)
+    except native.PASS_THROUGH:
+        raise
+    except BaseException:
+        # Nothing is changed until the plan is done, so the old way starts
+        # from where this did.
+        if engine == 'native':
+            native.disable('compositing')
+        else:
+            logger.debug('Compositing the old way, the plan failed:',
+                         exc_info=True)
         return None
     plan.materialize()
     return counts

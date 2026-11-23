@@ -36,8 +36,12 @@ jobs:
           files: |
             nxt/**
             nxt_editor/**
+  native:
+    # The native modules for every OS, built and tested, for the package.
+    if: github.repository == 'nxt-dev/nxt'
+    uses: nxt-dev/nxt/.github/workflows/native.yml@release
   build-and-deploy-pypi:
-    needs: [run-tests, changed-files]
+    needs: [run-tests, changed-files, native]
     # Upstream's PyPI publish, kept with their changed-files gate. This fork
     # releases through rez instead, see rez_release.yml, so the job is also
     # pinned to the upstream repository and never publishes as Squarebit.
@@ -50,6 +54,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Into nxt/_bin, which setup.py packages.
+      - name: The native modules (nxt core)
+        if: github.repository == 'nxt-dev/nxt'
+        uses: actions/download-artifact@v4
+        with:
+          name: native
 
       - name: Checkout build graph (if needed)
         if: github.repository != 'nxt-dev/nxt'
