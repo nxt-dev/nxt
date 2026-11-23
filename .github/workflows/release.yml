@@ -15,12 +15,10 @@ on:
 
 jobs:
   run-tests:
-    if: github.repository == 'nxt-dev/nxt'
     uses: nxt-dev/nxt/.github/workflows/unittests.yml@release
     with:
       QT_DEPENDENCIES: ${{ inputs.QT_DEPENDENCIES }}
   changed-files:
-    if: github.repository == 'nxt-dev/nxt'
     runs-on: ubuntu-latest
     name: Check if source actually changed
     outputs:
@@ -38,12 +36,7 @@ jobs:
             nxt_editor/**
   build-and-deploy-pypi:
     needs: [run-tests, changed-files]
-    # Upstream's PyPI publish, kept with their changed-files gate. This fork
-    # releases through rez instead, see rez_release.yml, so the job is also
-    # pinned to the upstream repository and never publishes as Squarebit.
-    if: >-
-      github.repository == 'nxt-dev/nxt'
-      && needs.changed-files.outputs.any_changed == 'true'
+    if: needs.changed-files.outputs.any_changed == 'true'
     runs-on: ubuntu-latest
     env:
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
