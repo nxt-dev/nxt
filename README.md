@@ -54,12 +54,36 @@ nxt.execute_graph('path/to/graph.nxt')
 **Update:**  
 `pip install -U nxt-core`
 
-**Native speedups:**  
-Releases carry a compiled module for Windows, macOS and Linux that makes
-some of nxt's work faster. nxt gives the same results without it, so it
-runs anywhere, and `NXT_NO_NATIVE=1` turns it off. In a checkout, build it
-for your machine with [Rust](https://rustup.rs) installed:
-`python native/build.py`
+### The faster comp engine
+
+nxt composites graphs with a compiled module written in Rust, two to three
+times faster on big graphs, and finds tokens with it too. It leaves exactly
+what nxt's Python code does, so it changes speed and nothing else. It is on
+by default, and there is nothing to set up:
+
+- `pip install nxt-core` and the Maya, Blender and Unreal zips carry it for
+  Windows (x86_64), macOS (Intel and Apple silicon) and Linux (x86_64 and
+  ARM64), for Python 3.10 to 3.13.
+- An install from git builds it for your machine when
+  [Rust](https://rustup.rs) is installed. Without Rust nxt installs and runs
+  on its Python code.
+- In a checkout, build it with `python native/build.py`, and again after
+  pulling changes to `native/`.
+
+`nxt --version` says which engine composites: `Comp native`, or
+`Comp python` and why.
+
+Wherever the module can't help, nxt uses its Python code instead, with the
+same result:
+
+- There is no build for the platform, it doesn't load, or it is from
+  another version of nxt.
+- It fails while working. nxt logs a warning once and uses the Python code
+  for the rest of the session.
+- A comp it doesn't do yet, such as a graph that has never been saved.
+
+To turn it off, set `NXT_COMP_ENGINE=python` for compositing, or
+`NXT_NO_NATIVE=1` for everything the module does.
 
 <br>
 

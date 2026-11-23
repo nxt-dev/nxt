@@ -204,7 +204,8 @@ class Session(object):
         comp_layer = stage.build_stage()
         try:
             return stage.execute_nodes(node_paths=node_paths,
-                                       layer=comp_layer, parameters=parameters)
+                                       layer=comp_layer, parameters=parameters,
+                                       use_layer=True)
         finally:
             self.shutdown_rpc_server()
 

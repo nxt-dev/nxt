@@ -21,6 +21,7 @@ import tempfile
 import unittest
 
 # Internal
+import nxt
 from nxt import nxt_io, nxt_log
 from nxt.session import Session
 
@@ -155,8 +156,13 @@ class AnyLanguage(unittest.TestCase):
                 {u'/节点.名字_0': repr(u'Привет')},
                 ensure_ascii=False).encode('utf-8'))
         env = dict(os.environ, PYTHONIOENCODING='utf-8')
+        # This nxt, wherever the tests before this one left the working
+        # directory.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(nxt.__file__)))
+        env['PYTHONPATH'] = os.pathsep.join(
+            [root] + [p for p in [env.get('PYTHONPATH')] if p])
         subprocess.check_call([sys.executable, '-m', 'nxt.cli', 'exec',
-                               path, '-p', params], env=env,
+                               path, '-p', params], env=env, cwd=root,
                               stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL)
         self.assertEqual([u'Привет'] + NAMES[1:], self.written())

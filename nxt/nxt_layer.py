@@ -4,6 +4,7 @@
 import os
 import json
 import copy
+import gc
 import logging
 import time
 import sys
@@ -434,7 +435,9 @@ class SpecLayer(object):
             return bool(children_paths)
         if ordered:
             node = self.lookup(node_path)
-            if include_implied and not node:
+            if not node:
+                # An implied path has no node, so no order of its own. Its
+                # children were found under it, so it can be asked about.
                 child_order = []
             else:
                 co_attr = nxt_node.INTERNAL_ATTRS.CHILD_ORDER
@@ -578,7 +581,13 @@ class SpecLayer(object):
             entry[LayerReturnTypes.NodeTable] += [[path, node]]
             key = getattr(node, nxt_node.INTERNAL_ATTRS.NAME)
             entry[LayerReturnTypes.NameDict][key] = node
-        self._cached_children = cache
+        # Only the paths with no entry yet are filled, as children() filled
+        # them one at a time. An entry the comp made stays: it files a node
+        # under its nearest real ancestor when its parent is only implied,
+        # and replacing it made a node's children depend on which paths had
+        # been asked about before.
+        for path, entry in cache.items():
+            self._cached_children.setdefault(path, entry)
         self._bulk_child_cache_valid = True
 
     def get_cached_child_paths(self, parent_path):
@@ -1205,6 +1214,234 @@ class SpecLayer(object):
             setattr(node, nxt_node.INTERNAL_ATTRS.SOURCE_LAYER, self.real_path)
 
 
+class _Described(object):
+    """Describes the nodes of two comps of the same layers so they can be
+    compared: a node class by the path it is at, a spec layer's node by
+    itself, as every comp of the layer shares it, and a class the comp
+    made for a proxy by what it has."""
+
+    def __init__(self, comp, other):
+        self.names = ({}, {})
+        self.spec = set()
+        for layer, names in zip((comp, other), self.names):
+            for path, node in layer._nodes_path_as_key.items():
+                names[node] = path
+            for table in layer._sublayer_node_tables:
+                for _path, node in table:
+                    self.spec.add(node)
+        # What is worked out for a class is kept, per comp.
+        self.keys = ({}, {})
+
+    def key(self, cls, side):
+        memo = self.keys[side]
+        found = memo.get(cls)
+        if found is not None:
+            return found
+        names = self.names[side]
+        if cls in names:
+            found = ('node', names[cls])
+        elif cls is object or cls is nxt_node.Node:
+            found = cls.__name__
+        elif cls in self.spec:
+            found = ('spec', id(cls))
+        else:
+            # Its name stands in for it while that is worked out.
+            memo[cls] = ('made', cls.__name__)
+            found = ('made', cls.__name__, tuple(
+                (k, self.value(v, side)) for k, v in cls.__dict__.items()
+                if k not in _CLASS_OWN),
+                tuple(self.key(b, side) for b in cls.__bases__))
+        memo[cls] = found
+        return found
+
+    def value(self, v, side):
+        if isinstance(v, type):
+            return self.key(v, side)
+        if isinstance(v, (list, tuple)):
+            return (type(v).__name__,
+                    tuple(self.value(x, side) for x in v))
+        if isinstance(v, dict):
+            return ('dict', tuple((k, self.value(x, side))
+                                  for k, x in v.items()))
+        return v
+
+    def own(self, node, side):
+        return {k: self.value(v, side) for k, v in node.__dict__.items()
+                if k not in _CLASS_OWN}
+
+    def same_own(self, node, other):
+        """Whether node, of the first comp, and other, of the second, have
+        the same values of their own. Values that are equal as they are
+        are not described: only a class among them is a different object
+        in each comp."""
+        mine = node.__dict__
+        theirs = other.__dict__
+        if len(mine) != len(theirs):
+            return False
+        for (k, v), (other_k, other_v) in zip(mine.items(), theirs.items()):
+            if k != other_k:
+                return False
+            if v is other_v or k in _CLASS_OWN:
+                continue
+            try:
+                if v == other_v:
+                    continue
+            except Exception:
+                pass
+            if self.value(v, 0) != self.value(other_v, 1):
+                return False
+        return True
+
+    def same_class(self, cls, other, pairs):
+        """Whether cls, of the first comp, stands where other, of the
+        second, does: the node at the same path, the same spec node, or a
+        class the comp made with the same values and bases."""
+        key = (id(cls), id(other))
+        found = pairs.get(key)
+        if found is not None:
+            return found
+        names, other_names = self.names
+        if cls in names or other in other_names:
+            found = names.get(cls) == other_names.get(other)
+        elif cls is other:
+            found = True
+        elif (cls in self.spec or other in self.spec or
+                cls.__name__ != other.__name__ or
+                len(cls.__bases__) != len(other.__bases__)):
+            found = False
+        else:
+            # Taken as the same while its bases are looked at.
+            pairs[key] = True
+            found = (self.same_own(cls, other) and
+                     all(self.same_class(b, other_b, pairs) for b, other_b
+                         in zip(cls.__bases__, other.__bases__)))
+        pairs[key] = found
+        return found
+
+    def same_mro(self, node, other, pairs):
+        mro = node.__mro__
+        other_mro = other.__mro__
+        return len(mro) == len(other_mro) and all(
+            self.same_class(c, other_c, pairs)
+            for c, other_c in zip(mro, other_mro))
+
+    def bases(self, node, side):
+        return tuple(self.key(b, side) for b in node.__bases__)
+
+    def mro(self, node, side):
+        return tuple(self.key(b, side) for b in node.__mro__)
+
+
+def comp_differences(comp, other, limit=20):
+    """How two comps of the same layers differ, as a run would see them:
+    which nodes there are, each node's own values, its bases and the order
+    it inherits in, and each node's children in order. Empty when they are
+    the same.
+
+    A comp kept up to date as the graph is edited, as the editor keeps
+    one, is meant to be the same as a fresh comp of the graph; this says
+    where it is not.
+
+    :param comp: CompLayer
+    :param other: CompLayer
+    :param limit: how many differences to give at most
+    :return: a line for each difference
+    :rtype: list
+    """
+    found = []
+    described = _Described(comp, other)
+    # Every child list is asked for below. Missing ones are filled in one
+    # pass first, as asking for each would fill it, rather than a walk of
+    # the whole comp for each.
+    comp._build_child_cache()
+    other._build_child_cache()
+    mine = list(comp._nodes_path_as_key)
+    theirs = list(other._nodes_path_as_key)
+    if set(mine) != set(theirs):
+        found.append('nodes only in the first: {}'.format(
+            sorted(set(mine) - set(theirs))[:5]))
+        found.append('nodes only in the second: {}'.format(
+            sorted(set(theirs) - set(mine))[:5]))
+    for path in mine:
+        if len(found) >= limit:
+            break
+        node = comp._nodes_path_as_key[path]
+        other_node = other._nodes_path_as_key.get(path)
+        if other_node is None:
+            continue
+        a = described.own(node, 0)
+        b = described.own(other_node, 1)
+        if a != b:
+            names = sorted(k for k in set(a) | set(b)
+                           if a.get(k, _MISSING) != b.get(k, _MISSING))
+            found.append('{}: values {}'.format(path, names))
+        if described.bases(node, 0) != described.bases(other_node, 1):
+            found.append('{}: bases'.format(path))
+        elif described.mro(node, 0) != described.mro(other_node, 1):
+            found.append('{}: inherits in another order'.format(path))
+        for ordered in (True, False):
+            mine_children = comp.children(path, ordered=ordered,
+                                          return_type=_PATHS)
+            their_children = other.children(path, ordered=ordered,
+                                            return_type=_PATHS)
+            if not ordered:
+                mine_children = sorted(mine_children)
+                their_children = sorted(their_children)
+            if mine_children != their_children:
+                found.append('{}: children{}'.format(
+                    path, ' in order' if ordered else ''))
+                break
+    return found[:limit]
+
+
+def changed_nodes(old, new):
+    """The nodes that are not the same in a new comp of the layers as in an
+    old one: added, removed, with other values or bases of their own, and
+    any that inherit from one of those. A view of the old comp has only
+    these to bring up to date for the new one.
+
+    :param old: CompLayer
+    :param new: CompLayer
+    :return: node paths
+    :rtype: list
+    """
+    described = _Described(old, new)
+    old_nodes = old._nodes_path_as_key
+    new_nodes = new._nodes_path_as_key
+    changed = []
+    seen = set()
+    pairs = {}
+    for path, node in new_nodes.items():
+        before = old_nodes.get(path)
+        if (before is None or not described.same_own(before, node) or
+                not described.same_mro(before, node, pairs)):
+            changed.append(path)
+            seen.add(path)
+    for path in old_nodes:
+        if path not in new_nodes:
+            changed.append(path)
+            seen.add(path)
+    changed_classes = set(new_nodes[p] for p in changed if p in new_nodes)
+    if changed_classes:
+        for path, node in new_nodes.items():
+            if path in seen:
+                continue
+            if not changed_classes.isdisjoint(node.__mro__[1:]):
+                changed.append(path)
+    return changed
+
+
+_MISSING = object()
+_PATHS = LayerReturnTypes.Path
+
+
+#: What a class has of its own, that a copy of it gets anyway.
+_CLASS_OWN = ('__dict__', '__weakref__')
+#: What a copy of a comp layer has of its own, rather than this one's.
+_LAYER_OWN = ('_console', 'cache_layer', 'runtime', 'running',
+              '_sublayer_node_tables')
+
+
 class CompLayer(SpecLayer):
     @classmethod
     def load_from_layer_data(cls, layer_data):
@@ -1225,6 +1462,90 @@ class CompLayer(SpecLayer):
 
     def layer_idx(self):
         return self._layer_range[0]
+
+    def copy(self):
+        """A copy of this comp to run in, the same as a fresh comp of the
+        same layers, made without compositing again.
+
+        A run sets values on the node classes it runs in, so it can not run
+        in a comp that is still being looked at. The copy has its own node
+        classes, made with the same names, attributes and bases as these,
+        with any base the comp made copied too, and its own lists and dicts
+        where these have them. The spec layers' nodes are shared, as they
+        are by a fresh comp.
+
+        :return: a CompLayer that is not a runtime layer yet, see
+            Stage.setup_runtime_layer
+        :rtype: CompLayer
+        """
+        collecting = gc.isenabled()
+        # As in Stage.build_stage: thousands of new classes would set off
+        # the collector again and again, and none of them is garbage.
+        gc.disable()
+        try:
+            return self._copy()
+        finally:
+            if collecting:
+                gc.enable()
+
+    def _copy(self):
+        shared = {object, nxt_node.Node}
+        for table in self._sublayer_node_tables:
+            for _path, node in table:
+                shared.add(node)
+        made = {}
+        values = {}
+
+        def copy_value(value):
+            # Copied once each, so what two nodes shared they still share.
+            kind = type(value)
+            if kind is not list and kind is not dict:
+                return value
+            found = values.get(id(value))
+            if found is None:
+                found = list(value) if kind is list else dict(value)
+                values[id(value)] = found
+            return found
+
+        def copy_class(cls):
+            new = made.get(cls)
+            if new is not None:
+                return new
+            if cls in shared:
+                made[cls] = cls
+                return cls
+            bases = tuple(copy_class(base) for base in cls.__bases__)
+            attrs = {name: copy_value(value)
+                     for name, value in cls.__dict__.items()
+                     if name not in _CLASS_OWN}
+            new = type(cls.__name__, bases, attrs)
+            made[cls] = new
+            return new
+
+        def remap(value):
+            if isinstance(value, type):
+                return made.get(value, value)
+            kind = type(value)
+            if kind is list:
+                return [remap(item) for item in value]
+            if kind is tuple:
+                return tuple([remap(item) for item in value])
+            if kind is dict:
+                return {remap(k): remap(v) for k, v in value.items()}
+            return value
+
+        for node in self._nodes_path_as_key.values():
+            copy_class(node)
+        new = CompLayer()
+        for name, value in self.__dict__.items():
+            if name in _LAYER_OWN:
+                continue
+            new.__dict__[name] = remap(value)
+        # Spec nodes, which are shared.
+        new._sublayer_node_tables = self._sublayer_node_tables
+        # Its own console, which names the layer in errors as this one's.
+        new._console.layer_path = self._console.layer_path
+        return new
 
     def get_node_dirties(self, node_path):
         """Get all nodes that depend on the given node path. The given node

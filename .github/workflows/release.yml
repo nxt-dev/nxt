@@ -34,15 +34,33 @@ jobs:
           files: |
             nxt/**
             nxt_editor/**
+  native:
+    # The native modules for every OS, built and tested, for the package.
+    # Only nxt core has them; the editor calls this workflow too.
+    if: github.repository == 'nxt-dev/nxt'
+    uses: nxt-dev/nxt/.github/workflows/native.yml@release
   build-and-deploy-pypi:
-    needs: [run-tests, changed-files]
-    if: needs.changed-files.outputs.any_changed == 'true'
+    needs: [run-tests, changed-files, native]
+    # always(), so the editor, which skips native, still publishes.
+    if: >-
+      always()
+      && needs.run-tests.result == 'success'
+      && needs.changed-files.outputs.any_changed == 'true'
+      && (needs.native.result == 'success'
+          || github.repository != 'nxt-dev/nxt')
     runs-on: ubuntu-latest
     env:
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Into nxt/_bin, which setup.py packages.
+      - name: The native modules (nxt core)
+        if: github.repository == 'nxt-dev/nxt'
+        uses: actions/download-artifact@v4
+        with:
+          name: native
 
       - name: Checkout build graph (if needed)
         if: github.repository != 'nxt-dev/nxt'

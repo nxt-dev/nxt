@@ -1,5 +1,6 @@
 # Built-in
 import copy
+import gc
 import logging
 import os
 import re
@@ -31,6 +32,7 @@ from .nxt_node import (
     META_ATTRS,
     INTERNAL_ATTRS,
 )
+from . import comp_plan
 from .nxt_layer import (
     SpecLayer,
     CompLayer,
@@ -1381,7 +1383,8 @@ class Stage:
 
         return dirty_nodes, deleted
 
-    def parent_nodes(self, nodes, parent_path, layer, check_names=True):
+    def parent_nodes(self, nodes, parent_path, layer, check_names=True,
+                     comp_layer=None):
         """Make the given parent path the parent of all the given nodes.
         :param nodes: Nodes that will become children of the parent.
         :type nodes: list | [tree.CompTreeNode]
@@ -1389,6 +1392,12 @@ class Stage:
         :type parent_path: comptree.CompTreeNode
         :param layer: Layer object
         :type layer: SpecLayer
+        :param comp_layer: a comp of every layer as they are now, which a
+            caller that keeps one up to date can give: the first node's new
+            name is checked against it, rather than a new comp of the
+            stage. Each node after the first is checked against a new comp,
+            which has the nodes moved before it where they went.
+        :type comp_layer: CompLayer
         :return: Dictionary of the changed children paths in the format
         {<old path> : <new path>}
         :rtype: dict
@@ -1415,7 +1424,7 @@ class Stage:
         if not parent_path_is_str:
             logger.error("Invalid parent path {}".format(parent_path))
             return result_paths
-        for node in nodes:
+        for i, node in enumerate(nodes):
             old_path = layer.get_node_path(node)
             node_parent_path = getattr(node, INTERNAL_ATTRS.PARENT_PATH)
             name = getattr(node, INTERNAL_ATTRS.NAME)
@@ -1440,8 +1449,11 @@ class Stage:
                             co.remove(child_name)
             new_parent_node = layer.lookup(parent_path)
             if check_names:
+                names_in = layer
+                if i == 0 and comp_layer is not None:
+                    names_in = comp_layer
                 new_name = self.get_unique_node_name(
-                    name=name, layer=layer, parent_path=parent_path
+                    name=name, layer=names_in, parent_path=parent_path
                 )
                 setattr(node, INTERNAL_ATTRS.NAME, new_name)
             else:
@@ -3209,6 +3221,20 @@ class Stage:
         self.assign_layer_parents([layer])
 
     def build_stage(self, from_idx=0, node_paths=()):
+        # A comp makes tens of thousands of classes and lists, and Python's
+        # garbage collector, set off by that many new objects, walked every
+        # object in the session again and again: a third of a big comp's
+        # time. Nothing a comp makes is garbage until it is done, so the
+        # collector waits until then. A host that turned it off keeps it off.
+        collecting = gc.isenabled()
+        gc.disable()
+        try:
+            return self._build_stage(from_idx, node_paths)
+        finally:
+            if collecting:
+                gc.enable()
+
+    def _build_stage(self, from_idx=0, node_paths=()):
         if node_paths and list(node_paths) != [nxt_path.WORLD]:
             raise NotImplementedError(
                 "Only the world node path is supported " "at this time!"
@@ -3259,21 +3285,27 @@ class Stage:
         if not comp_layer._sublayer_node_tables:
             logger.compinfo("No nodes found!")
             return comp_layer
-        """Pre proxy comp"""
-        node_count = self.comp_pre_proxies(comp_layer=comp_layer)
-        """Proxy comp"""
-        proxy_count, loops = self.comp_proxies(
-            comp_layer=comp_layer, node_count=node_count
-        )
-        """Post proxy comp"""
-        try:
-            root_count, total_count = self.post_proxy_comp(comp_layer)
+        planned = comp_plan.build(self, comp_layer)
+        if planned is not None:
+            node_count, proxy_count, loops, root_count, total_count = planned
             logger.compinfo(("Number of nodes -->", total_count))
             logger.compinfo(("Number of roots --> ", root_count))
-        except Exception as e:
-            logger.debug(e)
-            logger.critical("The comp encounter a critical error")
-            comp_layer.failure = traceback.format_exc()
+        else:
+            """Pre proxy comp"""
+            node_count = self.comp_pre_proxies(comp_layer=comp_layer)
+            """Proxy comp"""
+            proxy_count, loops = self.comp_proxies(
+                comp_layer=comp_layer, node_count=node_count
+            )
+            """Post proxy comp"""
+            try:
+                root_count, total_count = self.post_proxy_comp(comp_layer)
+                logger.compinfo(("Number of nodes -->", total_count))
+                logger.compinfo(("Number of roots --> ", root_count))
+            except Exception as e:
+                logger.debug(e)
+                logger.critical("The comp encounter a critical error")
+                comp_layer.failure = traceback.format_exc()
 
         logger.compinfo(("Number of instances created --> ", proxy_count))
         logger.compinfo(("Number of layers --> ", active_layer_count))
@@ -4080,6 +4112,11 @@ class Stage:
         if not base:
             logger.error("Invalid baseclass provided!")
             return
+        if comp_node in base.__mro__:
+            # It would inherit from itself, see _replace_base_classes.
+            logger.debug('Left out a base of {} that inherits from it'
+                         ''.format(comp_node))
+            return
         comp_node.__bases__ += (base,)
 
     @staticmethod
@@ -4090,6 +4127,15 @@ class Stage:
             if not bases:
                 logger.critical("No valid bases found in the bases tuple!")
                 return
+        # A node instancing its own descendant, or anything inheriting from
+        # it, would inherit from itself. A comp leaves that instance out,
+        # so this does too. Assigning it raised inside the editor's undo
+        # stack, which took the whole application down.
+        acyclic = tuple(b for b in bases if comp_node not in b.__mro__)
+        if len(acyclic) != len(bases):
+            logger.debug('Left out a base of {} that inherits from it'
+                         ''.format(comp_node))
+            bases = acyclic or comp_node.__bases__
         if bases != comp_node.__bases__:
             comp_node.__bases__ = bases
         return
@@ -4579,6 +4625,8 @@ class Stage:
         :return: a runtime CompLayer object
         :rtype: CompLayer
         """
+        # A comp made here is made for this run, so it is run in.
+        use_layer = not layer
         if not layer:
             layer = self.build_stage(from_idx=0)
 
@@ -4604,9 +4652,11 @@ class Stage:
                         )
 
         exec_order = layer.get_exec_order(start_path)
-        return self.execute_nodes(exec_order, layer, parameters)
+        return self.execute_nodes(exec_order, layer, parameters,
+                                  use_layer=use_layer)
 
-    def execute_nodes(self, node_paths, layer, parameters=None):
+    def execute_nodes(self, node_paths, layer, parameters=None,
+                      use_layer=False):
         """Execute nodes at given `node_paths` using given `layer`. Returns
         runtime layer object that if passed as layer argument to successive
         calls will "continue" execution with the same cached values.
@@ -4620,6 +4670,12 @@ class Stage:
         :param parameters: Optional dict of {'/node.attr': value} to be
         applied before execution begins.
         :type parameters: dict
+        :param use_layer: True when layer, a comp layer that is not a
+            runtime layer, was composited for this run and the stage is
+            unchanged since: it is run in, rather than composited again.
+            Left False, layer is left as it is, and the run is in a new
+            comp of the stage as it is now.
+        :type use_layer: bool
         :raises ValueError: When layer argument has invalid value;
         GraphError: For any exception raised by a node's compute.
         :return: Runtime CompLayer that can be used for continued execution.
@@ -4632,7 +4688,10 @@ class Stage:
         nxt_path.clear_file_expand_cache()
         self._inferred_comp_cache = {}
         if not layer.runtime:
-            dup_comp = self.build_stage(layer.layer_idx())
+            if use_layer:
+                dup_comp = layer
+            else:
+                dup_comp = self.build_stage(layer.layer_idx())
             runtime_layer = self.setup_runtime_layer(dup_comp, parameters=parameters)
         else:
             runtime_layer = layer
@@ -4811,8 +4870,17 @@ class Stage:
         runtime_layer = comp_layer
         runtime_layer.runtime = True
         return_type = runtime_layer.RETURNS.NodeTable
-        for path, node in runtime_layer.descendants(return_type=return_type):
-            setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
+        # The many small lists made here set off the collector, which walks
+        # every class of the comp each time, as in build_stage.
+        collecting = gc.isenabled()
+        gc.disable()
+        try:
+            for path, node in runtime_layer.descendants(
+                    return_type=return_type):
+                setattr(node, INTERNAL_ATTRS.NODE_PATH, path)
+        finally:
+            if collecting:
+                gc.enable()
         # Check for layer node
         layer_node = comp_layer.lookup(nxt_path.WORLD)
         if not layer_node:
