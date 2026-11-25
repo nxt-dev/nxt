@@ -68,7 +68,8 @@ by default, and there is nothing to set up:
   [Rust](https://rustup.rs) is installed. Without Rust nxt installs and runs
   on its Python code.
 - In a checkout, build it with `python native/build.py`, and again after
-  pulling changes to `native/`.
+  pulling changes to `native/`. [CONTRIBUTING.md](CONTRIBUTING.md#the-faster-comp-engine-in-a-checkout)
+  has the steps for each OS, and how to change it.
 
 `nxt --version` says which engine composites: `Comp native`, or
 `Comp python` and why.
