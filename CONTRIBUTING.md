@@ -119,10 +119,8 @@ Everything works either way, with the same results.
 
 One build serves every Python from 3.10 up on that OS, so the same build
 works in the editor, in Maya, Unreal and Blender, and in headless runs,
-wherever nxt is run from this checkout: an editable install, `PYTHONPATH`,
-or a studio environment that points at your checkout. If such an
-environment runs nxt from a checkout other than the one you work in, build
-in that checkout too.
+whenever they import nxt from this checkout, through an editable install
+or `PYTHONPATH`.
 
 ### Keeping it up to date
 
